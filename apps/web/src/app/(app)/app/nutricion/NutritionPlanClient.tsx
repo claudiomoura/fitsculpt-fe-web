@@ -944,6 +944,16 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   const [lastGeneratedPlanId, setLastGeneratedPlanId] = useState<string | null>(null);
   const [lastGeneratedTokensBalance, setLastGeneratedTokensBalance] = useState<number | null>(null);
   const [pendingTokenToastId, setPendingTokenToastId] = useState(0);
+  
+  // AI Plan Start Date Picker
+  const [startDatePickerOpen, setStartDatePickerOpen] = useState(false);
+  const [aiStartDate, setAiStartDate] = useState<Date>(() => {
+    // Default to next Monday
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    const daysUntilNextMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
+    return addDays(today, daysUntilNextMonday);
+  });
   const [manualPlan, setManualPlan] = useState<NutritionPlan | null>(null);
   const [selectedLibraryPlan, setSelectedLibraryPlan] = useState<NutritionPlan | null>(null);
   const [exportMessage, setExportMessage] = useState<string | null>(null);
@@ -1891,12 +1901,8 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
     setAiError(null);
     setAiQuotaExceededError(false);
    try {
-  // Calculate next Monday as the default start date
-  const today = new Date();
-  const dayOfWeek = today.getDay();
-  const daysUntilNextMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
-  const nextMonday = addDays(today, daysUntilNextMonday);
-  const startDate = toDateKey(nextMonday);
+  // Use the date selected in the picker
+  const startDate = toDateKey(aiStartDate);
 
   const mealsPerDay = Math.min(
     6,
@@ -2166,6 +2172,12 @@ useEffect(() => {
       router.push("/app/onboarding?ai=nutrition&next=/app/nutricion");
       return;
     }
+    // Open the start date picker modal instead of generating directly
+    setStartDatePickerOpen(true);
+  };
+
+  const handleConfirmStartDate = () => {
+    setStartDatePickerOpen(false);
     void handleAiPlan();
   };
 
@@ -3417,6 +3429,90 @@ const nutritionPlanDetails = profile ? (
             <p className="muted">{t("nutrition.mealDetailsNotFound")}</p>
           </div>
         )}
+      </Modal>
+
+      {/* AI Plan Start Date Picker Modal */}
+      <Modal
+        open={startDatePickerOpen}
+        onClose={() => setStartDatePickerOpen(false)}
+        title={t("nutrition.aiStartDateModal.title", "¿Cuándo quieres empezar?")}
+        description={t("nutrition.aiStartDateModal.description", "Selecciona el día en que comenzará tu plan de 4 semanas.")}
+        footer={(
+          <div className="inline-actions-sm">
+            <Button variant="secondary" onClick={() => setStartDatePickerOpen(false)}>
+              {t("nutrition.aiStartDateModal.cancel", "Cancelar")}
+            </Button>
+            <Button onClick={handleConfirmStartDate} disabled={aiLoading}>
+              {aiLoading ? t("nutrition.aiGenerating") : t("nutrition.aiStartDateModal.confirm", "Generar plan")}
+            </Button>
+          </div>
+        )}
+      >
+        <div className="ai-start-date-picker">
+          {/* Selected date display */}
+          <div className="ai-start-date-display">
+            <Icon name="calendar" size={20} />
+            <div className="ai-start-date-display__content">
+              <span className="ai-start-date-display__label">{t("nutrition.aiStartDateModal.startsOn", "Empieza el")}</span>
+              <span className="ai-start-date-display__date">{aiStartDate.toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "long" })}</span>
+            </div>
+          </div>
+          
+          {/* Calendar grid - next 4 weeks */}
+          <div className="ai-start-date-calendar">
+            {(() => {
+              const weeks = [];
+              const today = new Date();
+              const startOfCurrentWeek = startOfWeek(today);
+              // Show 4 weeks starting from current week
+              for (let week = 0; week < 4; week++) {
+                const weekStart = addDays(startOfCurrentWeek, week * 7);
+                const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+                weeks.push(weekDays);
+              }
+              
+              return (
+                <div className="ai-start-date-calendar__grid">
+                  {/* Day headers */}
+                  <div className="ai-start-date-calendar__headers">
+                    {["L", "M", "X", "J", "V", "S", "D"].map((day, i) => (
+                      <span key={i} className="ai-start-date-calendar__header">{day}</span>
+                    ))}
+                  </div>
+                  {/* Week rows */}
+                  {weeks.map((week, weekIndex) => (
+                    <div key={weekIndex} className="ai-start-date-calendar__week">
+                      {week.map((date) => {
+                        const isPast = date < today && toDateKey(date) !== toDateKey(today);
+                        const isSelected = toDateKey(date) === toDateKey(aiStartDate);
+                        const isToday = toDateKey(date) === toDateKey(today);
+                        
+                        return (
+                          <button
+                            key={toDateKey(date)}
+                            type="button"
+                            className={`ai-start-date-calendar__day ${isSelected ? "ai-start-date-calendar__day--selected" : ""} ${isToday ? "ai-start-date-calendar__day--today" : ""} ${isPast ? "ai-start-date-calendar__day--disabled" : ""}`}
+                            onClick={() => !isPast && setAiStartDate(date)}
+                            disabled={isPast}
+                            aria-label={date.toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "long" })}
+                          >
+                            {date.getDate()}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+          </div>
+          
+          {/* Plan duration info */}
+          <div className="ai-start-date-info">
+            <Icon name="info" size={14} />
+            <span>{t("nutrition.aiStartDateModal.planDuration", "4 semanas de plan, comenzando el día seleccionado")}</span>
+          </div>
+        </div>
       </Modal>
     </div>
   );

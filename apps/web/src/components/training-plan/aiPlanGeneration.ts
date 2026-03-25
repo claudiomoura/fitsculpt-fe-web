@@ -264,8 +264,8 @@ async function callTrainingEndpoint(
   });
 }
 
-export async function requestAiTrainingPlan(profile: ProfileData, input: TrainingPreferencesInput): Promise<TrainingPlanAiResult> {
-  const startDate = toDateKey(startOfWeek(new Date()));
+export async function requestAiTrainingPlan(profile: ProfileData, input: TrainingPreferencesInput, startDateOverride?: string): Promise<TrainingPlanAiResult> {
+  const startDate = startDateOverride ?? toDateKey(startOfWeek(new Date()));
   const aiRequestId = createAiRequestId();
   const body = JSON.stringify(buildTrainingRequestBody(profile, input, startDate, aiRequestId));
 

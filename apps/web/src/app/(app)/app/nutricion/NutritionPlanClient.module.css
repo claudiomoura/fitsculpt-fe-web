@@ -606,3 +606,134 @@
     border-radius: var(--surface-card-radius);
   }
 }
+
+/* AI Plan Start Date Picker Modal */
+.nutritionScope :global(.ai-start-date-picker) {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.nutritionScope :global(.ai-start-date-display) {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface-inset-bg));
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--surface-border-default));
+}
+
+.nutritionScope :global(.ai-start-date-display svg) {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.nutritionScope :global(.ai-start-date-display__content) {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nutritionScope :global(.ai-start-date-display__label) {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.nutritionScope :global(.ai-start-date-display__date) {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 1rem;
+}
+
+.nutritionScope :global(.ai-start-date-calendar) {
+  padding: 12px;
+  border-radius: 16px;
+  background: var(--surface-inset-bg);
+  border: 1px solid var(--surface-border-default);
+}
+
+.nutritionScope :global(.ai-start-date-calendar__grid) {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nutritionScope :global(.ai-start-date-calendar__headers) {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.nutritionScope :global(.ai-start-date-calendar__header) {
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 4px;
+}
+
+.nutritionScope :global(.ai-start-date-calendar__week) {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.nutritionScope :global(.ai-start-date-calendar__day) {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.nutritionScope :global(.ai-start-date-calendar__day:hover:not(:disabled)) {
+  background: var(--surface-secondary-bg);
+}
+
+.nutritionScope :global(.ai-start-date-calendar__day--today) {
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.nutritionScope :global(.ai-start-date-calendar__day--selected) {
+  background: var(--accent);
+  color: white;
+  font-weight: 600;
+}
+
+.nutritionScope :global(.ai-start-date-calendar__day--selected:hover) {
+  background: color-mix(in srgb, var(--accent) 85%, black);
+}
+
+.nutritionScope :global(.ai-start-date-calendar__day--disabled) {
+  color: var(--text-muted);
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.nutritionScope :global(.ai-start-date-info) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface-inset-bg) 60%, transparent);
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.nutritionScope :global(.ai-start-date-info svg) {
+  flex-shrink: 0;
+  color: var(--accent);
+}
