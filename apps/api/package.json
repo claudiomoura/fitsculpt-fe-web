@@ -62,6 +62,7 @@
     "dotenv": "^16.4.5",
     "fastify": "^5.7.0",
     "fastify-raw-body": "^5.0.0",
+    "redis": "^4.7.0",
     "stripe": "^20.3.0",
     "zod": "^3.23.8"
   },

@@ -6,7 +6,7 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-const DEMO_EXERCISE_COUNT = 20;
+const DEMO_EXERCISE_COUNT = 100; // Seed all 100 exercises
 const PASSWORD_SALT_ROUNDS = 10;
 
 type ExerciseSeed = {

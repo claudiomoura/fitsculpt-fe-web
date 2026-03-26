@@ -1,8 +1,40 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { getEnv } from "../../config.js";
+import { createClient, type RedisClientType } from "redis";
 
 const env = getEnv();
 
+// Redis client for distributed rate limiting
+let redisClient: RedisClientType | null = null;
+let redisReady = false;
+
+async function getRedisClient(): Promise<RedisClientType | null> {
+  if (!env.REDIS_URL) {
+    console.warn("[RateLimiter] REDIS_URL not configured, falling back to in-memory");
+    return null;
+  }
+
+  if (redisClient && redisReady) {
+    return redisClient;
+  }
+
+  try {
+    redisClient = createClient({ url: env.REDIS_URL });
+    redisClient.on("error", (err) => console.error("[RateLimiter] Redis error:", err));
+    redisClient.on("connect", () => console.log("[RateLimiter] Connected to Redis"));
+    redisClient.on("ready", () => {
+      redisReady = true;
+      console.log("[RateLimiter] Redis ready");
+    });
+    await redisClient.connect();
+    return redisClient;
+  } catch (err) {
+    console.error("[RateLimiter] Failed to connect to Redis:", err);
+    return null;
+  }
+}
+
+// In-memory fallback store
 interface RateLimitStore {
   [key: string]: {
     count: number;
@@ -19,10 +51,54 @@ export interface RateLimitResult {
   retryAfter?: number;
 }
 
-export function checkRateLimit(
+async function checkRateLimitRedis(
   identifier: string,
-  limit: number = env.AI_RATE_LIMIT_PER_MINUTE,
-  windowMs: number = 60000,
+  limit: number,
+  windowMs: number,
+): Promise<RateLimitResult> {
+  const client = await getRedisClient();
+  if (!client) {
+    return checkRateLimitMemory(identifier, limit, windowMs);
+  }
+
+  const key = `ratelimit:${identifier}`;
+  const now = Date.now();
+  const windowKey = `${key}:${Math.floor(now / windowMs)}`;
+
+  try {
+    const count = await client.incr(windowKey);
+    
+    if (count === 1) {
+      await client.expire(windowKey, Math.ceil(windowMs / 1000));
+    }
+
+    const ttl = await client.ttl(windowKey);
+    const resetTime = now + (ttl > 0 ? ttl * 1000 : windowMs);
+
+    if (count > limit) {
+      return {
+        allowed: false,
+        remaining: 0,
+        resetTime,
+        retryAfter: ttl > 0 ? ttl : Math.ceil(windowMs / 1000),
+      };
+    }
+
+    return {
+      allowed: true,
+      remaining: limit - count,
+      resetTime,
+    };
+  } catch (err) {
+    console.error("[RateLimiter] Redis error, falling back to memory:", err);
+    return checkRateLimitMemory(identifier, limit, windowMs);
+  }
+}
+
+function checkRateLimitMemory(
+  identifier: string,
+  limit: number,
+  windowMs: number,
 ): RateLimitResult {
   const now = Date.now();
   const key = identifier;
@@ -58,6 +134,19 @@ export function checkRateLimit(
   };
 }
 
+export async function checkRateLimit(
+  identifier: string,
+  limit: number = env.AI_RATE_LIMIT_PER_MINUTE,
+  windowMs: number = 60000,
+): Promise<RateLimitResult> {
+  // Check if Redis is available
+  if (env.REDIS_URL) {
+    return checkRateLimitRedis(identifier, limit, windowMs);
+  }
+  // Fallback to in-memory
+  return checkRateLimitMemory(identifier, limit, windowMs);
+}
+
 export function applyRateLimitHeaders(
   reply: FastifyReply,
   result: RateLimitResult,
@@ -79,7 +168,7 @@ export async function rateLimitMiddleware(
   if (!userId) return;
 
   const limit = env.AI_RATE_LIMIT_PER_MINUTE;
-  const result = checkRateLimit(`ai:${userId}`, limit);
+  const result = await checkRateLimit(`ai:${userId}`, limit);
 
   applyRateLimitHeaders(reply, result);
 
@@ -171,4 +260,12 @@ export function getRecentAiErrors(count: number = 50): AiErrorLog[] {
 
 export function clearAiErrors(): void {
   errorLog.length = 0;
+}
+
+// Health check for Redis connection
+export async function getRedisStatus(): Promise<{ connected: boolean; provider: string }> {
+  if (redisReady && redisClient) {
+    return { connected: true, provider: "upstash-redis" };
+  }
+  return { connected: false, provider: "memory" };
 }
