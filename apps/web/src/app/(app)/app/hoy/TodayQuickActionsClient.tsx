@@ -660,17 +660,31 @@ export default function TodayQuickActionsClient() {
                 adherenceStore[nutritionDayKey] ?? [],
               );
               nextSignals.nutritionMealsTotal = nutritionDay.meals.length;
-              if (nextSignals.nutritionMealsLogged === 0) {
-                nextSignals.nutritionMealsLogged = nutritionDay.meals.reduce(
-                  (count, meal, index) =>
-                    count +
-                    (consumedMealKeys.has(
-                      getNutritionMealKey(meal, nutritionDayKey, index),
-                    )
-                      ? 1
-                      : 0),
-                  0,
-                );
+              
+              // Count meals that are actually marked as consumed in adherence store
+              const adherenceConsumedCount = nutritionDay.meals.reduce(
+                (count, meal, index) =>
+                  count +
+                  (consumedMealKeys.has(
+                    getNutritionMealKey(meal, nutritionDayKey, index),
+                  )
+                    ? 1
+                    : 0),
+                0,
+              );
+              
+              // Only count calories from meals that are actually marked as consumed
+              // If no meals are marked as consumed in adherence store, show 0 even if mealLog has entries
+              if (adherenceConsumedCount === 0) {
+                // No meals marked as consumed - show 0
+                nextSignals.nutritionMealsLogged = 0;
+                nextSignals.nutritionConsumedCalories = 0;
+                nextSignals.nutritionProteinG = 0;
+                nextSignals.nutritionCarbsG = 0;
+                nextSignals.nutritionFatsG = 0;
+              } else {
+                // Count only consumed meals from the adherence store
+                nextSignals.nutritionMealsLogged = adherenceConsumedCount;
                 nextSignals.nutritionConsumedCalories = Math.round(
                   nutritionDay.meals.reduce(
                     (sum, meal, index) =>
@@ -678,8 +692,8 @@ export default function TodayQuickActionsClient() {
                       (consumedMealKeys.has(
                         getNutritionMealKey(meal, nutritionDayKey, index),
                       )
-                        ? Number.isFinite(meal.calories)
-                          ? meal.calories
+                        ? Number.isFinite(meal.macros.calories)
+                          ? meal.macros.calories
                           : 0
                         : 0),
                     0,
@@ -692,8 +706,8 @@ export default function TodayQuickActionsClient() {
                       (consumedMealKeys.has(
                         getNutritionMealKey(meal, nutritionDayKey, index),
                       )
-                        ? Number.isFinite(meal.protein)
-                          ? meal.protein
+                        ? Number.isFinite(meal.macros.protein)
+                          ? meal.macros.protein
                           : 0
                         : 0),
                     0,
@@ -706,8 +720,8 @@ export default function TodayQuickActionsClient() {
                       (consumedMealKeys.has(
                         getNutritionMealKey(meal, nutritionDayKey, index),
                       )
-                        ? Number.isFinite(meal.carbs)
-                          ? meal.carbs
+                        ? Number.isFinite(meal.macros.carbs)
+                          ? meal.macros.carbs
                           : 0
                         : 0),
                     0,
@@ -720,15 +734,13 @@ export default function TodayQuickActionsClient() {
                       (consumedMealKeys.has(
                         getNutritionMealKey(meal, nutritionDayKey, index),
                       )
-                        ? Number.isFinite(meal.fats)
-                          ? meal.fats
+                        ? Number.isFinite(meal.macros.fats)
+                          ? meal.macros.fats
                           : 0
                         : 0),
                     0,
                   ),
                 );
-                nextSignals.nutritionReady =
-                  nextSignals.nutritionMealsLogged > 0;
               }
             } else {
               nextSignals.nutritionStatus = "empty";

@@ -8,6 +8,8 @@ import { trackEvent } from "@/lib/analytics";
 import { findQuickLogFoodByBarcode, searchQuickLogFoods, type QuickLogFoodItem } from "@/lib/quickLogFoodCatalog";
 import { parseQuickVoiceMeal } from "@/lib/quickLogVoiceParser";
 import { createTrackingEntry, type CheckinEntry, type MealLogEntry } from "@/services/tracking";
+import { createMealLog, type CreateMealParams } from "@/services/mealApi";
+import { sendRctEvent } from "@/services/futureProjection";
 import styles from "./QuickLogHub.module.css";
 
 type Mode = "meal" | "water" | "weight";
@@ -197,6 +199,10 @@ export default function QuickLogHub({ origin, latestCheckin, currentWeightKg = n
 
   const notifySaved = async () => {
     trackEvent("quick_log_saved", { target: mode === "weight" ? "checkin" : "nutrition", origin, mode: "quick" });
+    void sendRctEvent({
+      event: "logging_entry_created",
+      context: { origin, mode, target: mode === "weight" ? "checkin" : "nutrition" },
+    });
     if (onSaved) {
       await onSaved();
     }
@@ -206,25 +212,56 @@ export default function QuickLogHub({ origin, latestCheckin, currentWeightKg = n
     setIsSaving(true);
     setStatus(null);
     try {
-      const entry = mealEntryFromDraft({
+      // Create in backend via BFF (NEW: persist data)
+      const mealParams: CreateMealParams = {
         date: mealDate,
-        title: mealTitle,
-        mealType,
-        calories: mealCalories,
-        protein: mealProtein,
-        carbs: mealCarbs,
-        fats: mealFats,
-      });
-      await createTrackingEntry("mealLog", entry);
+        mealType: mapMealType(mealType),
+        title: mealTitle.trim() || "Comida rápida",
+        calories: Math.max(0, Math.round(mealCalories)),
+        protein: Math.max(0, Math.round(mealProtein)),
+        carbs: Math.max(0, Math.round(mealCarbs)),
+        fats: Math.max(0, Math.round(mealFats)),
+        items: [],
+      };
+      
+      await createMealLog(mealParams);
       await notifySaved();
       setStatus({ type: "success", message: "Comida guardada." });
       setMealTitle("");
-    } catch {
-      setStatus({ type: "error", message: "No pudimos guardar la comida." });
+    } catch (err) {
+      console.error("Failed to save meal to backend:", err);
+      setStatus({ type: "error", message: "No pudimos guardar la comida en el servidor. Creando copia local..." });
+      // Fallback: save locally anyway so user doesn't lose data
+      try {
+        const entry = mealEntryFromDraft({
+          date: mealDate,
+          title: mealTitle,
+          mealType,
+          calories: mealCalories,
+          protein: mealProtein,
+          carbs: mealCarbs,
+          fats: mealFats,
+        });
+        await createTrackingEntry("mealLog", entry);
+        await notifySaved();
+        setStatus({ type: "success", message: "Comida guardada localmente (sin conexión)." });
+        setMealTitle("");
+      } catch {
+        setStatus({ type: "error", message: "No pudimos guardar la comida." });
+      }
     } finally {
       setIsSaving(false);
     }
   };
+
+  // Helper to map meal type string to API enum
+  function mapMealType(type: string): "BREAKFAST" | "LUNCH" | "DINNER" | "SNACK" {
+    const normalized = type.toLowerCase();
+    if (normalized.includes("breakfast") || normalized.includes("desayuno")) return "BREAKFAST";
+    if (normalized.includes("lunch") || normalized.includes("almuerzo")) return "LUNCH";
+    if (normalized.includes("dinner") || normalized.includes("cena")) return "DINNER";
+    return "SNACK";
+  }
 
   const saveWater = async () => {
     const safeMl = Math.max(50, Math.min(1500, Math.round(waterMl)));

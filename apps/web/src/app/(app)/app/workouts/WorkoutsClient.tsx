@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { SegmentedControl } from "@/design-system/components/SegmentedControl";
 import { useLanguage } from "@/context/LanguageProvider";
 import type { Workout, WorkoutExercise } from "@/lib/types";
+import { sendRctEvent } from "@/services/futureProjection";
 
 type WorkoutListItem = {
   id: string;
@@ -212,6 +213,10 @@ export default function WorkoutsClient() {
     }
 
     await loadWorkouts();
+    void sendRctEvent({
+      event: "logging_entry_created",
+      context: { origin: "workouts", target: "workoutLog" },
+    });
     resetForm();
   }
 

@@ -1,7 +1,7 @@
 import type { Exercise } from "@/lib/types";
 
-const COVER_PLACEHOLDER = "/placeholders/exercise-cover.svg";
-const DEMO_PLACEHOLDER = "/placeholders/exercise-demo.svg";
+const COVER_PLACEHOLDER = "/placeholders/exercise-cover.jpg";
+const DEMO_PLACEHOLDER = "/placeholders/exercise-demo.jpg";
 
 type DemoMedia = {
   kind: "image" | "video";
@@ -26,7 +26,9 @@ type MediaCandidate = {
 };
 
 function asRecord(value: unknown): Record<string, unknown> | null {
-  return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null;
+  return typeof value === "object" && value !== null
+    ? (value as Record<string, unknown>)
+    : null;
 }
 
 function asText(value: unknown): string | null {
@@ -35,7 +37,9 @@ function asText(value: unknown): string | null {
   if (normalized.length === 0) return null;
 
   const lower = normalized.toLowerCase();
-  if (["null", "undefined", "nan", "n/a", "none", "false", "true"].includes(lower)) {
+  if (
+    ["null", "undefined", "nan", "n/a", "none", "false", "true"].includes(lower)
+  ) {
     return null;
   }
 

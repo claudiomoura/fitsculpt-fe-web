@@ -123,7 +123,15 @@
     "weeklyEmptySubtitle": "Ainda não existem refeições para esta semana com os dados atuais.",
     "calendarViewToggleAria": "Selecionar vista do calendário de nutrição",
     "selectDayAria": "Selecionar dia {{date}}",
-    "selectWeekDayAria": "Selecionar {{day}} com {{meals}} refeições e {{calories}} kcal"
+    "selectWeekDayAria": "Selecionar {{day}} com {{meals}} refeições e {{calories}} kcal",
+    "aiStartDateModal": {
+      "title": "Escolher data de início",
+      "description": "Seleciona quando queres começar o teu plano nutricional.",
+      "instruction": "Seleciona o dia em que queres começar o teu plano de 4 semanas.",
+      "startsOn": "Plano começa em",
+      "planDuration": "O plano terá uma duração de 4 semanas.",
+      "confirm": "Guardar e gerar"
+    }
   },
   "plan": {
     "replicatedWeekLabel": "Semana replicada do plano atual"
@@ -135,7 +143,15 @@
     "calendarViewOptionAria": "Mudar para vista {{view}}",
     "activePlanLabel": "Plano ativo",
     "activePlanSelected": "Selecionado",
-    "activePlanAssigned": "Atribuído"
+    "activePlanAssigned": "Atribuído",
+    "aiStartDateModal": {
+      "title": "Escolher data de início",
+      "description": "Seleciona quando queres começar o teu plano de treino.",
+      "instruction": "Seleciona o dia em que queres começar o teu plano de 4 semanas.",
+      "startsOn": "Plano começa em",
+      "planDuration": "O plano terá uma duração de 4 semanas.",
+      "confirm": "Guardar e gerar"
+    }
   },
   "feed": {
     "chatTitle": "Chat contextual com IA",

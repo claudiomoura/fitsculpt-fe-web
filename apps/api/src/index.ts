@@ -1,4 +1,7 @@
 import "dotenv/config";
+// Override with .env.local for local development (higher priority)
+import { config as dotenvConfig } from "dotenv";
+dotenvConfig({ path: ".env.local" });
 import crypto from "node:crypto";
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import cors from "@fastify/cors";
@@ -120,6 +123,8 @@ import {
   contextualChatRequestSchema,
   contextualChatResponseSchema,
 } from "./ai/chat/contextualChatSchemas.js";
+import { rateLimitMiddleware, logAiCall, logAiError, getRecentAiErrors } from "./ai/monitoring/rateLimiter.js";
+import { getAiQueue } from "./ai/queue/aiQueue.js";
 
 const env = getEnv();
 const app = Fastify({ logger: true });
@@ -134,6 +139,19 @@ if (shouldRunDbPreflight) {
 }
 
 const aiPricing = loadAiPricing(env);
+
+const aiQueue = getAiQueue(app.log);
+
+app.addHook("preHandler", async (request, reply) => {
+  if (request.url.startsWith("/ai/")) {
+    await rateLimitMiddleware(request, reply);
+  }
+});
+
+app.get("/ai/errors", { preHandler: [requireAdmin] }, async (request, reply) => {
+  const errors = getRecentAiErrors();
+  return reply.send({ errors });
+});
 
 type StripeCheckoutSession = {
   id: string;
@@ -2561,12 +2579,44 @@ type RecipePromptItem = {
 
 function formatRecipeLibrary(recipes: RecipePromptItem[]) {
   if (!recipes.length) return "";
-  const lines = recipes.map((recipe) => {
-    return `- [${recipe.id}] ${recipe.name}: ${recipe.description ?? "Sin descripción"}. Macros base ${Math.round(
-      recipe.calories,
-    )} kcal, P${Math.round(recipe.protein)} C${Math.round(recipe.carbs)} G${Math.round(recipe.fat)}.`;
-  });
-  return lines.join(" ");
+
+  // Categorize recipes by meal type based on name
+  const categories = {
+    breakfast: [] as string[],
+    snack: [] as string[],
+    lunch_dinner: [] as string[],
+    fish: [] as string[],
+    other: [] as string[],
+  };
+
+  for (const recipe of recipes) {
+    const lower = recipe.name.toLowerCase();
+    const line = `- [${recipe.id}] ${recipe.name} (${Math.round(recipe.calories)} kcal, P${Math.round(recipe.protein)} C${Math.round(recipe.carbs)} G${Math.round(recipe.fat)})`;
+
+    if (lower.includes("yogur") || lower.includes("skyr") || lower.includes("avena") || lower.includes("overnight") || lower.includes("tostadas") || lower.includes("tortitas") || lower.includes("omelette") || lower.includes("tortilla de claras") || lower.includes("porridge") || lower.includes("pudín") || lower.includes("pan de plátano") || lower.includes("crepes") || lower.includes("arroz con leche")) {
+      categories.breakfast.push(line);
+    } else if (lower.includes("barritas") || lower.includes("edamame") || lower.includes("hummus") || lower.includes("guacamole") || lower.includes("batido") || lower.includes("smoothie") || lower.includes("yogur helado")) {
+      categories.snack.push(line);
+    } else if (lower.includes("salmón") || lower.includes("merluza") || lower.includes("atún") || lower.includes("bacalao") || lower.includes("lubina") || lower.includes("pescado") || lower.includes("ceviche") || lower.includes("pulpo") || lower.includes("calamares") || lower.includes("pez espada")) {
+      categories.fish.push(line);
+    } else {
+      categories.lunch_dinner.push(line);
+      categories.other.push(line);
+    }
+  }
+
+  const sections = [];
+  if (categories.breakfast.length > 0) {
+    sections.push(`DESAUNO (usa solo para meals type="breakfast"): ${categories.breakfast.join(" ")}`);
+  }
+  if (categories.snack.length > 0) {
+    sections.push(`SNACK (usa solo para meals type="snack"): ${categories.snack.join(" ")}`);
+  }
+  if (categories.lunch_dinner.length > 0) {
+    sections.push(`ALMUERZO/CENA (usa para meals type="lunch" o "dinner"): ${categories.lunch_dinner.join(" ")}`);
+  }
+
+  return sections.join("\n");
 }
 
 function roundToNearest5(value: number) {
@@ -2630,7 +2680,7 @@ function applyNutritionCatalogResolution(
   const varietyGuard = applyNutritionPlanVarietyGuard(
     resolved.plan,
     recipeCatalog,
-    ["lunch", "dinner"],
+    ["breakfast", "snack", "lunch", "dinner"],
   );
   app.log.info(
     {
@@ -3108,8 +3158,9 @@ function buildNutritionPrompt(
       ? "REINTENTO: si los meals por día no coinciden exactamente, la respuesta será rechazada."
       : "",
     recipeLibrary
-      ? `OBLIGATORIO: usa solo recipes del catálogo con recipeId válido. No inventes recetas. Usa recipeId y title exactamente como en la biblioteca. Lista: ${recipeLibrary}`
+      ? `OBLIGATORIO: usa solo recipes del catálogo con recipeId válido. No inventes recetas. Usa recipeId y title exactamente como en la biblioteca. Lista:\n${recipeLibrary}`
       : "CATÁLOGO NO DISPONIBLE: responde con comidas simples sin recipeId inventados; se aplicará fallback controlado.",
+    "REGLA CATEGORÍA OBLIGATORIA: Usa cada receta SOLO para su categoría indicada. DESAYUNO solo para breakfast. SNACK solo para snack. ALMUERZO/CENA solo para lunch/dinner. NUNCA uses bacalao/pescado para desayuno o snack. NUNCA uses yogur/avena para almuerzo/cena principal.",
     `Perfil: Edad ${data.age}, sexo ${data.sex}, objetivo ${data.goal}.`,
     `Calorías objetivo diarias: ${data.calories}. Comidas/día: ${data.mealsPerDay}.`,
     buildMealKcalGuidance(
@@ -3130,6 +3181,8 @@ function buildNutritionPrompt(
     `REGLA MATEMÁTICA OBLIGATORIA GLOBAL: dailyCalories debe ser exactamente ${data.calories}.`,
     "REGLA DE CONSISTENCIA: no dejes comidas con calories incompatibles con sus macros; si ajustas macros, recalcula calories de esa comida.",
     "REGLA DE CIERRE DIARIO: valida proteína, carbohidratos y grasas por día y corrige expected vs actual antes de responder.",
+    "REGLA DE VARIEDAD OBLIGATORIA: CADA DÍA debe tener DIFERENTES recetas. Usa una rotación de recetas del catálogo. El mismo recipeId NO puede aparecer en más de un día. Si hay suficientes recetas en el catálogo, NO repitas ninguna. Variar colores, tipos de proteína y vegetales entre días.",
+    "REGLA DE VARIACIÓN POR TIPO: breakfast debe variar cada día (diferentes recetas de desayuno). snack debe variar cada día. lunch y dinner deben variar cada día. No usar la misma receta para diferentes tipos de comida (ej: no usar receta de breakfast para snack o dinner).",
     strict
       ? "REINTENTO OBLIGATORIO: corrige explícitamente incoherencias por comida y por día."
       : "",
@@ -6798,6 +6851,8 @@ registerAiRoutes(app, {
   contextualChatRequestSchema,
   contextualChatResponseSchema,
   buildContextualChatPrompt,
+  logAiCall,
+  logAiError,
 });
 
 app.get("/feed", async (request, reply) => {

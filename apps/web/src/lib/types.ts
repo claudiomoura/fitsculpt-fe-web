@@ -163,6 +163,13 @@ export type NutritionPlanDetailMealIngredient = {
   grams: number;
 };
 
+export type NutritionPlanDetailMealMacros = {
+  calories: number;
+  protein: number;
+  carbs: number;
+  fats: number;
+};
+
 export type NutritionPlanDetailMeal = {
   id: string;
   type: string;
@@ -172,6 +179,7 @@ export type NutritionPlanDetailMeal = {
   protein: number;
   carbs: number;
   fats: number;
+  macros?: NutritionPlanDetailMealMacros;
   ingredients: NutritionPlanDetailMealIngredient[];
 };
 

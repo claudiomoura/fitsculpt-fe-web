@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
   reactCompiler: true,

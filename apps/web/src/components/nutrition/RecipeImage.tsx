@@ -12,7 +12,7 @@ type RecipeImageProps = {
   className?: string;
 };
 
-const PLACEHOLDER_SRC = "/placeholders/recipe-cover.svg";
+const PLACEHOLDER_SRC = "/placeholders/recipe-cover.jpg";
 
 export function RecipeImage({
   src,
@@ -28,9 +28,7 @@ export function RecipeImage({
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
   const effectiveSrc = normalized ?? PLACEHOLDER_SRC;
   const hasLoadError = failedSrc === effectiveSrc;
-  const displaySrc = hasLoadError
-    ? PLACEHOLDER_SRC
-    : effectiveSrc;
+  const displaySrc = hasLoadError ? PLACEHOLDER_SRC : effectiveSrc;
 
   return (
     <Image

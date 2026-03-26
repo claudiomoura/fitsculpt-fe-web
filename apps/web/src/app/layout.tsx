@@ -5,6 +5,8 @@ import type { Metadata, Viewport } from "next";
 import { cookies } from "next/headers";
 import ClientProviders from "@/components/layout/ClientProviders";
 import { resolveLocale } from "@/lib/i18n";
+import AppInit from "@/components/app-init/AppInit";
+import WebVitals from "@/components/analytics/WebVitals";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -29,7 +31,10 @@ export default async function RootLayout({
   return (
     <html lang={initialLocale} data-scroll-behavior="smooth" className={initialTheme === "dark" ? "theme-dark" : "theme-light"}>
       <body>
-        <ClientProviders initialLocale={initialLocale} initialTheme={initialTheme}>{children}</ClientProviders>
+        <WebVitals />
+        <ClientProviders initialLocale={initialLocale} initialTheme={initialTheme}>
+          <AppInit>{children}</AppInit>
+        </ClientProviders>
       </body>
     </html>
   );

@@ -1120,7 +1120,16 @@
     "selectDayAria": "Seleccionar día {{date}}",
     "selectWeekDayAria": "Seleccionar {{day}} con {{meals}} comidas y {{calories}} kcal",
     "aiSuccessRequiresPlanId": "No se pudo abrir el plan generado en Dietas. El backend debe retornar planId (requiere PR-S4-01).",
-    "assignedPlanCta": "Generar con IA o crear manual"
+    "assignedPlanCta": "Generar con IA o crear manual",
+    "viewFullRecipe": "Ver receta completa",
+    "aiStartDateModal": {
+      "title": "Elegir fecha de inicio",
+      "description": "Selecciona cuándo quieres comenzar tu plan nutricional.",
+      "instruction": "Selecciona el día en que quieres comenzar tu plan de 4 semanas.",
+      "startsOn": "Plan comienza el",
+      "planDuration": "El plan tendrá una duración de 4 semanas.",
+      "confirm": "Guardar y generar"
+    }
   },
   "training": {
     "formTitle": "Datos del plan",
@@ -1325,7 +1334,15 @@
     "activePlanSelected": "Seleccionado",
     "activePlanAssigned": "Asignado",
     "aiUpstreamError": "Servicio no disponible, reintenta.",
-    "aiConflictError": "Ya existe un plan similar, vuelve a intentar."
+    "aiConflictError": "Ya existe un plan similar, vuelve a intentar.",
+    "aiStartDateModal": {
+      "title": "Elegir fecha de inicio",
+      "description": "Selecciona cuándo quieres comenzar tu plan de entrenamiento.",
+      "instruction": "Selecciona el día en que quieres comenzar tu plan de 4 semanas.",
+      "startsOn": "Plan comienza el",
+      "planDuration": "El plan tendrá una duración de 4 semanas.",
+      "confirm": "Guardar y generar"
+    }
   },
   "profile": {
     "formTitle": "Perfil y métricas",

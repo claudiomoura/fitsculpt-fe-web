@@ -217,7 +217,7 @@ function selectBestCandidate(
 export function applyNutritionPlanVarietyGuard(
   plan: NutritionPlan,
   recipeCatalog: NutritionRecipeCatalogItem[],
-  guardedMealTypes: VarietyGuardMealType[] = ["lunch", "dinner"]
+  guardedMealTypes: VarietyGuardMealType[] = ["breakfast", "snack", "lunch", "dinner"]
 ): VarietyGuardResult {
   const guardedTypes = new Set<VarietyGuardMealType>(guardedMealTypes);
   const totalGuardedSlots = plan.days.reduce(

@@ -54,12 +54,14 @@ export type TrainingPlanData = {
 };
 
 export type NutritionIngredient = {
+  id?: string;
   name: string;
   grams: number;
 };
 
 export type NutritionMeal = {
   type: "breakfast" | "lunch" | "dinner" | "snack";
+  recipeId?: string | null;
   title: string;
   description?: string;
   imageUrl?: string | null;
