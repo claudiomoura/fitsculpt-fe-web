@@ -5893,6 +5893,42 @@ const billingStripeWebhookHandler = async (
     }
 };
 
+// POST /auth/login
+app.post("/auth/login", async (request, reply) => {
+  try {
+    const data = loginSchema.parse(request.body);
+    const user = await prisma.user.findUnique({ where: { email: data.email } });
+
+    if (!user || user.deletedAt || !user.passwordHash) {
+      return reply.status(401).send({ error: "INVALID_CREDENTIALS" });
+    }
+
+    if (user.isBlocked) {
+      return reply.status(403).send({ error: "USER_BLOCKED" });
+    }
+
+    if (!user.emailVerifiedAt) {
+      return reply.status(403).send({ error: "EMAIL_NOT_VERIFIED" });
+    }
+
+    const valid = await bcrypt.compare(data.password, user.passwordHash);
+    if (!valid) {
+      return reply.status(401).send({ error: "INVALID_CREDENTIALS" });
+    }
+
+    const token = await reply.jwtSign({
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+    });
+
+    reply.setCookie("fs_token", token, buildCookieOptions());
+    return reply.status(200).send({ token });
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
 app.get("/auth/me", async (request, reply) => {
   try {
     reply.header("Cache-Control", "no-store");
@@ -6378,12 +6414,6 @@ registerMealRoutes(app, {
   requireUser,
 });
 
-registerAuthRoutes(app, {
-  prisma,
-  requireUser,
-  app,
-});
-
 registerProfileRoutes(app, {
   prisma,
   requireUser,
@@ -6394,26 +6424,7 @@ registerFeedRoutes(app, {
   requireUser,
 });
 
-registerNutritionRoutes(app, {
-  prisma,
-  requireUser,
-});
-
-registerGymRoutes(app, {
-  prisma,
-  requireUser,
-});
-
-registerTrainerRoutes(app, {
-  prisma,
-  requireUser,
-});
-
-registerAdminRoutes(app, {
-  prisma,
-  requireUser,
-  requireAdmin,
-});
+// Nutrition, Gym, Trainer, Admin routes are registered directly in index.ts
 
 registerAiRoutes(app, {
   aiAccessGuard,
@@ -6508,51 +6519,6 @@ registerAiRoutes(app, {
   buildContextualChatPrompt,
   logAiCall,
   logAiError,
-});
-
-app.get("/feed", async (request, reply) => {
-  try {
-    logAuthCookieDebug(request, "/feed");
-    const user = await requireUser(request);
-    const { limit } = feedQuerySchema.parse(request.query);
-    const posts = await prisma.feedPost.findMany({
-      where: { userId: user.id },
-      orderBy: { createdAt: "desc" },
-      take: limit,
-    });
-    return posts;
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
-});
-
-app.post("/feed/generate", async (request, reply) => {
-  try {
-    logAuthCookieDebug(request, "/feed/generate");
-    const user = await requireUser(request);
-    const profile = await getOrCreateProfile(user.id);
-    const profileData =
-      typeof profile.profile === "object" && profile.profile
-        ? (profile.profile as Record<string, unknown>)
-        : null;
-    const trackingData =
-      typeof profile.tracking === "object" && profile.tracking
-        ? (profile.tracking as FeedTrackingSnapshot)
-        : null;
-    const summary = buildFeedSummary(profileData, trackingData);
-    const post = await prisma.feedPost.create({
-      data: {
-        userId: user.id,
-        title: summary.title,
-        summary: summary.summary,
-        type: "summary",
-        metadata: summary.metadata,
-      },
-    });
-    return reply.status(201).send(post);
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
 });
 
 const workoutExerciseSchema = z.object({

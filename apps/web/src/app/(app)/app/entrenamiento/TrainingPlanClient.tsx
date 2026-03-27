@@ -355,7 +355,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const searchParams = useSearchParams();
   const pathname = usePathname();
   void TRAINING_ANALYTICS_TODO;
-  const safeT = (key: string, fallback: string) => {
+  const safeT = (key: string, fallback: string = "") => {
     const value = t(key);
     return value === key ? fallback : value;
   };

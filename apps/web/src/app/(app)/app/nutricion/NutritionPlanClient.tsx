@@ -1215,7 +1215,7 @@ export default function NutritionPlanClient({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const searchParamsString = searchParams.toString();
-  const safeT = (key: string, fallback: string) => {
+  const safeT = (key: string, fallback: string = "") => {
     const value = t(key);
     return value === key ? fallback : value;
   };

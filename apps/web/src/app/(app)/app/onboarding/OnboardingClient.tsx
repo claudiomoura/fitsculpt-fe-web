@@ -167,7 +167,7 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
   const loadProfile = useCallback(async () => {
     setLoadState("loading");
     try {
-      const response = await fetch("/api/profile", { cache: "no-store" });
+      const response = await fetch("/api/profile", { cache: "no-store", credentials: "include" });
       if (!response.ok) {
         setLoadState("error");
         return;

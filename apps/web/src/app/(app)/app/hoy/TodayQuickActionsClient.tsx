@@ -692,8 +692,8 @@ export default function TodayQuickActionsClient() {
                       (consumedMealKeys.has(
                         getNutritionMealKey(meal, nutritionDayKey, index),
                       )
-                        ? Number.isFinite(meal.macros.calories)
-                          ? meal.macros.calories
+                        ? Number.isFinite(meal.macros?.calories)
+                          ? meal.macros?.calories ?? 0
                           : 0
                         : 0),
                     0,
@@ -706,8 +706,8 @@ export default function TodayQuickActionsClient() {
                       (consumedMealKeys.has(
                         getNutritionMealKey(meal, nutritionDayKey, index),
                       )
-                        ? Number.isFinite(meal.macros.protein)
-                          ? meal.macros.protein
+                        ? Number.isFinite(meal.macros?.protein)
+                          ? meal.macros?.protein ?? 0
                           : 0
                         : 0),
                     0,
@@ -720,8 +720,8 @@ export default function TodayQuickActionsClient() {
                       (consumedMealKeys.has(
                         getNutritionMealKey(meal, nutritionDayKey, index),
                       )
-                        ? Number.isFinite(meal.macros.carbs)
-                          ? meal.macros.carbs
+                        ? Number.isFinite(meal.macros?.carbs)
+                          ? meal.macros?.carbs ?? 0
                           : 0
                         : 0),
                     0,
@@ -734,8 +734,8 @@ export default function TodayQuickActionsClient() {
                       (consumedMealKeys.has(
                         getNutritionMealKey(meal, nutritionDayKey, index),
                       )
-                        ? Number.isFinite(meal.macros.fats)
-                          ? meal.macros.fats
+                        ? Number.isFinite(meal.macros?.fats)
+                          ? meal.macros?.fats ?? 0
                           : 0
                         : 0),
                     0,

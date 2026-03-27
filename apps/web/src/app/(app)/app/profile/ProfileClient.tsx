@@ -20,6 +20,11 @@ import {
   type TimerSound,
   type WorkoutLength,
 } from "@/lib/profile";
+
+const FORMULA_DEFAULTS: Record<MacroFormula, { proteinGPerKg: number; fatGPerKg: number; cutPercent: number; bulkPercent: number }> = {
+  katch: { proteinGPerKg: 1.8, fatGPerKg: 0.8, cutPercent: 15, bulkPercent: 10 },
+  mifflin: { proteinGPerKg: 1.8, fatGPerKg: 0.8, cutPercent: 15, bulkPercent: 10 },
+};
 import { getUserProfile, updateUserProfile, updateUserProfilePreferences } from "@/lib/profileService";
 import BodyFatSelector from "@/components/profile/BodyFatSelector";
 import styles from "./profileEdit.module.css";
@@ -732,7 +737,29 @@ export default function ProfileClient() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>
             <label className="form-stack">
               {t("profile.macroFormula")}
-              <select value={profile.macroPreferences.formula} onChange={(e) => updateMacros("formula", e.target.value as MacroFormula)}>
+              <select
+                value={profile.macroPreferences.formula}
+                onChange={(e) => {
+                  const nextFormula = e.target.value as MacroFormula | "";
+                  updateMacros("formula", nextFormula);
+                  if (!nextFormula) {
+                    return;
+                  }
+                  const defaults = FORMULA_DEFAULTS[nextFormula];
+                  if (profile.macroPreferences.proteinGPerKg === null) {
+                    updateMacros("proteinGPerKg", defaults.proteinGPerKg);
+                  }
+                  if (profile.macroPreferences.fatGPerKg === null) {
+                    updateMacros("fatGPerKg", defaults.fatGPerKg);
+                  }
+                  if (profile.macroPreferences.cutPercent === null) {
+                    updateMacros("cutPercent", defaults.cutPercent);
+                  }
+                  if (profile.macroPreferences.bulkPercent === null) {
+                    updateMacros("bulkPercent", defaults.bulkPercent);
+                  }
+                }}
+              >
                 <option value="">{t("profile.selectPlaceholder")}</option>
                 <option value="mifflin">{t("profile.macroFormulaMifflin")}</option>
                 <option value="katch">{t("profile.macroFormulaKatch")}</option>

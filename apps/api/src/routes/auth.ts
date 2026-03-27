@@ -62,14 +62,8 @@ export function registerAuthRoutes(
 
       return { id: user.id, email: user.email, name: user.name };
     } catch (error) {
-      return handleRequestError(reply, error, (err) => app.log.error({ err }, "login error"));
+      return handleRequestError(reply, error, (err) => app.log.error({ err }, "verify email error"));
     }
-  });
-
-  // POST /auth/logout
-  app.post("/auth/logout", async (_request: FastifyRequest, reply: FastifyReply) => {
-    reply.clearCookie("fs_token", { path: "/" });
-    return { ok: true };
   });
 
   // POST /auth/resend-verification
@@ -144,54 +138,6 @@ export function registerAuthRoutes(
       return reply.status(200).send({ ok: true });
     } catch (error) {
       return handleRequestError(reply, error, (err) => app.log.error({ err }, "verify email error"));
-    }
-  });
-
-  // GET /auth/me
-  app.get("/auth/me", async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const user = await requireUser(request);
-      return {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        plan: user.plan,
-        emailVerified: !!user.emailVerifiedAt,
-      };
-    } catch (error) {
-      return handleRequestError(reply, error, (err) => app.log.error({ err }, "auth/me error"));
-    }
-  });
-
-  // POST /auth/change-password
-  app.post("/auth/change-password", async (request: FastifyRequest, reply: FastifyReply) => {
-    const schema = z.object({
-      currentPassword: z.string().min(8),
-      newPassword: z.string().min(8),
-    });
-    try {
-      const user = await requireUser(request);
-      const { currentPassword, newPassword } = schema.parse(request.body);
-
-      if (!user.passwordHash) {
-        return reply.status(400).send({ error: "NO_PASSWORD_SET" });
-      }
-
-      const valid = await bcrypt.compare(currentPassword, user.passwordHash);
-      if (!valid) {
-        return reply.status(401).send({ error: "INVALID_CURRENT_PASSWORD" });
-      }
-
-      const newHash = await bcrypt.hash(newPassword, 10);
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { passwordHash: newHash },
-      });
-
-      return { ok: true };
-    } catch (error) {
-      return handleRequestError(reply, error, (err) => app.log.error({ err }, "change password error"));
     }
   });
 
