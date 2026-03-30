@@ -147,6 +147,30 @@ describe("BETA-11 critical BFF contract tests", () => {
     );
   });
 
+  it("normalizes includedDays query param in /api/training-plans/active", async () => {
+    cookiesMock.mockResolvedValue({
+      get: () => ({ value: "token_123" }),
+    });
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(200, {
+        source: "assigned",
+        plan: { id: "plan_123", name: "Plan Activo", days: [] },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { GET } = await import("@/app/api/training-plans/active/route");
+    await GET(new Request("http://localhost/api/training-plans/active?includedDays=1"));
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://backend.local/training-plans/active?includeDays=1",
+      expect.objectContaining({
+        cache: "no-store",
+        headers: expect.objectContaining({ cookie: "fs_token=token_123" }),
+      }),
+    );
+  });
+
   it("normalizes GET /api/billing/status auth error shape", async () => {
     cookiesMock.mockResolvedValue({
       get: () => undefined,

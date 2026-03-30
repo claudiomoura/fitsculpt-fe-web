@@ -62,7 +62,7 @@ export default function SettingsClient() {
       try {
         setHasError(false);
         const [response, membershipResponse] = await Promise.all([
-          fetch("/api/profile", { cache: "no-store" }),
+          fetch("/api/profile", { cache: "no-store", credentials: "include" }),
           fetch("/api/gym/me", { cache: "no-store", credentials: "include" }),
         ]);
         if (!response.ok) {

@@ -10,6 +10,27 @@ interface ProfileDeps {
   requireUser: RequireUserFn;
 }
 
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function mergeProfileSnapshot(current: unknown, incoming: unknown): Record<string, unknown> {
+  const currentRecord = isPlainRecord(current) ? current : {};
+  const incomingRecord = isPlainRecord(incoming) ? incoming : {};
+  const merged: Record<string, unknown> = { ...currentRecord };
+
+  Object.entries(incomingRecord).forEach(([key, value]) => {
+    if (isPlainRecord(value) && isPlainRecord(currentRecord[key])) {
+      merged[key] = mergeProfileSnapshot(currentRecord[key], value);
+      return;
+    }
+
+    merged[key] = value;
+  });
+
+  return merged;
+}
+
 export function registerProfileRoutes(
   app: FastifyInstance,
   deps: ProfileDeps
@@ -40,12 +61,17 @@ export function registerProfileRoutes(
   app.put("/profile", async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const user = await requireUser(request);
-      const body = request.body as Record<string, unknown>;
+      const body = request.body as unknown;
+
+      const currentProfile = await prisma.userProfile.findUnique({
+        where: { userId: user.id },
+      });
+      const mergedProfile = mergeProfileSnapshot(currentProfile?.profile, body);
 
       const updated = await prisma.userProfile.upsert({
         where: { userId: user.id },
-        update: { profile: body },
-        create: { userId: user.id, profile: body, tracking: {} },
+        update: { profile: mergedProfile },
+        create: { userId: user.id, profile: mergedProfile, tracking: {} },
       });
 
       return { profile: updated.profile };
@@ -54,5 +80,3 @@ export function registerProfileRoutes(
     }
   });
 }
-
-import * as crypto from "node:crypto";

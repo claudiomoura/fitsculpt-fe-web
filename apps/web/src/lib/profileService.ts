@@ -1,5 +1,11 @@
 import { defaultProfile, type MealDistribution, type ProfileData } from "@/lib/profile";
 
+type ProfileApiEnvelope = {
+  profile?: Partial<ProfileData> | null;
+};
+
+type ProfileApiPayload = Partial<ProfileData> | ProfileApiEnvelope | null | undefined;
+
 type CheckinMetrics = {
   weightKg: number;
   chestCm: number;
@@ -30,20 +36,53 @@ function normalizeMealDistribution(input?: MealDistribution | string | null): Me
   };
 }
 
-export function mergeProfileData(data?: Partial<ProfileData> | null): ProfileData {
-  const profilePhotoUrl = data?.profilePhotoUrl ?? data?.avatarDataUrl ?? defaultProfile.profilePhotoUrl;
-  const incomingNutrition = data?.nutritionPreferences;
+function deepMergeProfile(data: Record<string, unknown>): Partial<ProfileData> {
+  // If there's a nested "profile" key, merge it with root-level fields
+  // Root fields take precedence over nested ones
+  const nested = data.profile;
+  if (nested && typeof nested === "object" && !Array.isArray(nested)) {
+    return {
+      ...(nested as Partial<ProfileData>),
+      ...data,
+    } as Partial<ProfileData>;
+  }
+  return data as Partial<ProfileData>;
+}
+
+function unwrapProfilePayload(data?: ProfileApiPayload): Partial<ProfileData> | undefined {
+  if (!data || typeof data !== "object" || Array.isArray(data)) return undefined;
+
+  // Handle the case where data has nested "profile" key mixed with root fields
+  if ("profile" in data) {
+    const nested = (data as ProfileApiEnvelope).profile;
+    if (!nested || typeof nested !== "object" || Array.isArray(nested)) {
+      // If profile is invalid but there are other root fields, use root
+      const { profile: _, ...rootFields } = data as Record<string, unknown>;
+      return deepMergeProfile(rootFields);
+    }
+    // Merge nested profile with any root-level fields
+    const { profile: _, ...rootFields } = data as Record<string, unknown>;
+    return deepMergeProfile({ ...nested, ...rootFields } as Record<string, unknown>);
+  }
+
+  return data as Partial<ProfileData>;
+}
+
+export function mergeProfileData(data?: ProfileApiPayload): ProfileData {
+  const normalizedData = unwrapProfilePayload(data);
+  const profilePhotoUrl = normalizedData?.profilePhotoUrl ?? normalizedData?.avatarDataUrl ?? defaultProfile.profilePhotoUrl;
+  const incomingNutrition = normalizedData?.nutritionPreferences;
   const mealDistribution = normalizeMealDistribution(
     incomingNutrition?.mealDistribution ?? defaultProfile.nutritionPreferences.mealDistribution
   );
   return {
     ...defaultProfile,
-    ...data,
+    ...normalizedData,
     profilePhotoUrl,
-    avatarDataUrl: data?.avatarDataUrl ?? profilePhotoUrl ?? null,
+    avatarDataUrl: normalizedData?.avatarDataUrl ?? profilePhotoUrl ?? null,
     trainingPreferences: {
       ...defaultProfile.trainingPreferences,
-      ...data?.trainingPreferences,
+      ...normalizedData?.trainingPreferences,
     },
     nutritionPreferences: {
       ...defaultProfile.nutritionPreferences,
@@ -56,19 +95,19 @@ export function mergeProfileData(data?: Partial<ProfileData> | null): ProfileDat
     },
     macroPreferences: {
       ...defaultProfile.macroPreferences,
-      ...data?.macroPreferences,
+      ...normalizedData?.macroPreferences,
     },
     measurements: {
       ...defaultProfile.measurements,
-      ...data?.measurements,
+      ...normalizedData?.measurements,
     },
-    trainingPlan: data?.trainingPlan ?? defaultProfile.trainingPlan,
-    nutritionPlan: data?.nutritionPlan ?? defaultProfile.nutritionPlan,
+    trainingPlan: normalizedData?.trainingPlan ?? defaultProfile.trainingPlan,
+    nutritionPlan: normalizedData?.nutritionPlan ?? defaultProfile.nutritionPlan,
   };
 }
 
 export async function getUserProfile(): Promise<ProfileData> {
-  const response = await fetch("/api/profile", { cache: "no-store" });
+  const response = await fetch("/api/profile", { cache: "no-store", credentials: "include" });
   if (!response.ok) {
     return defaultProfile;
   }
@@ -81,6 +120,7 @@ export async function updateUserProfilePreferences(profile: ProfileData): Promis
   const response = await fetch("/api/profile", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify(sanitized),
   });
   if (!response.ok) {
@@ -95,6 +135,7 @@ export async function updateUserProfile(profile: Partial<ProfileData>): Promise<
   const response = await fetch("/api/profile", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify(sanitized),
   });
   if (!response.ok) {
@@ -107,10 +148,12 @@ export async function updateUserProfile(profile: Partial<ProfileData>): Promise<
 function sanitizeProfilePayload<T>(data: T): T {
   if (data === null || data === undefined) return data;
   if (typeof data !== "object") return data;
-  if (Array.isArray(data)) return data as T;
+  if (Array.isArray(data)) {
+    return data.map((item) => sanitizeProfilePayload(item)) as T;
+  }
   const result: Record<string, unknown> = {};
   Object.entries(data as Record<string, unknown>).forEach(([key, value]) => {
-    if (value === null || value === "") return;
+    if (value === undefined) return;
     if (typeof value === "object" && !Array.isArray(value)) {
       const nested = sanitizeProfilePayload(value);
       if (nested && typeof nested === "object" && Object.keys(nested as Record<string, unknown>).length === 0) {
@@ -158,6 +201,7 @@ export async function saveCheckinAndSyncProfileMetrics(
   const profileResponse = await fetch("/api/profile", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify(nextProfile),
   });
 

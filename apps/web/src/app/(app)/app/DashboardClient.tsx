@@ -199,7 +199,7 @@ export default function DashboardClient() {
     const loadProfile = async () => {
       try {
         setProfileLoading(true);
-        const response = await fetch("/api/profile", { cache: "no-store" });
+        const response = await fetch("/api/profile", { cache: "no-store", credentials: "include" });
         if (!response.ok) return;
         const data = (await response.json()) as ProfileData;
         if (!active) return;

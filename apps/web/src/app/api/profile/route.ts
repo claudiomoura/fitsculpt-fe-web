@@ -20,8 +20,9 @@ export async function GET() {
     });
 
     const data = await response.json();
-    return NextResponse.json(data, { status: response.status });
-  } catch (_err) {
+    const profileData = data && typeof data === "object" && "profile" in data ? data.profile ?? null : data ?? null;
+    return NextResponse.json(profileData, { status: response.status });
+  } catch {
     return NextResponse.json({ error: "BACKEND_UNAVAILABLE" }, { status: 502 });
   }
 }
@@ -44,8 +45,9 @@ export async function PUT(request: Request) {
     });
 
     const data = await response.json();
-    return NextResponse.json(data, { status: response.status });
-  } catch (_err) {
+    const profileData = data && typeof data === "object" && "profile" in data ? data.profile ?? null : data ?? null;
+    return NextResponse.json(profileData, { status: response.status });
+  } catch {
     return NextResponse.json({ error: "BACKEND_UNAVAILABLE" }, { status: 502 });
   }
 }

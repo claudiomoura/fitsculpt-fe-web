@@ -320,11 +320,19 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
 
   const saveProfile = useCallback(async () => {
     setSaveState("saving");
+    const profileToSave: ProfileData = {
+      ...profile,
+      macroPreferences: {
+        ...profile.macroPreferences,
+        formula: profile.macroPreferences.formula || "mifflin",
+      },
+    };
     try {
       const response = await fetch("/api/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(profile),
+        body: JSON.stringify(profileToSave),
+        credentials: "include",
       });
 
       if (!response.ok) {
@@ -333,7 +341,7 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
       }
 
       const data = (await response.json()) as Partial<ProfileData> | null;
-      setProfile(mergeProfileData(data ?? profile));
+      setProfile(mergeProfileData(data ?? profileToSave));
       setSaveState("success");
       trackEvent("onboarding_completed", { origin: "onboarding" });
     } catch {
