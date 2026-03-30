@@ -32,7 +32,7 @@ import {
   type NutritionMeal,
 } from "@/lib/profile";
 import { getUserProfile, updateUserProfile } from "@/lib/profileService";
-import { getProfileCompletionDebugInfo, isProfileComplete } from "@/lib/profileCompletion";
+import { isProfileComplete } from "@/lib/profileCompletion";
 import { Badge } from "@/design-system/components/Badge";
 import { Button, ButtonLink } from "@/design-system/components/Button";
 import { Icon } from "@/design-system/components/Icon";
@@ -1352,45 +1352,6 @@ export default function NutritionPlanClient({
       ref.current = false;
     };
   }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !profile) return;
-    if (typeof getProfileCompletionDebugInfo !== "function") return;
-    const debug = getProfileCompletionDebugInfo(profile);
-    (window as unknown as { __PROFILE_DEBUG__?: typeof debug }).__PROFILE_DEBUG__ = debug;
-    console.debug("[ProfileDebug] NutritionPlanClient profile:", {
-      hasBasics: debug.hasBasics,
-      hasTrainingPrefs: debug.hasTrainingPrefs,
-      hasNutritionPrefs: debug.hasNutritionPrefs,
-      hasRequiredBackendFields: debug.hasRequiredBackendFields,
-      missingFields: debug.missingFields,
-      rawProfile: {
-        sex: profile.sex,
-        age: profile.age,
-        heightCm: profile.heightCm,
-        weightKg: profile.weightKg,
-        activity: profile.activity,
-        goal: profile.goal,
-        goalWeightKg: profile.goalWeightKg,
-        trainingPreferences: {
-          level: profile.trainingPreferences.level,
-          daysPerWeek: profile.trainingPreferences.daysPerWeek,
-          sessionTime: profile.trainingPreferences.sessionTime,
-          focus: profile.trainingPreferences.focus,
-          equipment: profile.trainingPreferences.equipment,
-        },
-        nutritionPreferences: {
-          mealsPerDay: profile.nutritionPreferences.mealsPerDay,
-          dietType: profile.nutritionPreferences.dietType,
-          cookingTime: profile.nutritionPreferences.cookingTime,
-          mealDistribution: profile.nutritionPreferences.mealDistribution,
-        },
-        macroPreferences: {
-          formula: profile.macroPreferences.formula,
-        },
-      },
-    });
-  }, [profile]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;

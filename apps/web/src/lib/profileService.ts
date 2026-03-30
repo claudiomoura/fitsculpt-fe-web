@@ -38,12 +38,15 @@ function normalizeMealDistribution(input?: MealDistribution | string | null): Me
 
 function deepMergeProfile(data: Record<string, unknown>): Partial<ProfileData> {
   // If there's a nested "profile" key, merge it with root-level fields
-  // Root fields take precedence over nested ones
+  // NESTED fields (valid data) take precedence over root fields (may be empty/null)
   const nested = data.profile;
   if (nested && typeof nested === "object" && !Array.isArray(nested)) {
+    // Remove the nested profile from root to avoid duplication
+    const { profile: _, ...rootFields } = data;
+    // Root fields first (may be empty), then nested (has real data) - nested wins
     return {
+      ...rootFields,
       ...(nested as Partial<ProfileData>),
-      ...data,
     } as Partial<ProfileData>;
   }
   return data as Partial<ProfileData>;
@@ -61,28 +64,46 @@ function unwrapProfilePayload(data?: ProfileApiPayload): Partial<ProfileData> | 
       return deepMergeProfile(rootFields);
     }
     // Merge nested profile with any root-level fields
+    // IMPORTANT: nested (valid data) must come AFTER rootFields so it overwrites empty values
     const { profile: _, ...rootFields } = data as Record<string, unknown>;
-    return deepMergeProfile({ ...nested, ...rootFields } as Record<string, unknown>);
+    return deepMergeProfile({ ...rootFields, ...nested } as Record<string, unknown>);
   }
 
   return data as Partial<ProfileData>;
 }
 
+function removeEmptyValues(obj: Record<string, unknown>): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    // Skip null, empty string, but keep 0 and false
+    if (value === null || value === "" || value === undefined) continue;
+    if (typeof value === "object" && !Array.isArray(value) && value !== null) {
+      result[key] = removeEmptyValues(value as Record<string, unknown>);
+    } else {
+      result[key] = value;
+    }
+  }
+  return result;
+}
+
 export function mergeProfileData(data?: ProfileApiPayload): ProfileData {
-  const normalizedData = unwrapProfilePayload(data);
-  const profilePhotoUrl = normalizedData?.profilePhotoUrl ?? normalizedData?.avatarDataUrl ?? defaultProfile.profilePhotoUrl;
-  const incomingNutrition = normalizedData?.nutritionPreferences;
+  const rawNormalized = unwrapProfilePayload(data);
+  // Remove empty values so they don't overwrite valid defaults
+  const normalizedData = rawNormalized ? removeEmptyValues(rawNormalized as Record<string, unknown>) : undefined;
+  const normalized = normalizedData as Partial<ProfileData> | undefined;
+  const profilePhotoUrl = normalized?.profilePhotoUrl ?? normalized?.avatarDataUrl ?? defaultProfile.profilePhotoUrl;
+  const incomingNutrition = normalized?.nutritionPreferences;
   const mealDistribution = normalizeMealDistribution(
     incomingNutrition?.mealDistribution ?? defaultProfile.nutritionPreferences.mealDistribution
   );
   return {
     ...defaultProfile,
-    ...normalizedData,
+    ...normalized,
     profilePhotoUrl,
-    avatarDataUrl: normalizedData?.avatarDataUrl ?? profilePhotoUrl ?? null,
+    avatarDataUrl: normalized?.avatarDataUrl ?? profilePhotoUrl ?? null,
     trainingPreferences: {
       ...defaultProfile.trainingPreferences,
-      ...normalizedData?.trainingPreferences,
+      ...normalized?.trainingPreferences,
     },
     nutritionPreferences: {
       ...defaultProfile.nutritionPreferences,
@@ -95,14 +116,14 @@ export function mergeProfileData(data?: ProfileApiPayload): ProfileData {
     },
     macroPreferences: {
       ...defaultProfile.macroPreferences,
-      ...normalizedData?.macroPreferences,
+      ...normalized?.macroPreferences,
     },
     measurements: {
       ...defaultProfile.measurements,
-      ...normalizedData?.measurements,
+      ...normalized?.measurements,
     },
-    trainingPlan: normalizedData?.trainingPlan ?? defaultProfile.trainingPlan,
-    nutritionPlan: normalizedData?.nutritionPlan ?? defaultProfile.nutritionPlan,
+    trainingPlan: normalized?.trainingPlan ?? defaultProfile.trainingPlan,
+    nutritionPlan: normalized?.nutritionPlan ?? defaultProfile.nutritionPlan,
   };
 }
 

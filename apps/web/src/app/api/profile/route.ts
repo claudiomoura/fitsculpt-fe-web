@@ -20,8 +20,24 @@ export async function GET() {
     });
 
     const data = await response.json();
-    const profileData = data && typeof data === "object" && "profile" in data ? data.profile ?? null : data ?? null;
-    return NextResponse.json(profileData, { status: response.status });
+    // FORCE: Always extract just the profile object from the response
+    // Backend returns { id, name, email, plan, profile: {...valid data...} }
+    // We ONLY want the profile part, nothing else
+    let profileData: unknown = null;
+    
+    if (data && typeof data === "object" && !Array.isArray(data)) {
+      if ("profile" in data) {
+        // If there's a profile key, use ONLY that - ignore everything else at root level
+        profileData = (data as { profile: unknown }).profile;
+      } else {
+        // No profile key - use everything (fallback)
+        profileData = data;
+      }
+    } else {
+      profileData = data;
+    }
+    
+    return NextResponse.json(profileData);
   } catch {
     return NextResponse.json({ error: "BACKEND_UNAVAILABLE" }, { status: 502 });
   }
@@ -45,8 +61,20 @@ export async function PUT(request: Request) {
     });
 
     const data = await response.json();
-    const profileData = data && typeof data === "object" && "profile" in data ? data.profile ?? null : data ?? null;
-    return NextResponse.json(profileData, { status: response.status });
+    // FORCE: Always extract just the profile object from the response
+    let profileData: unknown = null;
+    
+    if (data && typeof data === "object" && !Array.isArray(data)) {
+      if ("profile" in data) {
+        profileData = (data as { profile: unknown }).profile;
+      } else {
+        profileData = data;
+      }
+    } else {
+      profileData = data;
+    }
+    
+    return NextResponse.json(profileData);
   } catch {
     return NextResponse.json({ error: "BACKEND_UNAVAILABLE" }, { status: 502 });
   }

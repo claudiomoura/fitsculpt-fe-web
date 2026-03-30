@@ -23,6 +23,7 @@ import {
   type TrainingLevel,
 } from "@/lib/profile";
 import { mergeProfileData } from "@/lib/profileService";
+import { isProfileComplete } from "@/lib/profileCompletion";
 
 type Props = {
   nextUrl?: string;
@@ -353,7 +354,19 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
     hasPositiveNumber(profile.age) &&
     hasPositiveNumber(profile.heightCm) &&
     hasPositiveNumber(profile.weightKg);
-  const isStepValid = (step === 0 && hasValidBasics) || step > 0;
+  const canFinishOnboarding = isProfileComplete({
+    ...profile,
+    macroPreferences: {
+      ...profile.macroPreferences,
+      formula: profile.macroPreferences.formula || "mifflin",
+    },
+  });
+  const isStepValid =
+    step === 0
+      ? hasValidBasics
+      : step === LAST_STEP
+        ? canFinishOnboarding
+        : true;
 
   if (loadState === "loading") {
     return (

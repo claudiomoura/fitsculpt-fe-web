@@ -10,8 +10,11 @@ export interface ProfileCompletionDebugInfo {
 }
 
 export function isProfileComplete(profile?: ProfileData | null): boolean {
-  const debug = getProfileCompletionDebugInfo(profile);
-  return debug.missingFields.length === 0;
+  return getOnboardingBlockingMissingFields(profile).length === 0;
+}
+
+export function getOnboardingBlockingMissingFields(profile?: ProfileData | null): string[] {
+  return getProfileCompletionDebugInfo(profile).missingFields;
 }
 
 export function getProfileCompletionDebugInfo(profile?: ProfileData | null): ProfileCompletionDebugInfo {
@@ -103,19 +106,13 @@ export function getProfileCompletionDebugInfo(profile?: ProfileData | null): Pro
     );
   }
 
-  const hasRequiredBackendFields =
-    Boolean(profile.goalWeightKg) ||
-    Number.isFinite(profile.goalWeightKg);
-
-  if (!hasRequiredBackendFields && profile.goalWeightKg === null) {
-    missingFields.push("goalWeightKg (required by backend)");
-  }
+  const hasRequiredBackendFields = hasMacroPrefs;
 
   return {
     hasBasics,
     hasTrainingPrefs,
     hasNutritionPrefs,
-    hasRequiredBackendFields: hasMacroPrefs,
+    hasRequiredBackendFields,
     missingFields,
     profileKeys: Object.keys(profile),
   };
