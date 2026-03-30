@@ -138,10 +138,20 @@ function tryParseJson(value: unknown): unknown {
 }
 
 function buildTrainingRequestBody(profile: ProfileData, input: TrainingPreferencesInput, startDate: string, aiRequestId: string) {
+  const workoutLength = profile.trainingPreferences.workoutLength;
+  const timerSound = profile.trainingPreferences.timerSound;
+  const safeAge = typeof profile.age === "number" && Number.isFinite(profile.age) ? profile.age : undefined;
+  const safeSex = profile.sex === "male" || profile.sex === "female" ? profile.sex : undefined;
+  const safeWorkoutLength =
+    workoutLength === "30m" || workoutLength === "45m" || workoutLength === "60m" || workoutLength === "flexible"
+      ? workoutLength
+      : undefined;
+  const safeTimerSound = timerSound === "ding" || timerSound === "repsToDo" ? timerSound : undefined;
+
   return {
     name: profile.name || undefined,
-    age: profile.age,
-    sex: profile.sex,
+    age: safeAge,
+    sex: safeSex,
     experienceLevel: input.level,
     goal: input.goal,
     goals: profile.goals,
@@ -154,8 +164,8 @@ function buildTrainingRequestBody(profile: ProfileData, input: TrainingPreferenc
     timeAvailableMinutes: input.sessionTime === "short" ? 35 : input.sessionTime === "medium" ? 50 : 65,
     includeCardio: profile.trainingPreferences.includeCardio,
     includeMobilityWarmups: profile.trainingPreferences.includeMobilityWarmups,
-    workoutLength: profile.trainingPreferences.workoutLength,
-    timerSound: profile.trainingPreferences.timerSound,
+    workoutLength: safeWorkoutLength,
+    timerSound: safeTimerSound,
     aiRequestId,
     injuries: profile.injuries || undefined,
     restrictions: profile.notes || undefined,
