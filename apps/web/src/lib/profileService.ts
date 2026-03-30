@@ -107,6 +107,15 @@ export function mergeProfileData(data?: ProfileApiPayload): ProfileData {
   // Remove empty values so they don't overwrite valid defaults
   const normalizedData = rawNormalized ? removeEmptyValues(rawNormalized as Record<string, unknown>) : undefined;
   const normalized = normalizedData as Partial<ProfileData> | undefined;
+  const normalizedGoal = normalized?.goal && normalized.goal !== "" ? normalized.goal : ("maintain" as ProfileData["goal"]);
+  const normalizedEquipment =
+    normalized?.trainingPreferences?.equipment && normalized.trainingPreferences.equipment !== ""
+      ? normalized.trainingPreferences.equipment
+      : ("gym" as ProfileData["trainingPreferences"]["equipment"]);
+  const normalizedFormula =
+    normalized?.macroPreferences?.formula && normalized.macroPreferences.formula !== ""
+      ? normalized.macroPreferences.formula
+      : ("mifflin" as ProfileData["macroPreferences"]["formula"]);
   const profilePhotoUrl = normalized?.profilePhotoUrl ?? normalized?.avatarDataUrl ?? defaultProfile.profilePhotoUrl;
   const incomingNutrition = normalized?.nutritionPreferences;
   const mealDistribution = normalizeMealDistribution(
@@ -115,11 +124,13 @@ export function mergeProfileData(data?: ProfileApiPayload): ProfileData {
   return {
     ...defaultProfile,
     ...normalized,
+    goal: normalizedGoal,
     profilePhotoUrl,
     avatarDataUrl: normalized?.avatarDataUrl ?? profilePhotoUrl ?? null,
     trainingPreferences: {
       ...defaultProfile.trainingPreferences,
       ...normalized?.trainingPreferences,
+      equipment: normalizedEquipment,
     },
     nutritionPreferences: {
       ...defaultProfile.nutritionPreferences,
@@ -133,6 +144,7 @@ export function mergeProfileData(data?: ProfileApiPayload): ProfileData {
     macroPreferences: {
       ...defaultProfile.macroPreferences,
       ...normalized?.macroPreferences,
+      formula: normalizedFormula,
     },
     measurements: {
       ...defaultProfile.measurements,

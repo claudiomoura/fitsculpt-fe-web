@@ -99,6 +99,28 @@ describe("mergeProfileData", () => {
     expect(merged.trainingPreferences.level).toBe("intermediate");
     expect(isProfileComplete(merged)).toBe(true);
   });
+
+  it("backfills legacy missing goal/equipment/formula defaults", () => {
+    const merged = mergeProfileData({
+      profile: {
+        ...completeProfilePayload,
+        goal: "",
+        trainingPreferences: {
+          ...completeProfilePayload.trainingPreferences,
+          equipment: "",
+        },
+        macroPreferences: {
+          ...completeProfilePayload.macroPreferences,
+          formula: "",
+        },
+      },
+    });
+
+    expect(merged.goal).toBe("maintain");
+    expect(merged.trainingPreferences.equipment).toBe("gym");
+    expect(merged.macroPreferences.formula).toBe("mifflin");
+    expect(isProfileComplete(merged)).toBe(true);
+  });
 });
 
 describe("profile completion rules", () => {
