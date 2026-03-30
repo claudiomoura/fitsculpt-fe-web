@@ -1,7 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 import { defaultProfile, type ProfileData } from "@/lib/profile";
 import { getOnboardingBlockingMissingFields, isProfileComplete } from "@/lib/profileCompletion";
-import { getUserProfile, mergeProfileData, saveCheckinAndSyncProfileMetrics, updateUserProfile } from "@/lib/profileService";
+import {
+  buildProfilePreferencesPayload,
+  getUserProfile,
+  mergeProfileData,
+  saveCheckinAndSyncProfileMetrics,
+  updateUserProfile,
+  updateUserProfilePreferences,
+} from "@/lib/profileService";
 
 const completeProfilePayload: Partial<ProfileData> = {
   ...defaultProfile,
@@ -106,15 +113,17 @@ describe("mergeProfileData", () => {
         ...completeProfilePayload,
         goal: "",
         trainingPreferences: {
-          ...completeProfilePayload.trainingPreferences,
+          ...defaultProfile.trainingPreferences,
+          ...(completeProfilePayload.trainingPreferences ?? {}),
           equipment: "",
         },
         macroPreferences: {
-          ...completeProfilePayload.macroPreferences,
+          ...defaultProfile.macroPreferences,
+          ...(completeProfilePayload.macroPreferences ?? {}),
           formula: "",
         },
       },
-    });
+    } as unknown as Partial<ProfileData>);
 
     expect(merged.goal).toBe("maintain");
     expect(merged.trainingPreferences.equipment).toBe("gym");
@@ -166,5 +175,50 @@ describe("updateUserProfile payload sanitization", () => {
     global.fetch = fetchMock as unknown as typeof fetch;
 
     await expect(getUserProfile()).rejects.toThrow("PROFILE_FETCH_FAILED:500");
+  });
+
+  it("sends a reduced payload for profile preferences save", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await updateUserProfilePreferences({
+      ...defaultProfile,
+      goal: "maintain",
+      weightKg: 81,
+      goalWeightKg: 70,
+      trainingPlan: { title: "big", days: [] },
+      nutritionPlan: { title: "big", dailyCalories: 2500, proteinG: 180, fatG: 70, carbsG: 260, days: [] },
+      avatarDataUrl: "data:image/png;base64,really-large",
+      profilePhotoUrl: "data:image/png;base64,really-large",
+    });
+
+    const requestOptions = fetchMock.mock.calls[0]?.[1] as { body?: string };
+    const payload = JSON.parse(requestOptions.body ?? "{}");
+
+    expect(payload.trainingPlan).toBeUndefined();
+    expect(payload.nutritionPlan).toBeUndefined();
+    expect(payload.avatarDataUrl).toBeUndefined();
+    expect(payload.profilePhotoUrl).toBeUndefined();
+    expect(payload.goalWeightKg).toBe(81);
+  });
+
+  it("includes explicit null avatar values on preference reset", () => {
+    const payload = buildProfilePreferencesPayload({
+      ...defaultProfile,
+      profilePhotoUrl: null,
+      avatarDataUrl: null,
+    });
+
+    expect(payload).toMatchObject({
+      profilePhotoUrl: null,
+      avatarDataUrl: null,
+    });
+  });
+
+  it("throws on preferences save backend failure", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 413 });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await expect(updateUserProfilePreferences(defaultProfile)).rejects.toThrow("PROFILE_UPDATE_FAILED:413");
   });
 });

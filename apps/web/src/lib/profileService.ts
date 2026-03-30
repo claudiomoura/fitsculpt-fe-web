@@ -1,4 +1,5 @@
 import { defaultProfile, type MealDistribution, type ProfileData } from "@/lib/profile";
+import { normalizeGoalWeightForGoal } from "@/lib/profileGoal";
 
 type ProfileApiEnvelope = {
   profile?: Partial<ProfileData> | null;
@@ -107,15 +108,13 @@ export function mergeProfileData(data?: ProfileApiPayload): ProfileData {
   // Remove empty values so they don't overwrite valid defaults
   const normalizedData = rawNormalized ? removeEmptyValues(rawNormalized as Record<string, unknown>) : undefined;
   const normalized = normalizedData as Partial<ProfileData> | undefined;
-  const normalizedGoal = normalized?.goal && normalized.goal !== "" ? normalized.goal : ("maintain" as ProfileData["goal"]);
-  const normalizedEquipment =
-    normalized?.trainingPreferences?.equipment && normalized.trainingPreferences.equipment !== ""
-      ? normalized.trainingPreferences.equipment
-      : ("gym" as ProfileData["trainingPreferences"]["equipment"]);
-  const normalizedFormula =
-    normalized?.macroPreferences?.formula && normalized.macroPreferences.formula !== ""
-      ? normalized.macroPreferences.formula
-      : ("mifflin" as ProfileData["macroPreferences"]["formula"]);
+  const normalizedGoal = normalized?.goal ? normalized.goal : ("maintain" as ProfileData["goal"]);
+  const normalizedEquipment = normalized?.trainingPreferences?.equipment
+    ? normalized.trainingPreferences.equipment
+    : ("gym" as ProfileData["trainingPreferences"]["equipment"]);
+  const normalizedFormula = normalized?.macroPreferences?.formula
+    ? normalized.macroPreferences.formula
+    : ("mifflin" as ProfileData["macroPreferences"]["formula"]);
   const profilePhotoUrl = normalized?.profilePhotoUrl ?? normalized?.avatarDataUrl ?? defaultProfile.profilePhotoUrl;
   const incomingNutrition = normalized?.nutritionPreferences;
   const mealDistribution = normalizeMealDistribution(
@@ -165,7 +164,7 @@ export async function getUserProfile(): Promise<ProfileData> {
 }
 
 export async function updateUserProfilePreferences(profile: ProfileData): Promise<ProfileData> {
-  const sanitized = sanitizeProfilePayload(profile);
+  const sanitized = sanitizeProfilePayload(buildProfilePreferencesPayload(profile));
   const response = await fetch("/api/profile", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
@@ -176,7 +175,7 @@ export async function updateUserProfilePreferences(profile: ProfileData): Promis
     throw new Error(`PROFILE_UPDATE_FAILED:${response.status}`);
   }
   const data = (await response.json()) as Partial<ProfileData> | null;
-  return mergeProfileData(data ?? profile);
+  return mergeProfileData(data ?? sanitized);
 }
 
 export async function updateUserProfile(profile: Partial<ProfileData>): Promise<ProfileData> {
@@ -214,6 +213,30 @@ function sanitizeProfilePayload<T>(data: T): T {
     result[key] = value;
   });
   return result as T;
+}
+
+export function buildProfilePreferencesPayload(profile: ProfileData): Partial<ProfileData> {
+  const normalizedGoalWeight = normalizeGoalWeightForGoal(profile.goal, profile.weightKg, profile.goalWeightKg);
+
+  return {
+    name: profile.name,
+    sex: profile.sex,
+    age: profile.age,
+    heightCm: profile.heightCm,
+    weightKg: profile.weightKg,
+    goal: profile.goal,
+    goalWeightKg: normalizedGoalWeight,
+    goals: profile.goals,
+    activity: profile.activity,
+    injuries: profile.injuries,
+    notes: profile.notes,
+    trainingPreferences: profile.trainingPreferences,
+    nutritionPreferences: profile.nutritionPreferences,
+    macroPreferences: profile.macroPreferences,
+    measurements: profile.measurements,
+    ...(profile.profilePhotoUrl === null ? { profilePhotoUrl: null } : {}),
+    ...(profile.avatarDataUrl === null ? { avatarDataUrl: null } : {}),
+  };
 }
 
 export async function saveCheckinAndSyncProfileMetrics(
