@@ -2083,13 +2083,18 @@ export default function NutritionPlanClient({
 
   const handleSetStartDate = async () => {
     if (!visiblePlan) return;
-    const nextPlan = ensurePlanStartDate({
-      ...visiblePlan,
-      startDate: new Date().toISOString(),
-    });
-    const updated = await updateUserProfile({ nutritionPlan: nextPlan });
-    setSavedPlan(updated.nutritionPlan ?? nextPlan);
-    setManualPlan(updated.nutritionPlan ?? nextPlan);
+    try {
+      const nextPlan = ensurePlanStartDate({
+        ...visiblePlan,
+        startDate: new Date().toISOString(),
+      });
+      const updated = await updateUserProfile({ nutritionPlan: nextPlan });
+      setSavedPlan(updated.nutritionPlan ?? nextPlan);
+      setManualPlan(updated.nutritionPlan ?? nextPlan);
+    } catch (_err) {
+      setSaveMessage(t("nutrition.savePlanError"));
+      window.setTimeout(() => setSaveMessage(null), 2000);
+    }
   };
 
   function updateManualDayLabel(dayIndex: number, value: string) {

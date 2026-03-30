@@ -969,10 +969,15 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
 
   const handleSetStartDate = async () => {
     if (!visiblePlan) return;
-    const nextPlan = ensurePlanStartDate({ ...visiblePlan, startDate: new Date().toISOString() });
-    const updated = await updateUserProfile({ trainingPlan: nextPlan });
-    setSavedPlan(updated.trainingPlan ?? nextPlan);
-    setManualPlan(updated.trainingPlan ?? nextPlan);
+    try {
+      const nextPlan = ensurePlanStartDate({ ...visiblePlan, startDate: new Date().toISOString() });
+      const updated = await updateUserProfile({ trainingPlan: nextPlan });
+      setSavedPlan(updated.trainingPlan ?? nextPlan);
+      setManualPlan(updated.trainingPlan ?? nextPlan);
+    } catch (_err) {
+      setSaveMessage(t("training.savePlanError"));
+      window.setTimeout(() => setSaveMessage(null), 2000);
+    }
   };
 
   function updateManualDay(dayIndex: number, field: keyof TrainingDay, value: string | number) {

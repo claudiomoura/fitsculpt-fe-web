@@ -259,16 +259,24 @@ export default function ProfileClient() {
   }
 
   async function saveProfile() {
-    const nextProfile = await updateUserProfilePreferences(profile);
-    setProfile(nextProfile);
-    setSaved(true);
-    window.setTimeout(() => setSaved(false), 2000);
-    window.dispatchEvent(new Event("auth:refresh"));
+    try {
+      const nextProfile = await updateUserProfilePreferences(profile);
+      setProfile(nextProfile);
+      setSaved(true);
+      window.setTimeout(() => setSaved(false), 2000);
+      window.dispatchEvent(new Event("auth:refresh"));
+    } catch (_err) {
+      setSaved(false);
+    }
   }
 
   async function resetProfile() {
-    const nextProfile = await updateUserProfilePreferences(defaultProfile);
-    setProfile(nextProfile);
+    try {
+      const nextProfile = await updateUserProfilePreferences(defaultProfile);
+      setProfile(nextProfile);
+    } catch (_err) {
+      setSaved(false);
+    }
   }
 
   async function readFileAsDataUrl(file: File) {

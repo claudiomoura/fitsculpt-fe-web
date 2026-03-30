@@ -1,81 +1,111 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getBackendUrl } from "@/lib/backend";
+import { defaultProfile } from "@/lib/profile";
+
+const PROFILE_KEYS = new Set(Object.keys(defaultProfile));
 
 async function getAuthCookie() {
   const token = (await cookies()).get("fs_token")?.value;
   return token ? `fs_token=${token}` : null;
 }
 
-export async function GET() {
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function deepMergeRecords(base: Record<string, unknown>, incoming: Record<string, unknown>): Record<string, unknown> {
+  const merged: Record<string, unknown> = { ...base };
+
+  Object.entries(incoming).forEach(([key, value]) => {
+    const currentValue = merged[key];
+    if (isPlainObject(currentValue) && isPlainObject(value)) {
+      merged[key] = deepMergeRecords(currentValue, value);
+      return;
+    }
+    merged[key] = value;
+  });
+
+  return merged;
+}
+
+function pickProfileFields(payload: Record<string, unknown>): Record<string, unknown> {
+  const profileFields: Record<string, unknown> = {};
+  Object.entries(payload).forEach(([key, value]) => {
+    if (PROFILE_KEYS.has(key)) {
+      profileFields[key] = value;
+    }
+  });
+  return profileFields;
+}
+
+function normalizeProfilePayload(payload: unknown): Record<string, unknown> {
+  if (!isPlainObject(payload)) {
+    return {};
+  }
+
+  const rootProfile = pickProfileFields(payload);
+  const nestedProfile = isPlainObject(payload.profile) ? payload.profile : null;
+
+  if (nestedProfile) {
+    return deepMergeRecords(rootProfile, nestedProfile);
+  }
+
+  if (Object.keys(rootProfile).length > 0) {
+    return rootProfile;
+  }
+
+  return payload;
+}
+
+async function readUpstreamPayload(response: Response): Promise<unknown> {
+  const text = await response.text();
+  if (!text) return null;
+
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return { error: text };
+  }
+}
+
+async function proxyProfileRequest(request: Request, method: "GET" | "PUT") {
   const authCookie = await getAuthCookie();
   if (!authCookie) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
 
   try {
+    const requestBody = method === "PUT" ? await request.json() : undefined;
     const response = await fetch(`${getBackendUrl()}/profile`, {
-      headers: { cookie: authCookie },
-      cache: "no-store",
+      method,
+      headers: {
+        ...(method === "PUT" ? { "Content-Type": "application/json" } : {}),
+        cookie: authCookie,
+      },
+      ...(method === "GET" ? { cache: "no-store" as const } : {}),
+      ...(method === "PUT" ? { body: JSON.stringify(requestBody) } : {}),
     });
 
-    const data = await response.json();
-    // FORCE: Always extract just the profile object from the response
-    // Backend returns { id, name, email, plan, profile: {...valid data...} }
-    // We ONLY want the profile part, nothing else
-    let profileData: unknown = null;
-    
-    if (data && typeof data === "object" && !Array.isArray(data)) {
-      if ("profile" in data) {
-        // If there's a profile key, use ONLY that - ignore everything else at root level
-        profileData = (data as { profile: unknown }).profile;
-      } else {
-        // No profile key - use everything (fallback)
-        profileData = data;
+    const payload = await readUpstreamPayload(response);
+
+    if (!response.ok) {
+      if (isPlainObject(payload)) {
+        return NextResponse.json(payload, { status: response.status });
       }
-    } else {
-      profileData = data;
+      return NextResponse.json({ error: "UPSTREAM_PROFILE_ERROR" }, { status: response.status });
     }
-    
-    return NextResponse.json(profileData);
+
+    return NextResponse.json(normalizeProfilePayload(payload), { status: response.status });
   } catch {
     return NextResponse.json({ error: "BACKEND_UNAVAILABLE" }, { status: 502 });
   }
 }
 
+export async function GET(request: Request) {
+  return proxyProfileRequest(request, "GET");
+}
+
 export async function PUT(request: Request) {
-  const authCookie = await getAuthCookie();
-  if (!authCookie) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
-
-  const body = await request.json();
-  try {
-    const response = await fetch(`${getBackendUrl()}/profile`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        cookie: authCookie,
-      },
-      body: JSON.stringify(body),
-    });
-
-    const data = await response.json();
-    // FORCE: Always extract just the profile object from the response
-    let profileData: unknown = null;
-    
-    if (data && typeof data === "object" && !Array.isArray(data)) {
-      if ("profile" in data) {
-        profileData = (data as { profile: unknown }).profile;
-      } else {
-        profileData = data;
-      }
-    } else {
-      profileData = data;
-    }
-    
-    return NextResponse.json(profileData);
-  } catch {
-    return NextResponse.json({ error: "BACKEND_UNAVAILABLE" }, { status: 502 });
-  }
+  return proxyProfileRequest(request, "PUT");
 }

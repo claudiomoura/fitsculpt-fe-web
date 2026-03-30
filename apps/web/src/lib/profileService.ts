@@ -25,6 +25,12 @@ type TrackingPayload = {
   mealLog: Array<Record<string, unknown>>;
 };
 
+const PROFILE_KEYS = new Set(Object.keys(defaultProfile));
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
 function normalizeMealDistribution(input?: MealDistribution | string | null): MealDistribution {
   if (!input) return defaultProfile.nutritionPreferences.mealDistribution;
   if (typeof input === "string") {
@@ -36,37 +42,47 @@ function normalizeMealDistribution(input?: MealDistribution | string | null): Me
   };
 }
 
-function deepMergeProfile(data: Record<string, unknown>): Partial<ProfileData> {
-  // If there's a nested "profile" key, merge it with root-level fields
-  // NESTED fields (valid data) take precedence over root fields (may be empty/null)
-  const nested = data.profile;
-  if (nested && typeof nested === "object" && !Array.isArray(nested)) {
-    // Remove the nested profile from root to avoid duplication
-    const { profile: _, ...rootFields } = data;
-    // Root fields first (may be empty), then nested (has real data) - nested wins
-    return {
-      ...rootFields,
-      ...(nested as Partial<ProfileData>),
-    } as Partial<ProfileData>;
-  }
-  return data as Partial<ProfileData>;
+function deepMergeProfile(base: Record<string, unknown>, incoming: Record<string, unknown>): Record<string, unknown> {
+  const merged: Record<string, unknown> = { ...base };
+
+  Object.entries(incoming).forEach(([key, value]) => {
+    const currentValue = merged[key];
+    if (isPlainObject(currentValue) && isPlainObject(value)) {
+      merged[key] = deepMergeProfile(currentValue, value);
+      return;
+    }
+    merged[key] = value;
+  });
+
+  return merged;
+}
+
+function pickKnownProfileFields(data: Record<string, unknown>): Record<string, unknown> {
+  const picked: Record<string, unknown> = {};
+  Object.entries(data).forEach(([key, value]) => {
+    if (PROFILE_KEYS.has(key)) {
+      picked[key] = value;
+    }
+  });
+  return picked;
 }
 
 function unwrapProfilePayload(data?: ProfileApiPayload): Partial<ProfileData> | undefined {
-  if (!data || typeof data !== "object" || Array.isArray(data)) return undefined;
+  if (!isPlainObject(data)) return undefined;
 
-  // Handle the case where data has nested "profile" key mixed with root fields
+  const rootFields = pickKnownProfileFields(data);
+
   if ("profile" in data) {
     const nested = (data as ProfileApiEnvelope).profile;
-    if (!nested || typeof nested !== "object" || Array.isArray(nested)) {
-      // If profile is invalid but there are other root fields, use root
-      const { profile: _, ...rootFields } = data as Record<string, unknown>;
-      return deepMergeProfile(rootFields);
+    if (isPlainObject(nested)) {
+      return deepMergeProfile(rootFields, nested) as Partial<ProfileData>;
     }
-    // Merge nested profile with any root-level fields
-    // IMPORTANT: nested (valid data) must come AFTER rootFields so it overwrites empty values
-    const { profile: _, ...rootFields } = data as Record<string, unknown>;
-    return deepMergeProfile({ ...rootFields, ...nested } as Record<string, unknown>);
+
+    return rootFields as Partial<ProfileData>;
+  }
+
+  if (Object.keys(rootFields).length > 0) {
+    return rootFields as Partial<ProfileData>;
   }
 
   return data as Partial<ProfileData>;
@@ -130,7 +146,7 @@ export function mergeProfileData(data?: ProfileApiPayload): ProfileData {
 export async function getUserProfile(): Promise<ProfileData> {
   const response = await fetch("/api/profile", { cache: "no-store", credentials: "include" });
   if (!response.ok) {
-    return defaultProfile;
+    throw new Error(`PROFILE_FETCH_FAILED:${response.status}`);
   }
   const data = (await response.json()) as Partial<ProfileData> | null;
   return mergeProfileData(data ?? undefined);
@@ -145,7 +161,7 @@ export async function updateUserProfilePreferences(profile: ProfileData): Promis
     body: JSON.stringify(sanitized),
   });
   if (!response.ok) {
-    return profile;
+    throw new Error(`PROFILE_UPDATE_FAILED:${response.status}`);
   }
   const data = (await response.json()) as Partial<ProfileData> | null;
   return mergeProfileData(data ?? profile);
@@ -160,7 +176,7 @@ export async function updateUserProfile(profile: Partial<ProfileData>): Promise<
     body: JSON.stringify(sanitized),
   });
   if (!response.ok) {
-    return mergeProfileData(profile);
+    throw new Error(`PROFILE_UPDATE_FAILED:${response.status}`);
   }
   const data = (await response.json()) as Partial<ProfileData> | null;
   return mergeProfileData(data ?? profile);
@@ -227,7 +243,7 @@ export async function saveCheckinAndSyncProfileMetrics(
   });
 
   if (!profileResponse.ok) {
-    return nextProfile;
+    throw new Error(`PROFILE_UPDATE_FAILED:${profileResponse.status}`);
   }
 
   const data = (await profileResponse.json()) as Partial<ProfileData> | null;
