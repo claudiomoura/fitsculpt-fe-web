@@ -14,6 +14,8 @@ const normalizeKey = (value?: string | null) => value?.trim() ?? "";
 
 type MealLogLike = Partial<MealLogEntry>;
 
+type ApiMealType = "BREAKFAST" | "LUNCH" | "DINNER" | "SNACK";
+
 export function buildNutritionAdherenceStoreFromMealLog(entries?: MealLogLike[] | null): NutritionAdherenceStore {
   if (!Array.isArray(entries)) return {};
   return entries.reduce<NutritionAdherenceStore>((acc, entry) => {
@@ -46,8 +48,9 @@ export function buildAdherenceStoreFromMeals(meals: MealLogResponse[]): Nutritio
   for (const meal of meals) {
     if (!meal.date || !meal.mealType) continue;
     const current = store[meal.date] ?? [];
-    if (!current.includes(meal.mealType)) {
-      store[meal.date] = [...current, meal.mealType];
+    const mealTypeKey = meal.mealType.toLowerCase();
+    if (!current.includes(mealTypeKey)) {
+      store[meal.date] = [...current, mealTypeKey];
     }
   }
   return store;
@@ -68,12 +71,23 @@ async function fetchMealsFromAPI(date: string): Promise<MealLogResponse[]> {
 /**
  * Map meal key to meal type (for backward compatibility)
  */
-function mapMealKeyToType(mealKey: string): "BREAKFAST" | "LUNCH" | "DINNER" | "SNACK" {
+function mapMealKeyToType(mealKey: string): ApiMealType {
   const key = mealKey.toLowerCase();
   if (key.includes("desayuno") || key.includes("breakfast")) return "BREAKFAST";
   if (key.includes("almuerzo") || key.includes("lunch")) return "LUNCH";
   if (key.includes("cena") || key.includes("dinner")) return "DINNER";
   return "SNACK";
+}
+
+function getMealTypeStoreKey(mealType: ApiMealType): string {
+  return mealType.toLowerCase();
+}
+
+export function hasConsumedEntryForKey(entries: string[] | undefined, itemKey: string): boolean {
+  if (!Array.isArray(entries) || entries.length === 0) return false;
+  if (entries.includes(itemKey)) return true;
+  const mealTypeKey = getMealTypeStoreKey(mapMealKeyToType(itemKey));
+  return entries.includes(mealTypeKey);
 }
 
 export const readNutritionAdherenceStore = (): NutritionAdherenceStore => ({});
@@ -94,20 +108,18 @@ export const useNutritionAdherence = (dayKey: string) => {
       // Try new API first
       try {
         const meals = await fetchMealsFromAPI(dayKey);
-        if (meals.length > 0) {
-          setStore(buildAdherenceStoreFromMeals(meals));
-          // Build meal ID map for delete operations
-          const newMealIdMap: MealIdMap = {};
-          for (const meal of meals) {
-            if (!meal.date || !meal.mealType || !meal.id) continue;
-            if (!newMealIdMap[meal.date]) newMealIdMap[meal.date] = {};
-            newMealIdMap[meal.date][meal.mealType] = meal.id;
-          }
-          setMealIdMap(newMealIdMap);
-          setError(false);
-          setIsLoading(false);
-          return;
+        setStore(buildAdherenceStoreFromMeals(meals));
+        // Build meal ID map for delete operations
+        const newMealIdMap: MealIdMap = {};
+        for (const meal of meals) {
+          if (!meal.date || !meal.mealType || !meal.id) continue;
+          if (!newMealIdMap[meal.date]) newMealIdMap[meal.date] = {};
+          newMealIdMap[meal.date][meal.mealType] = meal.id;
         }
+        setMealIdMap(newMealIdMap);
+        setError(false);
+        setIsLoading(false);
+        return;
       } catch {
         // Fall back to legacy tracking if new API fails
       }
@@ -137,7 +149,7 @@ export const useNutritionAdherence = (dayKey: string) => {
       const normalizedItemKey = normalizeKey(itemKey);
       const normalizedDateKey = normalizeKey(dateKey);
       if (!normalizedItemKey || !normalizedDateKey) return false;
-      return Boolean(store[normalizedDateKey]?.includes(normalizedItemKey));
+      return hasConsumedEntryForKey(store[normalizedDateKey], normalizedItemKey);
     },
     [store],
   );
