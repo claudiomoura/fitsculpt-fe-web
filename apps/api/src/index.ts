@@ -104,6 +104,7 @@ import { registerRctStatisticalReportRoute } from "./routes/rctStatisticalReport
 import { registerAdminAssignGymRoleRoutes } from "./routes/admin/assignGymRole.js";
 import { registerMealRoutes } from "./routes/mealRoutes.js";
 import { registerAuthRoutes } from "./routes/auth.js";
+import { authRateLimitMiddleware } from "./middleware/authRateLimit.js";
 import { registerProfileRoutes } from "./routes/profile.js";
 import { registerFeedRoutes } from "./routes/feed.js";
 import { registerNutritionRoutes } from "./routes/nutrition.js";
@@ -158,6 +159,10 @@ const env = getEnv();
 const app = Fastify({ logger: true });
 const prisma = await createPrismaClientWithRetry(app.log);
 
+// Register auth routes that are missing from this file:
+// resend-verification, verify-email, forgot-password, reset-password
+registerAuthRoutes(app, { prisma });
+
 const shouldRunDbPreflight =
   process.env.NODE_ENV !== "production" ||
   process.env.DB_PREFLIGHT_ON_BOOT === "true";
@@ -191,6 +196,12 @@ await app.register(jwt, {
     cookieName: "fs_token",
     signed: false,
   },
+});
+
+// Register CORS with support for multiple origins (comma-separated in CORS_ORIGIN env var)
+await app.register(cors, {
+  origin: env.CORS_ORIGIN,
+  credentials: true,
 });
 
 app.addContentTypeParser(
@@ -1209,7 +1220,7 @@ const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   name: z.string().min(2).optional(),
-  promoCode: z.string().min(1),
+  promoCode: z.string().optional(),
 });
 
 const loginSchema = z.object({
@@ -5332,7 +5343,8 @@ async function handleSignup(request: FastifyRequest, reply: FastifyReply) {
   const data = registerSchema.parse(request.body);
   const ipAddress = getRequestIp(request);
 
-  if (!isPromoCodeValid(data.promoCode)) {
+  // Promo code is now optional for beta launch — still validated if provided for tracking
+  if (data.promoCode && !isPromoCodeValid(data.promoCode)) {
     await logSignupAttempt({ email: data.email, ipAddress, success: false });
     return reply.status(403).send({ error: "INVALID_PROMO_CODE" });
   }
@@ -5894,7 +5906,7 @@ const billingStripeWebhookHandler = async (
 };
 
 // POST /auth/login
-app.post("/auth/login", async (request, reply) => {
+app.post("/auth/login", { preHandler: [authRateLimitMiddleware] }, async (request, reply) => {
   try {
     const data = loginSchema.parse(request.body);
     const user = await prisma.user.findUnique({ where: { email: data.email } });
@@ -5923,7 +5935,8 @@ app.post("/auth/login", async (request, reply) => {
     });
 
     reply.setCookie("fs_token", token, buildCookieOptions());
-    return reply.status(200).send({ token });
+    // Token is only sent via httpOnly cookie — never expose in response body
+    return reply.status(200).send({ id: user.id, email: user.email, name: user.name });
   } catch (error) {
     return handleRequestError(reply, error);
   }
@@ -6157,7 +6170,9 @@ app.get("/auth/google/callback", async (request, reply) => {
   });
 
   if (mode === "bff") {
-    return reply.status(200).send({ token });
+    // Token is only sent via httpOnly cookie — never expose in response body
+    reply.setCookie("fs_token", token, buildCookieOptions());
+    return reply.status(200).send({ id: user.id, email: user.email, name: user.name });
   }
 
   reply.setCookie("fs_token", token, buildCookieOptions());
@@ -6166,7 +6181,9 @@ app.get("/auth/google/callback", async (request, reply) => {
 
 const billingStatusHandler = async (request: FastifyRequest, reply: FastifyReply) => {
   try {
-    reply.header("Cache-Control", "no-store");
+    // Short TTL (60s) to reduce Stripe API load while keeping data reasonably fresh
+    // Use ?sync=1 query param to force a fresh sync when needed
+    reply.header("Cache-Control", "public, max-age=60, s-maxage=60");
     const user = await requireUser(request);
     const query = request.query as { sync?: string };
     const shouldCreateCustomer = query?.sync === "1";

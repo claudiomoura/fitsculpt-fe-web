@@ -1,70 +1,30 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
-import type { User } from "@prisma/client";
-import { buildCookieOptions, parseBearerToken, normalizeToken, getJwtTokenFromRequest } from "../lib/auth-utils.js";
-import { createHttpError, handleRequestError } from "../lib/http-utils.js";
+import * as crypto from "node:crypto";
+import { hashToken } from "../authUtils.js";
+import { handleRequestError } from "../lib/http-utils.js";
+import { authRateLimitMiddleware } from "../middleware/authRateLimit.js";
 
 type PrismaClient = any;
-type RequireUserFn = (request: FastifyRequest) => Promise<User>;
 
 interface AuthDeps {
   prisma: PrismaClient;
-  requireUser: RequireUserFn;
   app: FastifyInstance;
 }
 
+/**
+ * Register auth routes that are NOT already defined in index.ts.
+ *
+ * index.ts already handles: login, me, change-password, google/start, google/callback
+ *
+ * This module adds: resend-verification, verify-email, forgot-password, reset-password
+ */
 export function registerAuthRoutes(
   app: FastifyInstance,
   deps: AuthDeps
 ): void {
-  const { prisma, requireUser } = deps;
-
-  const loginSchema = z.object({
-    email: z.string().email(),
-    password: z.string().min(8),
-  });
-
-  // POST /auth/login
-  app.post("/auth/login", async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const data = loginSchema.parse(request.body);
-      const user = await prisma.user.findUnique({ where: { email: data.email } });
-
-      if (!user || user.deletedAt || !user.passwordHash) {
-        return reply.status(401).send({ error: "INVALID_CREDENTIALS" });
-      }
-
-      if (user.isBlocked) {
-        return reply.status(403).send({ error: "USER_BLOCKED" });
-      }
-
-      if (!user.emailVerifiedAt) {
-        return reply.status(403).send({ error: "EMAIL_NOT_VERIFIED" });
-      }
-
-      const valid = await bcrypt.compare(data.password, user.passwordHash);
-      if (!valid) {
-        return reply.status(401).send({ error: "INVALID_CREDENTIALS" });
-      }
-
-      const token = await reply.jwtSign({
-        sub: user.id,
-        email: user.email,
-        role: user.role,
-      });
-      reply.setCookie("fs_token", token, buildCookieOptions());
-
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { lastLoginAt: new Date() },
-      });
-
-      return { id: user.id, email: user.email, name: user.name };
-    } catch (error) {
-      return handleRequestError(reply, error, (err) => app.log.error({ err }, "verify email error"));
-    }
-  });
+  const { prisma } = deps;
 
   // POST /auth/resend-verification
   const RESEND_COOLDOWN_MS = 60 * 1000; // 1 minute
@@ -93,17 +53,30 @@ export function registerAuthRoutes(
         return reply.status(429).send({ error: "RESEND_TOO_SOON" });
       }
 
-      // Create and send verification token (placeholder - would need email service import)
+      // Hash the token before storing (security best practice)
       const token = crypto.randomUUID();
+      const tokenHash = hashToken(token);
       await prisma.emailVerificationToken.create({
         data: {
           userId: user.id,
-          token,
+          token: tokenHash,
           expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
         },
       });
 
-      // Note: sendVerificationEmail would need to be passed in deps
+      // Send verification email with the raw token (not the hash)
+      const verifyUrl = `${process.env.APP_BASE_URL}/verify-email?token=${token}`;
+      try {
+        const { sendEmail } = await import("../email.js");
+        await sendEmail({
+          to: user.email,
+          subject: "Verify your FitSculpt email",
+          html: `<p>Click the link below to verify your email:</p><a href="${verifyUrl}">Verify Email</a>`,
+          text: `Verify your email by clicking: ${verifyUrl}`,
+        });
+      } catch (emailError) {
+        app.log.error({ err: emailError }, "Failed to send verification email");
+      }
       return reply.status(200).send({ ok: true });
     } catch (error) {
       return handleRequestError(reply, error, (err) => app.log.error({ err }, "resend verification error"));
@@ -115,8 +88,8 @@ export function registerAuthRoutes(
     const schema = z.object({ token: z.string().min(1) });
     try {
       const { token } = schema.parse(request.query);
-      // Import hashToken from authUtils - need to add to deps
-      const tokenHash = token; // Placeholder - actual implementation needs hashToken
+      // Hash the incoming token before lookup (matches how we store it)
+      const tokenHash = hashToken(token);
       const record = await prisma.emailVerificationToken.findUnique({
         where: { tokenHash },
       });
@@ -141,44 +114,103 @@ export function registerAuthRoutes(
     }
   });
 
-  // GET /auth/google/start
-  app.get("/auth/google/start", async (_request: FastifyRequest, reply: FastifyReply) => {
-    const googleClientId = process.env.GOOGLE_CLIENT_ID;
-    const googleRedirectUri = process.env.GOOGLE_REDIRECT_URI;
-    
-    if (!googleClientId || !googleRedirectUri) {
-      return reply.status(500).send({ error: "GOOGLE_NOT_CONFIGURED" });
+  // POST /auth/forgot-password
+  const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
+  const RESET_RESEND_COOLDOWN_MS = 60 * 1000; // 1 minute
+
+  app.post("/auth/forgot-password", { preHandler: [authRateLimitMiddleware] }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const schema = z.object({ email: z.string().email() });
+    try {
+      const { email } = schema.parse(request.body);
+      const user = await prisma.user.findUnique({ where: { email } });
+
+      // Always return 200 to prevent email enumeration
+      if (!user || user.deletedAt) {
+        return reply.status(200).send({ ok: true });
+      }
+
+      // Only allow reset for email/password users (not Google-only accounts)
+      if (!user.passwordHash) {
+        return reply.status(200).send({ ok: true });
+      }
+
+      // Check cooldown
+      const latestToken = await prisma.passwordResetToken.findFirst({
+        where: { userId: user.id },
+        orderBy: { createdAt: "desc" },
+      });
+
+      if (latestToken && Date.now() - latestToken.createdAt.getTime() < RESET_RESEND_COOLDOWN_MS) {
+        return reply.status(429).send({ error: "RESET_TOO_SOON" });
+      }
+
+      // Create hashed reset token
+      const token = crypto.randomUUID();
+      const tokenHash = hashToken(token);
+      await prisma.passwordResetToken.create({
+        data: {
+          userId: user.id,
+          tokenHash,
+          expiresAt: new Date(Date.now() + RESET_TOKEN_TTL_MS),
+        },
+      });
+
+      // Send reset email
+      const resetUrl = `${process.env.APP_BASE_URL}/reset-password?token=${token}`;
+      try {
+        const { sendEmail } = await import("../email.js");
+        await sendEmail({
+          to: user.email,
+          subject: "Reset your FitSculpt password",
+          html: `<p>Click the link below to reset your password:</p><a href="${resetUrl}">Reset Password</a><p>This link expires in 1 hour.</p>`,
+          text: `Reset your password by clicking: ${resetUrl}. This link expires in 1 hour.`,
+        });
+      } catch (emailError) {
+        app.log.error({ err: emailError }, "Failed to send password reset email");
+      }
+
+      return reply.status(200).send({ ok: true });
+    } catch (error) {
+      return handleRequestError(reply, error, (err) => app.log.error({ err }, "forgot password error"));
     }
-
-    const state = crypto.randomUUID();
-    const scopes = ["openid", "email", "profile"];
-    const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
-    authUrl.searchParams.set("client_id", googleClientId);
-    authUrl.searchParams.set("redirect_uri", googleRedirectUri);
-    authUrl.searchParams.set("response_type", "code");
-    authUrl.searchParams.set("scope", scopes.join(" "));
-    authUrl.searchParams.set("state", state);
-    authUrl.searchParams.set("prompt", "consent");
-
-    return reply.redirect(authUrl.toString());
   });
 
-  // GET /auth/google/callback
-  app.get("/auth/google/callback", async (request: FastifyRequest, reply: FastifyReply) => {
-    const { code, state, error } = request.query as { code?: string; state?: string; error?: string };
+  // POST /auth/reset-password
+  app.post("/auth/reset-password", async (request: FastifyRequest, reply: FastifyReply) => {
+    const schema = z.object({
+      token: z.string().min(1),
+      password: z.string().min(8),
+    });
+    try {
+      const { token, password } = schema.parse(request.body);
+      const tokenHash = hashToken(token);
 
-    if (error) {
-      return reply.redirect(`${process.env.APP_BASE_URL}/login?error=google_auth_failed`);
+      const record = await prisma.passwordResetToken.findUnique({
+        where: { tokenHash },
+      });
+
+      if (!record) {
+        return reply.status(400).send({ error: "INVALID_TOKEN" });
+      }
+
+      if (record.expiresAt.getTime() < Date.now()) {
+        await prisma.passwordResetToken.delete({ where: { id: record.id } });
+        return reply.status(400).send({ error: "TOKEN_EXPIRED" });
+      }
+
+      // Hash new password and update user
+      const passwordHash = await bcrypt.hash(password, 10);
+      await prisma.user.update({
+        where: { id: record.userId },
+        data: { passwordHash },
+      });
+
+      // Consume the reset token
+      await prisma.passwordResetToken.delete({ where: { id: record.id } });
+
+      return reply.status(200).send({ ok: true });
+    } catch (error) {
+      return handleRequestError(reply, error, (err) => app.log.error({ err }, "reset password error"));
     }
-
-    if (!code) {
-      return reply.redirect(`${process.env.APP_BASE_URL}/login?error=missing_code`);
-    }
-
-    // Exchange code for tokens and create/login user
-    // This is a simplified version - full implementation would need Google token exchange
-    return reply.redirect(`${process.env.APP_BASE_URL}/login?error=google_not_implemented`);
   });
 }
-
-import * as crypto from "node:crypto";
