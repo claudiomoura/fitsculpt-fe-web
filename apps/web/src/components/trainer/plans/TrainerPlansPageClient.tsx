@@ -1,863 +1,699 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import TrainerAdminNoGymPanel from "@/components/trainer/TrainerAdminNoGymPanel";
 import TrainerGymRequiredState from "@/components/trainer/TrainerGymRequiredState";
-import TrainerPlansTabs from "@/components/trainer/plans/TrainerPlansTabs";
 import { useTrainerAreaAccess } from "@/components/trainer/useTrainerAreaAccess";
-import { Badge } from "@/design-system/components/Badge";
-import { Button, ButtonLink } from "@/design-system/components/Button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/design-system/components/Card";
-import { Input } from "@/design-system/components/Input";
-import { Modal } from "@/design-system/components/Modal";
 import ExerciseLibrarySelector from "@/components/exercises/ExerciseLibrarySelector";
-import { useToast } from "@/design-system/components/Toast";
 import { useLanguage } from "@/context/LanguageProvider";
-import type { TrainingPlanDetail, TrainingPlanListItem } from "@/lib/types";
+import { useToast } from "@/design-system/components/Toast";
+import { extractTrainerClients, type TrainerClient } from "@/lib/trainerClients";
+import type { TrainingPlanDetail, TrainingPlanExercise, TrainingPlanListItem } from "@/lib/types";
 import {
+  addExerciseToPlanDay,
   createTrainerPlan,
   deleteTrainerPlan,
-  deleteTrainerPlanDay,
   getTrainerPlanDetail,
   listCurrentGymTrainerPlans,
-  markTrainerPlanEditCapabilityUnsupported,
+  saveTrainerPlan,
+  updatePlanDayExercise,
 } from "@/services/trainer/plans";
 
-type LoadState = "loading" | "ready";
-type PlansTabId = "fitsculptPlans" | "myPlans";
-
-type DetailState = {
-  loading: boolean;
-  error: boolean;
-  item: TrainingPlanDetail | null;
-};
-
-type CreateStep = "basics" | "schedule" | "workouts";
-type LoadTarget = "endurance" | "hypertrophy" | "strength" | "maxStrength" | "power" | "plyometrics";
-type LoadType = "classic" | "pyramid" | "dropSet";
-
-type WorkoutSetDraft = {
-  setNumber: number;
+type DayExerciseDraft = {
+  exerciseId: string;
+  name: string;
+  sets: number;
   repsMin: number;
   repsMax: number;
   restSeconds: number;
 };
 
-type WorkoutDayExerciseRef = {
-  exerciseId: string;
-  name: string;
-};
+type DayExerciseSelection = Record<number, DayExerciseDraft[]>;
 
-type WorkoutDayDraft = {
-  workoutName: string;
-  exercises: WorkoutDayExerciseRef[];
-  loadTarget: LoadTarget;
-  loadType: LoadType;
-  sets: WorkoutSetDraft[];
-};
+const EMPTY_EXERCISES: DayExerciseDraft[] = [];
 
-function isEndpointUnavailable(status?: number): boolean {
-  return status === 404 || status === 405;
+function dayLabel(dayIndex: number) {
+  const week = Math.floor(dayIndex / 7) + 1;
+  const day = (dayIndex % 7) + 1;
+  return `Semana ${week} · Día ${day}`;
 }
 
-function createWeekSchedule(weeks: number): boolean[][] {
-  return Array.from({ length: weeks }, () => Array.from({ length: 7 }, () => false));
+function parseRepsRange(reps: string | null | undefined) {
+  const raw = typeof reps === "string" ? reps.trim() : "";
+  const [minRaw, maxRaw] = raw.split("-").map((part) => Number(part));
+  const min = Number.isFinite(minRaw) && minRaw > 0 ? minRaw : 8;
+  const max = Number.isFinite(maxRaw) && maxRaw >= min ? maxRaw : 12;
+  return { min, max };
 }
 
-function dayDraft(): WorkoutDayDraft {
+function toDayExerciseDraft(exercise: TrainingPlanExercise): DayExerciseDraft {
+  const reps = parseRepsRange(exercise.reps);
   return {
-    workoutName: "",
-    exercises: [],
-    loadTarget: "hypertrophy",
-    loadType: "classic",
-    sets: [{ setNumber: 1, repsMin: 8, repsMax: 12, restSeconds: 60 }],
+    exerciseId: exercise.id,
+    name: exercise.name,
+    sets: typeof exercise.sets === "number" && exercise.sets > 0 ? exercise.sets : 3,
+    repsMin: reps.min,
+    repsMax: reps.max,
+    restSeconds: typeof exercise.rest === "number" && exercise.rest >= 0 ? exercise.rest : 60,
   };
+}
+
+function normalizeDaysShape(daysCount: number, current: DayExerciseSelection): DayExerciseSelection {
+  const next: DayExerciseSelection = {};
+  for (let dayIndex = 0; dayIndex < daysCount; dayIndex += 1) {
+    next[dayIndex] = current[dayIndex] ?? [];
+  }
+  return next;
 }
 
 export default function TrainerPlansPageClient() {
   const { t } = useLanguage();
   const { notify } = useToast();
-  const router = useRouter();
   const { isLoading: accessLoading, gymLoading, gymError, membership, canAccessTrainerArea, canAccessAdminNoGymPanel } = useTrainerAreaAccess();
 
-  const [activeTab, setActiveTab] = useState<PlansTabId>("myPlans");
-  const [listState, setListState] = useState<LoadState>("loading");
   const [plans, setPlans] = useState<TrainingPlanListItem[]>([]);
-  const [listError, setListError] = useState(false);
-  const [listDisabled, setListDisabled] = useState(false);
+  const [members, setMembers] = useState<TrainerClient[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [permissionsError, setPermissionsError] = useState(false);
 
   const [title, setTitle] = useState("");
-  const [creating, setCreating] = useState(false);
-  const [createError, setCreateError] = useState(false);
-  const [createErrorMessage, setCreateErrorMessage] = useState<string | null>(null);
-  const [createDisabled, setCreateDisabled] = useState(false);
-  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [startDate, setStartDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [weeks, setWeeks] = useState(4);
+  const [selectedDayIndex, setSelectedDayIndex] = useState(0);
+  const [dayExercises, setDayExercises] = useState<DayExerciseSelection>({});
 
-  const [createStep, setCreateStep] = useState<CreateStep>("basics");
-  const [scheduleWeeks, setScheduleWeeks] = useState(4);
-  const [manualDaysPerWeek, setManualDaysPerWeek] = useState(3);
-  const [scheduleGrid, setScheduleGrid] = useState<boolean[][]>(createWeekSchedule(4));
-  const [selectedScheduleCell, setSelectedScheduleCell] = useState<string | null>(null);
-  const [dayDrafts, setDayDrafts] = useState<Record<string, WorkoutDayDraft>>({});
-
-  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
-  const [detail, setDetail] = useState<DetailState>({ loading: false, error: false, item: null });
-  const [deletePlanTarget, setDeletePlanTarget] = useState<TrainingPlanListItem | null>(null);
-  const [deleteDayTarget, setDeleteDayTarget] = useState<{ id: string; label: string } | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
+  const [editingPlanLoading, setEditingPlanLoading] = useState(false);
   const [deletingPlanId, setDeletingPlanId] = useState<string | null>(null);
-  const [deletingDayId, setDeletingDayId] = useState<string | null>(null);
-  const [deletePlanNotSupportedById, setDeletePlanNotSupportedById] = useState<Record<string, boolean>>({});
-  const [deleteDayNotSupportedByPlanId, setDeleteDayNotSupportedByPlanId] = useState<Record<string, boolean>>({});
 
-  const loadPlans = useCallback(async () => {
-    setListState("loading");
-    setListError(false);
+  const [selectedPlanId, setSelectedPlanId] = useState("");
+  const [selectedMemberId, setSelectedMemberId] = useState("");
+  const [assigning, setAssigning] = useState(false);
+  const [assignmentMessage, setAssignmentMessage] = useState<string | null>(null);
 
-    const result = await listCurrentGymTrainerPlans({ limit: 100 });
-    if (!result.ok) {
-      setPlans([]);
-      const unavailable = isEndpointUnavailable(result.status);
-      setListDisabled(unavailable);
-      if (unavailable) setCreateDisabled(true);
-      setListError(true);
-      setListState("ready");
-      return;
+  const daysCount = Math.max(1, weeks * 7);
+
+  useEffect(() => {
+    setDayExercises((prev) => normalizeDaysShape(daysCount, prev));
+    setSelectedDayIndex((prev) => Math.min(prev, daysCount - 1));
+  }, [daysCount]);
+
+  const selectedDayExerciseList = useMemo(
+    () => dayExercises[selectedDayIndex] ?? EMPTY_EXERCISES,
+    [dayExercises, selectedDayIndex],
+  );
+
+  const loadData = async () => {
+    setLoading(true);
+    setError(null);
+    setPermissionsError(false);
+
+    try {
+      const [plansResult, membersRes] = await Promise.all([
+        listCurrentGymTrainerPlans({ limit: 100 }),
+        fetch("/api/trainer/clients", {
+          credentials: "include",
+          cache: "no-store",
+        }),
+      ]);
+
+      if (!plansResult.ok) {
+        setPlans([]);
+        setPermissionsError(plansResult.status === 401 || plansResult.status === 403);
+      } else {
+        setPlans(plansResult.data.items);
+      }
+
+      if (membersRes.ok) {
+        const membersPayload = (await membersRes.json()) as unknown;
+        setMembers(extractTrainerClients(membersPayload));
+      } else {
+        setMembers([]);
+      }
+
+      if (!plansResult.ok) {
+        setError(
+          plansResult.status === 401 || plansResult.status === 403
+            ? "No se pudieron validar los permisos de entrenador ahora mismo."
+            : t("trainer.error"),
+        );
+      }
+    } catch {
+      setError(t("trainer.error"));
+    } finally {
+      setLoading(false);
     }
-
-    setListDisabled(false);
-    setPlans(result.data.items);
-    setListState("ready");
-  }, []);
-
-  const loadPlanDetail = useCallback(async (planId: string) => {
-    setSelectedPlanId(planId);
-    setDetail({ loading: true, error: false, item: null });
-
-    const result = await getTrainerPlanDetail(planId);
-    if (!result.ok) {
-      setDetail({ loading: false, error: true, item: null });
-      return;
-    }
-
-    setDetail({ loading: false, error: false, item: result.data });
-  }, []);
+  };
 
   useEffect(() => {
     if (!canAccessTrainerArea) return;
-    const timer = window.setTimeout(() => {
-      void loadPlans();
-    }, 0);
+    void loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canAccessTrainerArea]);
 
-    return () => window.clearTimeout(timer);
-  }, [canAccessTrainerArea, loadPlans]);
+  const resetBuilder = () => {
+    setTitle("");
+    setStartDate(new Date().toISOString().slice(0, 10));
+    setWeeks(4);
+    setSelectedDayIndex(0);
+    setDayExercises({});
+    setEditingPlanId(null);
+  };
 
-
-
-  const toggleScheduleDay = (weekIndex: number, dayIndex: number) => {
-    setScheduleGrid((prev) => prev.map((week, rowIndex) => {
-      if (rowIndex !== weekIndex) return week;
-      return week.map((isActive, colIndex) => (colIndex === dayIndex ? !isActive : isActive));
+  const updateExerciseInDay = (dayIndex: number, exerciseId: string, updater: (current: DayExerciseDraft) => DayExerciseDraft) => {
+    setDayExercises((prev) => ({
+      ...prev,
+      [dayIndex]: (prev[dayIndex] ?? []).map((exercise) =>
+        exercise.exerciseId === exerciseId ? updater(exercise) : exercise,
+      ),
     }));
-    const cellKey = `${weekIndex + 1}-${dayIndex + 1}`;
-    setSelectedScheduleCell(cellKey);
-    setDayDrafts((prev) => (prev[cellKey] ? prev : { ...prev, [cellKey]: dayDraft() }));
   };
 
-  const selectedScheduleCells = useMemo(() => (
-    scheduleGrid.flatMap((week, weekIndex) => week.flatMap((enabled, dayIndex) => (enabled ? [`${weekIndex + 1}-${dayIndex + 1}`] : [])))
-  ), [scheduleGrid]);
+  const startEditingPlan = async (planId: string) => {
+    if (!planId || editingPlanLoading || saving) return;
+    setEditingPlanLoading(true);
+    setError(null);
+    try {
+      const result = await getTrainerPlanDetail(planId);
+      if (!result.ok) {
+        throw new Error("LOAD_PLAN_ERROR");
+      }
 
+      const payload = result.data;
+      setEditingPlanId(payload.id);
+      setTitle(payload.title ?? "");
+      setStartDate(payload.startDate ? new Date(payload.startDate).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10));
+      const nextDaysCount = Math.max(1, payload.daysCount ?? 7);
+      setWeeks(Math.max(1, Math.min(12, Math.ceil(nextDaysCount / 7))));
 
-  const selectedWeekdayIndexes = useMemo(() => {
-    const weekdaySet = new Set<number>();
-    scheduleGrid.forEach((week) => {
-      week.forEach((enabled, dayIndex) => {
-        if (enabled) weekdaySet.add(dayIndex);
+      const nextDayExercises: DayExerciseSelection = {};
+      for (let dayIndex = 0; dayIndex < nextDaysCount; dayIndex += 1) {
+        nextDayExercises[dayIndex] = [];
+      }
+
+      (payload.days ?? []).forEach((day, index) => {
+        const dayIndex = index;
+        nextDayExercises[dayIndex] = (day.exercises ?? []).map(toDayExerciseDraft);
       });
-    });
-    return Array.from(weekdaySet).sort((a, b) => a - b);
-  }, [scheduleGrid]);
 
-  const selectedWeekdayCount = selectedWeekdayIndexes.length;
-
-  const selectedScheduleCellForEditor = useMemo(() => {
-    if (selectedScheduleCell && selectedScheduleCells.includes(selectedScheduleCell)) return selectedScheduleCell;
-    return selectedScheduleCells[0] ?? null;
-  }, [selectedScheduleCell, selectedScheduleCells]);
-
-  const selectedDayDraft = useMemo(() => (selectedScheduleCellForEditor ? dayDrafts[selectedScheduleCellForEditor] : null), [dayDrafts, selectedScheduleCellForEditor]);
-
-  const derivedDaysPerWeek = useMemo(() => {
-    if (selectedWeekdayCount > 0) return selectedWeekdayCount;
-    return Math.max(1, Math.min(7, manualDaysPerWeek));
-  }, [manualDaysPerWeek, selectedWeekdayCount]);
-
-  const updateSelectedDayDraft = (updater: (prev: WorkoutDayDraft) => WorkoutDayDraft) => {
-    if (!selectedScheduleCellForEditor) return;
-    setDayDrafts((prev) => ({ ...prev, [selectedScheduleCellForEditor]: updater(prev[selectedScheduleCellForEditor] ?? dayDraft()) }));
+      setDayExercises(nextDayExercises);
+      setSelectedDayIndex(0);
+      setAssignmentMessage(null);
+    } catch {
+      setError("No se pudo cargar el plan para editarlo.");
+    } finally {
+      setEditingPlanLoading(false);
+    }
   };
 
-  const setScheduleWeeksAndGrid = (nextWeeks: number) => {
-    const safeWeeks = Math.max(1, Math.min(12, nextWeeks));
-    setScheduleWeeks(safeWeeks);
-    setScheduleGrid((prev) => {
-      const next = createWeekSchedule(safeWeeks);
-      for (let weekIndex = 0; weekIndex < safeWeeks; weekIndex += 1) {
-        for (let dayIndex = 0; dayIndex < 7; dayIndex += 1) {
-          next[weekIndex][dayIndex] = prev[weekIndex]?.[dayIndex] ?? false;
-        }
+  const applyCurrentDayToAllDays = () => {
+    const source = dayExercises[selectedDayIndex] ?? [];
+    setDayExercises((prev) => {
+      const next: DayExerciseSelection = { ...prev };
+      for (let dayIndex = 0; dayIndex < daysCount; dayIndex += 1) {
+        next[dayIndex] = source.map((exercise) => ({ ...exercise }));
       }
       return next;
     });
   };
 
-  const resetCreateWizard = () => {
-    setTitle("");
-    setCreateStep("basics");
-    setScheduleWeeks(4);
-    setManualDaysPerWeek(3);
-    setScheduleGrid(createWeekSchedule(4));
-    setSelectedScheduleCell(null);
-    setDayDrafts({});
+  const clearCurrentDay = () => {
+    setDayExercises((prev) => ({ ...prev, [selectedDayIndex]: [] }));
   };
 
-  const onCreate = async () => {
-    if (!title.trim() || creating || derivedDaysPerWeek < 1) return;
+  const createPayloadDays = () => {
+    return Array.from({ length: daysCount }).map((_, dayIndex) => {
+      const exercises = (dayExercises[dayIndex] ?? []).map((exercise) => ({
+        exerciseId: exercise.exerciseId,
+        name: exercise.name,
+        sets: Math.max(1, exercise.sets),
+        reps: `${Math.max(1, exercise.repsMin)}-${Math.max(exercise.repsMin, exercise.repsMax)}`,
+        rest: Math.max(0, exercise.restSeconds),
+      }));
 
-    setCreating(true);
-    setCreateError(false);
-    setCreateErrorMessage(null);
-
-    try {
-      const daysPayload = selectedScheduleCells.map((cellKey) => {
-        const [weekRaw, dayRaw] = cellKey.split("-");
-        const weekIndex = Math.max(0, Number(weekRaw) - 1);
-        const dayIndexInWeek = Math.max(0, Number(dayRaw) - 1);
-        const dayIndex = weekIndex * 7 + dayIndexInWeek;
-        const draft = dayDrafts[cellKey] ?? dayDraft();
-
-        return {
-          dayIndex,
-          label: `Semana ${weekIndex + 1} · Día ${dayIndexInWeek + 1}`,
-          focus: draft.workoutName?.trim() || undefined,
-          duration: 45,
-          exercises: draft.exercises.map((exercise) => {
-            const baseSet = draft.sets[0] ?? { repsMin: 8, repsMax: 12, restSeconds: 60 };
-            const maxSetNumber = Math.max(
-              1,
-              ...draft.sets.map((setItem) => Number(setItem.setNumber) || 1),
-            );
-            return {
-              exerciseId: exercise.exerciseId,
-              name: exercise.name,
-              sets: maxSetNumber,
-              reps: `${Math.max(1, baseSet.repsMin)}-${Math.max(baseSet.repsMin, baseSet.repsMax)}`,
-              rest: Math.max(0, baseSet.restSeconds || 0),
-            };
-          }),
-        };
-      });
-
-      const result = await createTrainerPlan({
-        title: title.trim(),
-        daysPerWeek: derivedDaysPerWeek,
-        daysCount: scheduleWeeks * 7,
-        days: daysPayload,
-      });
-
-      if (!result.ok) {
-        if (isEndpointUnavailable(result.status)) setCreateDisabled(true);
-        setCreateError(true);
-        setCreateErrorMessage(result.message ?? t("trainer.plans.createError"));
-        return;
-      }
-
-      resetCreateWizard();
-      setCreateModalOpen(false);
-      notify({
-        title: t("trainer.plans.createSuccessTitle"),
-        description: t("trainer.plans.createSuccessDescription"),
-        variant: "success",
-      });
-      await loadPlans();
-      await loadPlanDetail(result.data.id);
-      router.push(`/app/entrenamiento/editar?planId=${result.data.id}&day=${encodeURIComponent(new Date().toISOString().slice(0, 10))}`);
-    } catch {
-      setCreateError(true);
-      setCreateErrorMessage(t("trainer.plans.createError"));
-    } finally {
-      setCreating(false);
-    }
+      return {
+        dayIndex,
+        label: dayLabel(dayIndex),
+        exercises,
+      };
+    });
   };
 
-  const onCreateWizardSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (createStep === "basics") {
-      if (createDisabled || creating || !title.trim()) return;
-      setCreateStep("schedule");
-      return;
-    }
+    if (!title.trim() || saving) return;
 
-    if (createStep === "schedule") {
-      if (derivedDaysPerWeek < 1) return;
-      setCreateStep("workouts");
-      return;
-    }
-
-    void onCreate();
-  };
-
-  const onDeletePlan = async () => {
-    if (!deletePlanTarget || deletingPlanId) return;
-
-    const target = deletePlanTarget;
-    setDeletingPlanId(target.id);
+    setSaving(true);
+    setError(null);
+    setAssignmentMessage(null);
 
     try {
-      const result = await deleteTrainerPlan(target.id);
-      if (!result.ok) {
-        const unsupported = result.status === 404 || result.status === 405 || result.status === 501;
-        if (unsupported) {
-          setDeletePlanNotSupportedById((prev) => ({ ...prev, [target.id]: true }));
-          markTrainerPlanEditCapabilityUnsupported(target.id, "canDeletePlan");
+      const payloadDays = createPayloadDays();
+      const payload = {
+        title: title.trim(),
+        startDate,
+        daysPerWeek: Math.min(7, Math.max(1, Math.round(daysCount / weeks))),
+        daysCount,
+        days: payloadDays,
+      };
+
+      if (!editingPlanId) {
+        const createResult = await createTrainerPlan(payload);
+        if (!createResult.ok) {
+          throw new Error("CREATE_ERROR");
+        }
+      } else {
+        const saveResult = await saveTrainerPlan(editingPlanId, {
+          title: payload.title,
+          startDate: payload.startDate,
+          daysCount: payload.daysCount,
+        });
+
+        if (!saveResult.ok) {
+          throw new Error("UPDATE_ERROR");
         }
 
-        notify({
-          title: t("trainer.plans.actions.delete"),
-          description: unsupported ? t("trainer.plans.cannotDeletePlanInEnvironment") : t("trainer.plans.deleteError"),
-          variant: "error",
+        const refreshed = await getTrainerPlanDetail(editingPlanId);
+        if (!refreshed.ok) {
+          throw new Error("UPDATE_ERROR");
+        }
+
+        const daysByIndex = new Map<number, string>();
+        (refreshed.data.days ?? []).forEach((day, index) => {
+          daysByIndex.set(index, day.id);
         });
-        return;
+
+        for (const day of payloadDays) {
+          const dayId = daysByIndex.get(day.dayIndex);
+          if (!dayId) continue;
+
+          for (const exercise of day.exercises) {
+            const addResult = await addExerciseToPlanDay({
+              planId: editingPlanId,
+              dayId,
+              exerciseId: exercise.exerciseId,
+            });
+
+            if (!addResult.ok) continue;
+
+            const exerciseDetail = await getTrainerPlanDetail(editingPlanId);
+            if (!exerciseDetail.ok) continue;
+
+            const targetDay = (exerciseDetail.data.days ?? []).find((item) => item.id === dayId);
+            const createdExercise = (targetDay?.exercises ?? []).find((item) => item.name === exercise.name);
+            if (!createdExercise) continue;
+
+            await updatePlanDayExercise({
+              planId: editingPlanId,
+              dayId,
+              exerciseId: createdExercise.id,
+              sets: exercise.sets,
+              reps: exercise.reps,
+              rest: exercise.rest,
+            });
+          }
+        }
       }
 
-      setDeletePlanTarget(null);
-      setDeletePlanNotSupportedById((prev) => {
-        const next = { ...prev };
-        delete next[target.id];
-        return next;
+      resetBuilder();
+      await loadData();
+      notify({
+        title: t("common.success"),
+        description: editingPlanId ? "Plan actualizado correctamente." : "Plan creado correctamente.",
+        variant: "success",
       });
+    } catch {
+      setError(t("trainer.error"));
+    } finally {
+      setSaving(false);
+    }
+  };
 
-      if (selectedPlanId === target.id) {
-        setSelectedPlanId(null);
-        setDetail({ loading: false, error: false, item: null });
+  const onDeletePlan = async (planId: string) => {
+    if (deletingPlanId) return;
+    setDeletingPlanId(planId);
+    setError(null);
+
+    try {
+      const result = await deleteTrainerPlan(planId);
+      if (!result.ok) {
+        throw new Error("DELETE_ERROR");
       }
-
-      await loadPlans();
-
-      if (selectedPlanId && selectedPlanId !== target.id) {
-        await loadPlanDetail(selectedPlanId);
+      await loadData();
+      if (editingPlanId === planId) {
+        resetBuilder();
       }
+    } catch {
+      setError("No se pudo eliminar el plan.");
     } finally {
       setDeletingPlanId(null);
     }
   };
 
-  const onDeleteDay = async () => {
-    if (!detail.item?.id || !deleteDayTarget || deletingDayId) return;
-
-    const currentPlanId = detail.item.id;
-    const target = deleteDayTarget;
-    setDeletingDayId(target.id);
+  const assignPlan = async () => {
+    if (!selectedPlanId || !selectedMemberId || assigning) return;
+    setAssigning(true);
+    setAssignmentMessage(null);
+    setError(null);
 
     try {
-      const result = await deleteTrainerPlanDay(currentPlanId, target.id);
+      const response = await fetch(
+        `/api/trainer/clients/${selectedMemberId}/assigned-plan`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ trainingPlanId: selectedPlanId }),
+        },
+      );
 
-      if (!result.ok) {
-        const alreadyDeleted = result.status === 404;
-        const unsupported = result.status === 405 || result.status === 501;
+      if (!response.ok) throw new Error("ASSIGN_ERROR");
 
-        if (unsupported) {
-          setDeleteDayNotSupportedByPlanId((prev) => ({ ...prev, [currentPlanId]: true }));
-          markTrainerPlanEditCapabilityUnsupported(currentPlanId, "canDeleteDay", { dayId: target.id });
-        }
-
-        if (!alreadyDeleted) {
-          notify({
-            title: t("trainer.planDetail.deleteDay"),
-            description: unsupported ? t("trainer.plans.cannotDeleteDayInEnvironment") : t("trainer.plans.deleteDayError"),
-            variant: "error",
-          });
-          return;
-        }
-      } else {
-        setDeleteDayNotSupportedByPlanId((prev) => ({ ...prev, [currentPlanId]: false }));
-        notify({ title: t("trainer.planDetail.deleteDay"), description: t("trainer.plans.deleteDaySuccess"), variant: "success" });
-      }
-
-      setDeleteDayTarget(null);
-      await loadPlanDetail(currentPlanId);
-      await loadPlans();
+      const selectedPlan = plans.find((plan) => plan.id === selectedPlanId);
+      const selectedMember = members.find((member) => member.id === selectedMemberId);
+      setAssignmentMessage(
+        `Plan "${selectedPlan?.title ?? ""}" asignado a ${selectedMember?.name ?? selectedMember?.email ?? "miembro"}.`,
+      );
+      setSelectedPlanId("");
+      setSelectedMemberId("");
+    } catch {
+      setError(t("trainer.error"));
     } finally {
-      setDeletingDayId(null);
+      setAssigning(false);
     }
   };
 
-  if (accessLoading || gymLoading) return <LoadingState ariaLabel={t("trainer.loading")} lines={3} />;
-  if (canAccessAdminNoGymPanel) return <TrainerAdminNoGymPanel />;
+  if (accessLoading || gymLoading) {
+    return <LoadingState ariaLabel={t("trainer.loading")} lines={2} />;
+  }
+
+  if (canAccessAdminNoGymPanel) {
+    return <TrainerAdminNoGymPanel />;
+  }
 
   if (!canAccessTrainerArea) {
-    if (membership.state === "not_in_gym") return <TrainerGymRequiredState />;
-    if (gymError) return <ErrorState title={t("trainer.error")} retryLabel={t("ui.retry")} onRetry={() => window.location.reload()} wrapInCard />;
+    if (membership.state === "not_in_gym") {
+      return <TrainerGymRequiredState />;
+    }
+
+    if (gymError) {
+      return <ErrorState title={t("trainer.error")} retryLabel={t("ui.retry")} onRetry={() => window.location.reload()} wrapInCard />;
+    }
+
     return <EmptyState title={t("trainer.unauthorized")} wrapInCard icon="warning" />;
   }
 
-  const myPlansEmptyFromGym = membership.gymId == null;
-
   return (
-    <div className="form-stack">
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("trainer.plans.createTitle")}</CardTitle>
-          <CardDescription>{t("trainer.plans.createFlowDescription")}</CardDescription>
-        </CardHeader>
-        <CardContent className="form-stack" style={{ gap: 10 }}>
-          {createDisabled ? <p className="muted">{t("trainer.plans.createDisabled")}</p> : null}
-          <div>
-            <Button onClick={() => setCreateModalOpen(true)} disabled={createDisabled}>{t("trainer.plans.create")}</Button>
+    <section className="section-stack" data-testid="trainer-plans-page">
+      <h1 className="section-title">Planes del gimnasio</h1>
+
+      <form className="card form-stack" onSubmit={onSubmit}>
+        <h2 style={{ margin: 0 }}>{editingPlanId ? "Editar plan de entrenamiento" : "Crear plan de entrenamiento"}</h2>
+        <p className="muted" style={{ margin: 0 }}>
+          Define semanas y configura ejercicios por día con series, repeticiones y descanso.
+        </p>
+
+        <label className="form-stack" style={{ gap: 6 }}>
+          <span>Título</span>
+          <input
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            required
+          />
+        </label>
+
+        <div className="grid" style={{ gridTemplateColumns: "repeat(2, minmax(120px, 1fr))", gap: 10 }}>
+          <label className="form-stack" style={{ gap: 6 }}>
+            <span>Inicio</span>
+            <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
+          </label>
+          <label className="form-stack" style={{ gap: 6 }}>
+            <span>Semanas</span>
+            <input
+              type="number"
+              min={1}
+              max={12}
+              value={weeks}
+              onChange={(event) => setWeeks(Math.max(1, Math.min(12, Number(event.target.value) || 1)))}
+            />
+          </label>
+        </div>
+
+        <div className="card" style={{ border: "1px solid var(--surface-border-default)", padding: 12 }}>
+          <div className="inline-actions-sm" style={{ justifyContent: "space-between", alignItems: "center" }}>
+            <strong>Planificación diaria</strong>
+            <span className="muted">{daysCount} días totales</span>
           </div>
-          {createError ? <p className="muted" role="alert">{createErrorMessage ?? t("trainer.plans.createError")}</p> : null}
-        </CardContent>
-      </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("trainer.plans.tabs.title")}</CardTitle>
-        </CardHeader>
-        <CardContent className="form-stack" style={{ gap: 12 }}>
-          <TrainerPlansTabs selectedTab={activeTab} onChange={setActiveTab} />
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: 8, marginTop: 10 }}>
+            {Array.from({ length: daysCount }).map((_, dayIndex) => {
+              const isActive = dayIndex === selectedDayIndex;
+              const exerciseCount = (dayExercises[dayIndex] ?? []).length;
+              return (
+                <button
+                  key={dayIndex}
+                  type="button"
+                  className={`btn ${isActive ? "" : "secondary"}`}
+                  style={{ height: 44, justifyContent: "space-between", paddingInline: 10 }}
+                  onClick={() => setSelectedDayIndex(dayIndex)}
+                >
+                  <span>D{dayIndex + 1}</span>
+                  <span className="badge">{exerciseCount}</span>
+                </button>
+              );
+            })}
+          </div>
 
-          {activeTab === "fitsculptPlans" ? (
-            <section id="trainer-plans-panel-fitsculpt" role="tabpanel" aria-labelledby="trainer-plans-tab-fitsculpt">
-              <Card className="form-stack" style={{ position: "relative", overflow: "hidden" }}>
-                <CardHeader>
-                  <CardTitle>{t("trainer.plans.tabs.fitsculptPlans")}</CardTitle>
-                  <CardDescription>{t("trainer.plans.fitsculpt.description")}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <EmptyState
-                    title={t("trainer.plans.fitsculpt.emptyTitle")}
-                    description={t("trainer.plans.fitsculpt.emptyDescription")}
-                    wrapInCard
-                    icon="info"
-                  />
-                </CardContent>
-                <div aria-hidden="true" style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(0,0,0,0.05), rgba(0,0,0,0.35))", pointerEvents: "none" }} />
-                <div style={{ position: "absolute", top: 12, right: 12 }}><Badge variant="warning">{t("trainer.plans.lockedBadge")}</Badge></div>
-              </Card>
-            </section>
-          ) : (
-            <section id="trainer-plans-panel-my" role="tabpanel" aria-labelledby="trainer-plans-tab-my" className="form-stack">
-              {myPlansEmptyFromGym ? (
-                <Card>
-                  <CardContent>
-                    <EmptyState
-                      title={t("trainer.plans.myPlans.noGymTitle")}
-                      description={t("trainer.plans.myPlans.noGymDescription")}
-                      wrapInCard
-                      icon="info"
-                      actions={[{ label: t("trainer.plans.myPlans.goToGym"), href: "/app/gym" }]}
-                    />
-                  </CardContent>
-                </Card>
-              ) : null}
-
-              {listState === "loading" ? <LoadingState ariaLabel={t("trainer.plans.loading")} lines={3} /> : null}
-              {listState === "ready" && listError
-                ? (listDisabled
-                  ? <EmptyState title={t("trainer.plans.listDisabledTitle")} description={t("trainer.plans.listDisabledDescription")} wrapInCard icon="info" />
-                  : <ErrorState title={t("trainer.plans.error")} retryLabel={t("ui.retry")} onRetry={() => void loadPlans()} wrapInCard />)
-                : null}
-              {listState === "ready" && !listError && plans.length === 0 ? <EmptyState title={t("trainer.plans.empty")} wrapInCard icon="info" /> : null}
-
-              {listState === "ready" && !listError && plans.length > 0 ? (
-                <ul className="form-stack" style={{ margin: 0, paddingInlineStart: 0, listStyle: "none" }}>
-                  {plans.map((plan) => (
-                    <li key={plan.id}>
-                      <Card>
-                        <CardContent style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-                          <div className="form-stack" style={{ gap: 4 }}>
-                            <strong>{plan.title}</strong>
-                            <span className="muted">{t("trainer.plans.daysCount", { count: plan.daysCount })}</span>
-                          </div>
-                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                            <Button variant="secondary" onClick={() => void loadPlanDetail(plan.id)}>{t("trainer.plans.selectPlan")}</Button>
-                            <Button
-                              variant="ghost"
-                              disabled={Boolean(deletePlanNotSupportedById[plan.id])}
-                              onClick={() => setDeletePlanTarget(plan)}
-                              title={deletePlanNotSupportedById[plan.id] ? t("trainer.plans.actions.deleteUnsupported") : undefined}
-                            >
-                              {t("trainer.plans.actions.delete")}
-                            </Button>
-                            <ButtonLink href={`/app/entrenamiento/editar?planId=${plan.id}&day=${encodeURIComponent(new Date().toISOString().slice(0, 10))}`} variant="secondary">
-                              {t("trainer.plans.editDay")}
-                            </ButtonLink>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </section>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("trainer.plans.dayBuilderTitle")}</CardTitle>
-        </CardHeader>
-        <CardContent className="form-stack">
-          {!selectedPlanId ? <p className="muted">{t("trainer.plans.dayBuilderEmpty")}</p> : null}
-          {selectedPlanId && detail.loading ? <LoadingState ariaLabel={t("trainer.plans.loading")} lines={2} /> : null}
-          {selectedPlanId && detail.error ? <ErrorState title={t("trainer.plans.error")} retryLabel={t("ui.retry")} onRetry={() => void loadPlanDetail(selectedPlanId)} wrapInCard /> : null}
-          {detail.item ? (
-            <>
-              <div className="feature-card form-stack">
-                <strong>{detail.item.title}</strong>
-                <p className="muted" style={{ margin: 0 }}>{t("training.daysPerWeek")}: {detail.item.daysPerWeek} · {t("trainer.plans.daysCount", { count: detail.item.days?.length ?? 0 })}</p>
-                <p className="muted" style={{ margin: 0 }}>{t("trainer.plans.dayEditorHint")}</p>
+          <div className="card" style={{ marginTop: 12, border: "1px solid var(--surface-border-default)", padding: 12 }}>
+            <div className="inline-actions-sm" style={{ justifyContent: "space-between", alignItems: "center" }}>
+              <strong>{dayLabel(selectedDayIndex)}</strong>
+              <div className="inline-actions-sm">
+                <button type="button" className="btn secondary" onClick={clearCurrentDay}>Limpiar día</button>
+                <button type="button" className="btn secondary" onClick={applyCurrentDayToAllDays}>Aplicar a todos</button>
               </div>
+            </div>
 
-              <div className="form-stack">
-                {(detail.item.days ?? []).map((day) => (
-                  <article key={day.id} className="feature-card form-stack">
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                      <strong>{day.label}</strong>
-                      <Link className="btn secondary" href={`/app/entrenamiento/editar?planId=${detail.item?.id ?? ""}&day=${encodeURIComponent(day.date.slice(0, 10))}`}>{t("trainer.plans.editDay")}</Link>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        disabled={Boolean(detail.item?.id && deleteDayNotSupportedByPlanId[detail.item.id])}
-                        onClick={() => setDeleteDayTarget({ id: day.id, label: day.label })}
-                        title={detail.item?.id && deleteDayNotSupportedByPlanId[detail.item.id] ? t("trainer.planDetail.notAvailableInEnvironment") : undefined}
-                      >
-                        {t("trainer.planDetail.deleteDay")}
-                      </Button>
-                    </div>
-                    {day.exercises.length === 0 ? <p className="muted">{t("trainer.plans.dayExercisesEmpty")}</p> : (
-                      <ul style={{ margin: 0, paddingInlineStart: 20 }}>
-                        {day.exercises.map((exercise) => <li key={exercise.id}>{exercise.name}</li>)}
-                      </ul>
-                    )}
-                  </article>
-                ))}
-              </div>
-            </>
-          ) : null}
-        </CardContent>
-      </Card>
+            <ExerciseLibrarySelector
+              disabled={saving}
+              selectedExercises={selectedDayExerciseList}
+              onSelect={(exercise) => {
+                setDayExercises((prev) => {
+                  const current = prev[selectedDayIndex] ?? [];
+                  if (current.some((item) => item.exerciseId === exercise.exerciseId)) return prev;
+                  return {
+                    ...prev,
+                    [selectedDayIndex]: [
+                      ...current,
+                      {
+                        ...exercise,
+                        sets: 3,
+                        repsMin: 8,
+                        repsMax: 12,
+                        restSeconds: 60,
+                      },
+                    ],
+                  };
+                });
+              }}
+            />
 
-      <Modal
-        open={Boolean(deletePlanTarget)}
-        onClose={() => !deletingPlanId && setDeletePlanTarget(null)}
-        title={t("trainer.plans.deleteConfirmTitle")}
-        description={t("trainer.plans.deleteConfirmDescription")}
-      >
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-          <Button variant="secondary" onClick={() => setDeletePlanTarget(null)} disabled={Boolean(deletingPlanId)}>{t("ui.cancel")}</Button>
-          <Button variant="danger" onClick={() => void onDeletePlan()} loading={Boolean(deletingPlanId)} disabled={!deletePlanTarget || Boolean(deletingPlanId)}>{t("trainer.plans.actions.delete")}</Button>
-        </div>
-      </Modal>
-
-      <Modal
-        open={Boolean(deleteDayTarget)}
-        onClose={() => !deletingDayId && setDeleteDayTarget(null)}
-        title={t("trainer.plans.deleteDayConfirmTitle")}
-        description={t("trainer.plans.deleteDayConfirmDescription")}
-      >
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-          <Button variant="secondary" onClick={() => setDeleteDayTarget(null)} disabled={Boolean(deletingDayId)}>{t("ui.cancel")}</Button>
-          <Button variant="danger" onClick={() => void onDeleteDay()} loading={Boolean(deletingDayId)} disabled={!deleteDayTarget || Boolean(deletingDayId)}>{t("trainer.plans.actions.delete")}</Button>
-        </div>
-      </Modal>
-
-      <Modal
-        open={createModalOpen}
-        onClose={() => {
-          if (!creating) {
-            resetCreateWizard();
-            setCreateModalOpen(false);
-          }
-        }}
-        title={t(
-          createStep === "basics"
-            ? "trainer.plans.wizard.basicsTitle"
-            : createStep === "schedule"
-              ? "trainer.plans.wizard.scheduleTitle"
-              : "trainer.plans.wizard.workoutsTitle",
-        )}
-        description={t(
-          createStep === "basics"
-            ? "trainer.plans.wizard.basicsDescription"
-            : createStep === "schedule"
-              ? "trainer.plans.wizard.scheduleDescription"
-              : "trainer.plans.wizard.workoutsDescription",
-        )}
-      >
-        <form className="form-stack" onSubmit={onCreateWizardSubmit} style={{ maxHeight: "min(78vh, 760px)", overflowY: "auto", paddingInlineEnd: 2 }}>
-          {createError ? <p className="muted" role="alert">{createErrorMessage ?? t("trainer.plans.createError")}</p> : null}
-
-          {createStep === "basics" ? (
-            <>
-              <Input label={t("trainer.plans.titleLabel")} required value={title} disabled={createDisabled || creating} onChange={(event) => setTitle(event.target.value)} />
-              <Input
-                type="number"
-                min={1}
-                max={12}
-                label={t("trainer.plans.wizard.weeksLabel")}
-                value={scheduleWeeks}
-                disabled={createDisabled || creating}
-                onChange={(event) => setScheduleWeeksAndGrid(Number(event.target.value) || 1)}
-              />
-              <p className="muted" style={{ margin: 0 }}>{t("trainer.plans.wizard.goToScheduleHint")}</p>
-            </>
-          ) : null}
-
-          {createStep === "schedule" ? (
-            <>
-              <p className="muted" style={{ margin: 0 }}>{t("trainer.plans.wizard.weekRange", { start: 1, end: scheduleWeeks })}</p>
-
-              <Input
-                type="number"
-                min={1}
-                max={7}
-                label={t("training.daysPerWeek")}
-                value={derivedDaysPerWeek}
-                disabled={createDisabled || creating || selectedWeekdayCount > 0}
-                onChange={(event) => setManualDaysPerWeek(Math.max(1, Math.min(7, Number(event.target.value) || 1)))}
-              />
-              {selectedWeekdayCount > 0 ? (
-                <p className="muted" style={{ margin: 0 }}>
-                  {t("trainer.plans.wizard.selectedDaysCount", { count: selectedWeekdayCount })}
-                </p>
-              ) : null}
-
-              <div className="form-stack" style={{ gap: 6 }}>
-                {scheduleGrid.map((week, weekIndex) => (
-                  <div key={`week-${weekIndex + 1}`} style={{ display: "grid", gridTemplateColumns: "80px repeat(7, minmax(44px, 1fr))", gap: 6, alignItems: "center" }}>
-                    <span className="muted">{t("trainer.plans.wizard.weekLabel", { week: weekIndex + 1 })}</span>
-                    {week.map((enabled, dayIndex) => {
-                      const cellKey = `${weekIndex + 1}-${dayIndex + 1}`;
-                      const isSelected = selectedScheduleCell === cellKey;
-                      return (
-                        <Button
-                          key={cellKey}
-                          type="button"
-                          size="sm"
-                          variant={enabled ? "primary" : "secondary"}
-                          aria-pressed={enabled}
-                          onClick={() => toggleScheduleDay(weekIndex, dayIndex)}
-                          style={{ minHeight: 40, borderWidth: isSelected ? 2 : 1 }}
-                        >
-                          {t("trainer.plans.wizard.dayShort", { day: dayIndex + 1 })}
-                        </Button>
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
-
-              <p className="muted" style={{ margin: 0 }}>{t("trainer.plans.wizard.selectedDaysCount", { count: derivedDaysPerWeek })}</p>
-              <p className="muted" style={{ margin: 0 }}>{t("trainer.plans.wizard.localOnlyHint")}</p>
-            </>
-          ) : null}
-
-          {createStep === "workouts" ? (
-            <>
-              <p className="muted" style={{ margin: 0 }}>{t("trainer.plans.wizard.selectedDaysCount", { count: derivedDaysPerWeek })}</p>
-              {selectedScheduleCells.length > 0 ? (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                  {selectedScheduleCells.map((cellKey) => (
-                    <Button
-                      key={cellKey}
-                      type="button"
-                      size="sm"
-                      variant={selectedScheduleCellForEditor === cellKey ? "primary" : "secondary"}
-                      onClick={() => setSelectedScheduleCell(cellKey)}
-                    >
-                      {t("trainer.plans.wizard.editDayChip", { day: cellKey })}
-                    </Button>
-                  ))}
-                </div>
-              ) : null}
-
-              {selectedDayDraft ? (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>{t("trainer.plans.wizard.workoutEditorTitle")}</CardTitle>
-                    <CardDescription>{t("trainer.plans.wizard.workoutEditorDescription", { day: selectedScheduleCellForEditor ?? "" })}</CardDescription>
-                  </CardHeader>
-                  <CardContent className="form-stack">
-                    <Input
-                      label={t("trainer.plans.wizard.workoutNameLabel")}
-                      value={selectedDayDraft.workoutName}
-                      onChange={(event) => updateSelectedDayDraft((prev) => ({ ...prev, workoutName: event.target.value }))}
-                    />
-
-                    <div className="form-stack" style={{ gap: 8 }}>
-                      <span className="muted">{t("trainer.plans.wizard.exerciseSectionTitle")}</span>
-                      <ExerciseLibrarySelector
-                        disabled={creating}
-                        selectedExercises={selectedDayDraft.exercises}
-                        onSelect={(exercise) => updateSelectedDayDraft((prev) => {
-                          if (prev.exercises.some((item) => item.exerciseId === exercise.exerciseId)) return prev;
-                          return { ...prev, exercises: [...prev.exercises, exercise] };
-                        })}
-                      />
-                      {selectedDayDraft.exercises.length > 0 ? (
-                        <ul className="form-stack" style={{ margin: 0, listStyle: "none", paddingInlineStart: 0, gap: 6 }}>
-                          {selectedDayDraft.exercises.map((exercise) => (
-                            <li key={exercise.exerciseId} style={{ display: "flex", gap: 8, alignItems: "center", justifyContent: "space-between" }}>
-                              <span>{exercise.name}</span>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => updateSelectedDayDraft((prev) => ({
-                                  ...prev,
-                                  exercises: prev.exercises.filter((item) => item.exerciseId !== exercise.exerciseId),
-                                }))}
-                              >
-                                {t("ui.remove")}
-                              </Button>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="muted" style={{ margin: 0 }}>{t("trainer.plans.wizard.selectedExercisesEmpty")}</p>
-                      )}
-                      <p className="muted" style={{ margin: 0 }}>{t("trainer.plans.wizard.exerciseUnavailableNeutral")}</p>
-                    </div>
-
-                    <label className="form-stack" style={{ gap: 6 }}>
-                      <span className="muted">{t("trainer.plans.wizard.loadTargetLabel")}</span>
-                      <select
-                        value={selectedDayDraft.loadTarget}
-                        onChange={(event) => updateSelectedDayDraft((prev) => ({ ...prev, loadTarget: event.target.value as LoadTarget }))}
-                      >
-                        <option value="endurance">{t("trainer.plans.wizard.loadTarget.endurance")}</option>
-                        <option value="hypertrophy">{t("trainer.plans.wizard.loadTarget.hypertrophy")}</option>
-                        <option value="strength">{t("trainer.plans.wizard.loadTarget.strength")}</option>
-                        <option value="maxStrength">{t("trainer.plans.wizard.loadTarget.maxStrength")}</option>
-                        <option value="power">{t("trainer.plans.wizard.loadTarget.power")}</option>
-                        <option value="plyometrics">{t("trainer.plans.wizard.loadTarget.plyometrics")}</option>
-                      </select>
-                    </label>
-
-                    <label className="form-stack" style={{ gap: 6 }}>
-                      <span className="muted">{t("trainer.plans.wizard.loadTypeLabel")}</span>
-                      <select
-                        value={selectedDayDraft.loadType}
-                        onChange={(event) => updateSelectedDayDraft((prev) => ({ ...prev, loadType: event.target.value as LoadType }))}
-                      >
-                        <option value="classic">{t("trainer.plans.wizard.loadType.classic")}</option>
-                        <option value="pyramid">{t("trainer.plans.wizard.loadType.pyramid")}</option>
-                        <option value="dropSet">{t("trainer.plans.wizard.loadType.dropSet")}</option>
-                      </select>
-                    </label>
-
-                    <div className="form-stack" style={{ gap: 8 }}>
-                      <strong>{t("trainer.plans.wizard.setEditorTitle")}</strong>
-                      <div className="form-stack" style={{ gap: 8, maxHeight: "40vh", overflowY: "auto", paddingInlineEnd: 2 }}>
-                      {selectedDayDraft.sets.map((setItem, setIndex) => (
-                        <div key={`set-${setIndex + 1}`} style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(90px, 1fr))", gap: 8 }}>
-                          <Input
-                            type="number"
-                            label={t("trainer.plans.wizard.setNumberLabel")}
-                            value={setItem.setNumber}
-                            min={1}
-                            onChange={(event) => updateSelectedDayDraft((prev) => {
-                              const nextSets = [...prev.sets];
-                              nextSets[setIndex] = { ...nextSets[setIndex], setNumber: Math.max(1, Number(event.target.value) || 1) };
-                              return { ...prev, sets: nextSets };
-                            })}
-                          />
-                          <Input
-                            type="number"
-                            label={t("trainer.plans.wizard.repsMinLabel")}
-                            value={setItem.repsMin}
-                            min={1}
-                            onChange={(event) => updateSelectedDayDraft((prev) => {
-                              const nextSets = [...prev.sets];
-                              nextSets[setIndex] = { ...nextSets[setIndex], repsMin: Math.max(1, Number(event.target.value) || 1) };
-                              return { ...prev, sets: nextSets };
-                            })}
-                          />
-                          <Input
-                            type="number"
-                            label={t("trainer.plans.wizard.repsMaxLabel")}
-                            value={setItem.repsMax}
-                            min={1}
-                            onChange={(event) => updateSelectedDayDraft((prev) => {
-                              const nextSets = [...prev.sets];
-                              nextSets[setIndex] = { ...nextSets[setIndex], repsMax: Math.max(1, Number(event.target.value) || 1) };
-                              return { ...prev, sets: nextSets };
-                            })}
-                          />
-                          <Input
-                            type="number"
-                            label={t("trainer.plans.wizard.restSecondsLabel")}
-                            value={setItem.restSeconds}
-                            min={0}
-                            onChange={(event) => updateSelectedDayDraft((prev) => {
-                              const nextSets = [...prev.sets];
-                              nextSets[setIndex] = { ...nextSets[setIndex], restSeconds: Math.max(0, Number(event.target.value) || 0) };
-                              return { ...prev, sets: nextSets };
-                            })}
-                          />
-                        </div>
-                      ))}
-                      </div>
-                      <Button
+            {selectedDayExerciseList.length > 0 ? (
+              <ul className="form-stack" style={{ margin: "10px 0 0", listStyle: "none", paddingInlineStart: 0, gap: 8 }}>
+                {selectedDayExerciseList.map((exercise) => (
+                  <li key={exercise.exerciseId} className="card form-stack" style={{ gap: 8, padding: 10 }}>
+                    <div className="inline-actions-sm" style={{ justifyContent: "space-between", alignItems: "center" }}>
+                      <strong>{exercise.name}</strong>
+                      <button
                         type="button"
-                        variant="secondary"
-                        onClick={() => updateSelectedDayDraft((prev) => ({
-                          ...prev,
-                          sets: [...prev.sets, { setNumber: prev.sets.length + 1, repsMin: 8, repsMax: 12, restSeconds: 60 }],
-                        }))}
+                        className="btn secondary"
+                        onClick={() => {
+                          setDayExercises((prev) => ({
+                            ...prev,
+                            [selectedDayIndex]: (prev[selectedDayIndex] ?? []).filter((item) => item.exerciseId !== exercise.exerciseId),
+                          }));
+                        }}
                       >
-                        {t("trainer.plans.wizard.addSet")}
-                      </Button>
-                      <p className="muted" style={{ margin: 0 }}>{t("trainer.plans.wizard.savedLocallyHint")}</p>
+                        {`${t("ui.remove")}: ${exercise.name}`}
+                      </button>
                     </div>
-                  </CardContent>
-                </Card>
-              ) : (
-                <p className="muted">{t("trainer.plans.wizard.selectDayForEditor")}</p>
-              )}
-            </>
-          ) : null}
 
-          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap", position: "sticky", bottom: 0, background: "var(--card, #111)", paddingTop: 10 }}>
-            {createStep === "schedule" ? (
-              <Button type="button" variant="ghost" onClick={() => setCreateStep("basics")} disabled={creating}>{t("trainer.plans.wizard.backToBasics")}</Button>
-            ) : null}
-            {createStep === "workouts" ? (
-              <Button type="button" variant="ghost" onClick={() => setCreateStep("schedule")} disabled={creating}>{t("trainer.plans.wizard.backToSchedule")}</Button>
-            ) : null}
-            <Button type="button" variant="secondary" onClick={() => {
-              resetCreateWizard();
-              setCreateModalOpen(false);
-            }} disabled={creating}>
-              {t("ui.cancel")}
-            </Button>
-            {createStep === "basics" ? (
-              <Button type="submit" disabled={createDisabled || creating || !title.trim()}>{t("trainer.plans.wizard.continue")}</Button>
-            ) : null}
-            {createStep === "schedule" ? (
-              <Button type="submit" disabled={createDisabled || creating || derivedDaysPerWeek < 1}>{t("trainer.plans.wizard.continueToWorkouts")}</Button>
-            ) : null}
-            {createStep === "workouts" ? (
-              <Button type="submit" disabled={createDisabled || creating || !title.trim() || derivedDaysPerWeek < 1} loading={creating}>{t("trainer.plans.create")}</Button>
-            ) : null}
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(90px, 1fr))", gap: 8 }}>
+                      <label className="form-stack" style={{ gap: 4 }}>
+                        <span className="muted">Series</span>
+                        <input
+                          type="number"
+                          min={1}
+                          value={exercise.sets}
+                          onChange={(event) => updateExerciseInDay(selectedDayIndex, exercise.exerciseId, (current) => ({
+                            ...current,
+                            sets: Math.max(1, Number(event.target.value) || 1),
+                          }))}
+                        />
+                      </label>
+                      <label className="form-stack" style={{ gap: 4 }}>
+                        <span className="muted">Reps mín</span>
+                        <input
+                          type="number"
+                          min={1}
+                          value={exercise.repsMin}
+                          onChange={(event) => updateExerciseInDay(selectedDayIndex, exercise.exerciseId, (current) => ({
+                            ...current,
+                            repsMin: Math.max(1, Number(event.target.value) || 1),
+                          }))}
+                        />
+                      </label>
+                      <label className="form-stack" style={{ gap: 4 }}>
+                        <span className="muted">Reps máx</span>
+                        <input
+                          type="number"
+                          min={1}
+                          value={exercise.repsMax}
+                          onChange={(event) => updateExerciseInDay(selectedDayIndex, exercise.exerciseId, (current) => ({
+                            ...current,
+                            repsMax: Math.max(1, Number(event.target.value) || 1),
+                          }))}
+                        />
+                      </label>
+                      <label className="form-stack" style={{ gap: 4 }}>
+                        <span className="muted">Descanso (seg)</span>
+                        <input
+                          type="number"
+                          min={0}
+                          value={exercise.restSeconds}
+                          onChange={(event) => updateExerciseInDay(selectedDayIndex, exercise.exerciseId, (current) => ({
+                            ...current,
+                            restSeconds: Math.max(0, Number(event.target.value) || 0),
+                          }))}
+                        />
+                      </label>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="muted" style={{ margin: "10px 0 0" }}>Aún no hay ejercicios seleccionados para este día.</p>
+            )}
           </div>
-        </form>
-      </Modal>
-    </div>
+        </div>
+
+        <button
+          type="submit"
+          className="btn"
+          disabled={saving || !title.trim()}
+        >
+          {saving ? t("ui.loading") : editingPlanId ? "Guardar cambios" : "Crear plan de entrenamiento"}
+        </button>
+        {editingPlanId ? (
+          <button type="button" className="btn secondary" onClick={resetBuilder} disabled={saving}>
+            Cancelar edición
+          </button>
+        ) : null}
+      </form>
+
+      <section className="card form-stack">
+        <h2 style={{ margin: 0 }}>Planes del gimnasio</h2>
+        {loading ? <p className="muted">{t("common.loading")}</p> : null}
+        {error ? <p className="muted">{error}</p> : null}
+        {permissionsError ? (
+          <p className="muted">
+            Verifica que tu usuario tenga membresía activa como TRAINER/ADMIN en un gimnasio.
+          </p>
+        ) : null}
+        {!loading && !error && plans.length === 0 ? (
+          <p className="muted">No hay planes de entrenamiento todavía.</p>
+        ) : null}
+        {!loading && !error && plans.length > 0 ? (
+          <ul className="form-stack" style={{ margin: 0, paddingInlineStart: 20 }}>
+            {plans.map((plan) => (
+              <li key={plan.id}>
+                <strong>{plan.title}</strong>
+                <p className="muted" style={{ margin: "4px 0 0" }}>
+                  {plan.daysCount ?? 0} días · {plan.startDate ? new Date(plan.startDate).toLocaleDateString() : "Sin fecha"}
+                </p>
+                <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <button
+                    type="button"
+                    className="btn secondary"
+                    onClick={() => void startEditingPlan(plan.id)}
+                    disabled={editingPlanLoading || saving}
+                  >
+                    {editingPlanId === plan.id && editingPlanLoading ? t("ui.loading") : "Editar"}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn secondary"
+                    onClick={() => void onDeletePlan(plan.id)}
+                    disabled={deletingPlanId === plan.id}
+                  >
+                    {deletingPlanId === plan.id ? t("ui.loading") : t("ui.delete")}
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </section>
+
+      <section className="card form-stack">
+        <h2 style={{ margin: 0 }}>Asignar plan a miembro</h2>
+        <p className="muted" style={{ margin: 0 }}>
+          Selecciona un miembro del gimnasio y el plan a asignar.
+        </p>
+
+        <label className="form-stack" style={{ gap: 6 }}>
+          <span>Miembro</span>
+          <select
+            value={selectedMemberId}
+            onChange={(event) => setSelectedMemberId(event.target.value)}
+            disabled={assigning || members.length === 0}
+          >
+            <option value="">Selecciona un miembro</option>
+            {members.map((member) => (
+              <option key={member.id} value={member.id}>
+                {member.name || member.email || member.id}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="form-stack" style={{ gap: 6 }}>
+          <span>Plan</span>
+          <select
+            value={selectedPlanId}
+            onChange={(event) => setSelectedPlanId(event.target.value)}
+            disabled={assigning || plans.length === 0}
+          >
+            <option value="">Selecciona un plan</option>
+            {plans.map((plan) => (
+              <option key={plan.id} value={plan.id}>
+                {plan.title}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <button
+          type="button"
+          className="btn"
+          disabled={assigning || !selectedPlanId || !selectedMemberId}
+          onClick={() => void assignPlan()}
+        >
+          {assigning ? t("ui.loading") : "Asignar plan"}
+        </button>
+
+        {members.length === 0 ? (
+          <p className="muted">Aún no hay miembros disponibles para asignar.</p>
+        ) : null}
+        {plans.length === 0 ? (
+          <p className="muted">Primero crea un plan para poder asignarlo.</p>
+        ) : null}
+        {assignmentMessage ? (
+          <p className="muted">{assignmentMessage}</p>
+        ) : null}
+      </section>
+    </section>
   );
 }

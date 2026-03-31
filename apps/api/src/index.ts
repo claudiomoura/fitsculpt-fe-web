@@ -8462,6 +8462,31 @@ app.post("/trainer/plans", async (request, reply) => {
     const daysPerWeek = payload.daysPerWeek ?? Math.min(daysCount, 7);
     const dates = buildDateRange(startDate, daysCount);
 
+    const dayPlansByIndex = new Map<number, z.infer<typeof trainerPlanDayCreateSchema>>();
+    for (const dayPlan of payload.days ?? []) {
+      dayPlansByIndex.set(dayPlan.dayIndex, dayPlan);
+    }
+
+    const referencedExerciseIds = Array.from(
+      new Set(
+        (payload.days ?? [])
+          .flatMap((dayPlan) => dayPlan.exercises ?? [])
+          .map((exercise) => exercise.exerciseId)
+          .filter((exerciseId) => typeof exerciseId === "string" && exerciseId.trim().length > 0),
+      ),
+    );
+
+    const referencedExercises = referencedExerciseIds.length > 0
+      ? await prisma.exercise.findMany({
+          where: { id: { in: referencedExerciseIds } },
+          select: { id: true, name: true, imageUrl: true },
+        })
+      : [];
+
+    const exerciseById = new Map(
+      referencedExercises.map((exercise) => [exercise.id, exercise]),
+    );
+
     const createdPlan = await prisma.trainingPlan.create({
       data: {
         userId: requester.id,
@@ -8475,13 +8500,39 @@ app.post("/trainer/plans", async (request, reply) => {
         startDate,
         daysCount,
         days: {
-          create: dates.map((date, index) => ({
-            date: new Date(`${date}T00:00:00.000Z`),
-            label: `Día ${index + 1}`,
-            focus: payload.focus,
-            duration: 45,
-            order: index + 1,
-          })),
+          create: dates.map((date, index) => {
+            const dayPlan = dayPlansByIndex.get(index);
+            const dayExercises = (dayPlan?.exercises ?? [])
+              .map((exerciseInput) => {
+                const exerciseMeta = exerciseById.get(exerciseInput.exerciseId);
+                if (!exerciseMeta) return null;
+
+                return {
+                  exerciseId: exerciseMeta.id,
+                  name: exerciseInput.name ?? exerciseMeta.name,
+                  imageUrl: exerciseMeta.imageUrl,
+                  sets: exerciseInput.sets ?? 3,
+                  reps: exerciseInput.reps ?? "8-12",
+                  rest: exerciseInput.rest ?? 60,
+                };
+              })
+              .filter((exercise): exercise is NonNullable<typeof exercise> => Boolean(exercise));
+
+            return {
+              date: new Date(`${date}T00:00:00.000Z`),
+              label: dayPlan?.label ?? `Día ${index + 1}`,
+              focus: dayPlan?.focus ?? payload.focus,
+              duration: dayPlan?.duration ?? 45,
+              order: index + 1,
+              ...(dayExercises.length > 0
+                ? {
+                    exercises: {
+                      create: dayExercises,
+                    },
+                  }
+                : {}),
+            };
+          }),
         },
       },
       include: {

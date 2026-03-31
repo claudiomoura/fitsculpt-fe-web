@@ -148,7 +148,7 @@ export const sidebarUser: NavSectionGroup[] = [
     id: "nutrition",
     labelKey: "navSections.nutrition",
     items: [
-      { id: "nutrition-calendar", href: "/app/nutricion", labelKey: "nav.nutritionCalendar", feature: "nutrition", upgradeHref: "/app/settings/billing" },
+      { id: "nutrition-calendar", href: "/app/nutricion", labelKey: "nav.nutritionCalendar" },
     ],
   },
   {
