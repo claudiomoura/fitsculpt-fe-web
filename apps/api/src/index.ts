@@ -1,7 +1,7 @@
 import "dotenv/config";
 // Override with .env.local for local development (higher priority)
 import { config as dotenvConfig } from "dotenv";
-dotenvConfig({ path: ".env.local" });
+dotenvConfig({ path: ".env.local", override: true });
 import crypto from "node:crypto";
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import cors from "@fastify/cors";

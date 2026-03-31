@@ -78,7 +78,6 @@ export default function FeedClient() {
         throw new Error(t("feed.errorUnexpected"));
       }
       const data = await response.json();
-      console.log('Feed API response:', data);
       let feedItems: FeedPost[];
       
       if (Array.isArray(data)) {
@@ -92,15 +91,12 @@ export default function FeedClient() {
         } else if (Array.isArray(data.posts)) {
           feedItems = data.posts;
         } else {
-          console.error('Feed API returned unexpected structure:', data);
           throw new Error(t("feed.errorUnexpected"));
         }
       } else {
-        console.error('Feed API returned non-object:', data);
         throw new Error(t("feed.errorUnexpected"));
       }
-      
-      console.log('Feed items extracted:', feedItems);
+
       setItems(feedItems);
     } catch (err) {
       setError(err instanceof Error ? err.message : t("feed.errorUnexpected"));
@@ -221,6 +217,8 @@ export default function FeedClient() {
       const payload = (await response.json().catch(() => null)) as
         | {
             error?: string;
+            reason?: string;
+            providerCode?: string;
             reply?: ContextualChatReply;
             aiTokenBalance?: number;
             usage?: AiUsageSummary;
@@ -236,6 +234,15 @@ export default function FeedClient() {
         ) {
           setTokensExhaustedModalOpen(true);
           throw new Error(t("ai.insufficientTokens"));
+        }
+        if (payload?.error === "AI_NOT_CONFIGURED") {
+          throw new Error("IA no configurada en backend (OPENAI_API_KEY).");
+        }
+        if (payload?.providerCode === "invalid_api_key") {
+          throw new Error("La clave de OpenAI es invalida. Actualiza OPENAI_API_KEY en apps/api y reinicia el backend.");
+        }
+        if (payload?.error === "AI_REQUEST_FAILED" && payload?.reason) {
+          throw new Error(`IA no disponible (${payload.reason}).`);
         }
         throw new Error(t("feed.chatError"));
       }
@@ -392,8 +399,8 @@ export default function FeedClient() {
             <p>{tip.message}</p>
           </article>
         ) : null}
-        {items.map((item) => (
-          <article key={item.id} className="feed-item">
+        {items.map((item, index) => (
+          <article key={item.id || `${item.createdAt}-${index}`} className="feed-item">
             <div>
               <h3>{item.title}</h3>
               <p className="muted">{formatDate(item.createdAt, localeCode)}</p>

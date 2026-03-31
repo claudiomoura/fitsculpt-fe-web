@@ -16,6 +16,27 @@ function getErrorCode(payload: unknown): string | null {
   return null;
 }
 
+function getPayloadError(payload: unknown): string | null {
+  if (payload && typeof payload === "object" && "error" in payload) {
+    const value = (payload as { error?: unknown }).error;
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value;
+    }
+  }
+
+  return null;
+}
+
+function getPayloadField(payload: unknown, field: string): string | null {
+  if (payload && typeof payload === "object") {
+    const value = (payload as Record<string, unknown>)[field];
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value;
+    }
+  }
+  return null;
+}
+
 function isProviderQuotaExceeded(status: number, payload: unknown): boolean {
   const normalizedError = getErrorMessage(payload)?.trim().toLowerCase() ?? "";
   const normalizedCode = getErrorCode(payload)?.trim().toLowerCase() ?? "";
@@ -67,8 +88,18 @@ export function mapAiUpstreamError(status: number, payload: unknown): NextRespon
   const upstreamMessage = getErrorMessage(payload);
 
   if (status >= 500) {
+    const upstreamCode = getPayloadError(payload) ?? getErrorCode(payload);
+    const upstreamReason = getPayloadField(payload, "reason");
+    const providerCode = getPayloadField(payload, "providerCode");
     return NextResponse.json(
-      { error: CLIENT_ERROR_CODE, code: UPSTREAM_ERROR_CODE, kind: "upstream", status: 502 },
+      {
+        error: upstreamCode ?? CLIENT_ERROR_CODE,
+        code: upstreamCode ?? UPSTREAM_ERROR_CODE,
+        kind: "upstream",
+        status: 502,
+        ...(upstreamReason ? { reason: upstreamReason } : {}),
+        ...(providerCode ? { providerCode } : {}),
+      },
       { status: 502 }
     );
   }
