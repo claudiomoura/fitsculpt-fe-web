@@ -39,7 +39,7 @@ export function TodayCheckinCard({
 
   const handleRegister = () => {
     // Navigate to check-in flow
-    router.push("/app/registro-peso");
+    router.push("/app/seguimiento/check-in");
   };
 
   // Calculate weight change from previous

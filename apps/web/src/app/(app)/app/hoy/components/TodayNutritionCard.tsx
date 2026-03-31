@@ -193,14 +193,63 @@ export function TodayNutritionCard({
         </div>
       </div>
 
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-        <ButtonLink as={Link} href={hasPlan ? nutritionHref : aiCreateHref} variant="primary" className="fit-content">
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "clamp(8px, 2vw, 16px)", alignItems: "center" }}>
+        <ButtonLink
+          as={Link}
+          href={hasPlan ? nutritionHref : aiCreateHref}
+          variant="primary"
+          className="fit-content"
+          style={{
+            flex: "clamp(120px, 30vw, 360px)",
+            minWidth: "120px",
+            height: "clamp(44px, 8vw, 56px)",
+            fontSize: "clamp(14px, 2vw, 18px)",
+            fontWeight: 600,
+            background: "linear-gradient(135deg, #00B4A0 0%, #2378FF 100%)",
+            border: "none",
+            borderRadius: "28px",
+            color: "#fff",
+            boxShadow: "0 4px 20px rgba(0, 180, 160, 0.3)",
+          }}
+        >
           {hasPlan ? t("today.nutritionPrimaryCta") : t("today.nutritionCreateAiCta")}
         </ButtonLink>
-        <ButtonLink as={Link} href={detailsHref} variant="secondary" className="fit-content">
+        <ButtonLink
+          as={Link}
+          href={detailsHref}
+          variant="secondary"
+          className="fit-content"
+          style={{
+            flex: "clamp(80px, 20vw, 270px)",
+            minWidth: "80px",
+            height: "clamp(44px, 8vw, 56px)",
+            fontSize: "clamp(14px, 2vw, 18px)",
+            fontWeight: 500,
+            background: "transparent",
+            border: "2px solid rgba(255, 255, 255, 0.3)",
+            borderRadius: "28px",
+            color: "rgba(255, 255, 255, 0.9)",
+          }}
+        >
           {t("today.nutritionDetailsCta")}
         </ButtonLink>
-        <ButtonLink as={Link} href={editHref} variant="ghost" className="fit-content">
+        <ButtonLink
+          as={Link}
+          href={editHref}
+          variant="ghost"
+          className="fit-content"
+          style={{
+            flex: "clamp(60px, 15vw, 170px)",
+            minWidth: "60px",
+            height: "clamp(44px, 8vw, 56px)",
+            fontSize: "clamp(14px, 2vw, 18px)",
+            fontWeight: 500,
+            background: "rgba(255,255,255,0.1)",
+            border: "none",
+            borderRadius: "28px",
+            color: "rgba(255, 255, 255, 0.7)",
+          }}
+        >
           {hasPlan ? t("today.nutritionEditCta") : t("today.nutritionCreateManualCta")}
         </ButtonLink>
       </div>
