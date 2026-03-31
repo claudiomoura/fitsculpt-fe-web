@@ -38,7 +38,7 @@ export function TodayPriorityHero({
 
   const handleStart = () => {
     if (todayWorkoutId) {
-      router.push(`/app/entrenamiento/${todayWorkoutId}/start`);
+      router.push(`/app/entrenamiento/${encodeURIComponent(todayWorkoutId)}/start`);
       return;
     }
     router.push("/app/entrenamiento");
@@ -46,7 +46,7 @@ export function TodayPriorityHero({
 
   const handleDetails = () => {
     if (todayWorkoutId) {
-      router.push(`/app/entrenamiento/${todayWorkoutId}`);
+      router.push(`/app/entrenamiento/${encodeURIComponent(todayWorkoutId)}`);
       return;
     }
     router.push("/app/entrenamiento");

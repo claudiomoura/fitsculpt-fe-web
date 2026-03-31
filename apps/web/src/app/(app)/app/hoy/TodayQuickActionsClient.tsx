@@ -31,6 +31,7 @@ import type {
 } from "@/lib/types";
 import { buildNutritionAdherenceStoreFromMealLog } from "@/lib/nutritionAdherence";
 import { getNutritionMealKey } from "@/lib/nutritionMealKey";
+import { pickWorkoutIdForDateCandidates } from "@/lib/trainingWorkoutSelection";
 import { TodayEmptyState } from "./TodayEmptyState";
 import { TodayErrorState } from "./TodayErrorState";
 import { TodaySkeleton } from "./TodaySkeleton";
@@ -115,12 +116,21 @@ type NutritionPlansPayload = {
 
 type WorkoutLookupItem = {
   id: string;
+  name?: string | null;
   scheduledAt?: string | null;
+  sessions?: Array<{ finishedAt?: string | null }>;
 };
 
 type ProgressTone = "low" | "medium" | "high" | "complete";
 
 const integerFormatter = new Intl.NumberFormat("es-ES");
+
+function parseRepsFromSets(value?: string | number | null): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const match = value.match(/x\s*(.+)$/i);
+  const reps = match?.[1]?.trim();
+  return reps ? reps : undefined;
+}
 
 function ProgressBar({
   value,
@@ -499,6 +509,7 @@ export default function TodayQuickActionsClient() {
         mealLog: [],
       };
       const todayDateKey = toDateKey(new Date());
+      let todayTrainingDay: TrainingPlanDetail["days"][number] | null = null;
       let profileEstimatedNutritionTarget: number | null = null;
 
       if (authMeResponse.ok) {
@@ -604,6 +615,7 @@ export default function TodayQuickActionsClient() {
             trainingPlan.startDate,
           );
           if (trainingDay && (trainingDay.exercises?.length ?? 0) > 0) {
+            todayTrainingDay = trainingDay;
             nextSignals.trainingState = "workout";
             nextSignals.trainingStatus = "ready";
             nextSignals.trainingName =
@@ -772,13 +784,64 @@ export default function TodayQuickActionsClient() {
         const workoutsPayload =
           (await workoutsResponse.json()) as WorkoutLookupItem[];
         const targetDayKey = nextSignals.trainingDayKey ?? todayDateKey;
-        const matchedWorkout = Array.isArray(workoutsPayload)
-          ? workoutsPayload.find(
+        const dayCandidates = Array.isArray(workoutsPayload)
+          ? workoutsPayload.filter(
               (workout) =>
                 normalizeWorkoutDateKey(workout.scheduledAt) === targetDayKey,
             )
-          : undefined;
-        nextSignals.todayWorkoutId = matchedWorkout?.id ?? null;
+          : [];
+
+        const matchedWorkoutId = pickWorkoutIdForDateCandidates(
+          dayCandidates,
+          todayTrainingDay?.focus,
+        );
+
+        if (matchedWorkoutId) {
+          nextSignals.todayWorkoutId = matchedWorkoutId;
+        } else if (
+          todayTrainingDay
+          && nextSignals.trainingState === "workout"
+          && nextSignals.hasTrainingAccess
+        ) {
+          const scheduledDate = parseDate(targetDayKey) ?? new Date();
+          const createResponse = await fetch("/api/workouts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              name:
+                todayTrainingDay.focus
+                || todayTrainingDay.label
+                || nextSignals.trainingName,
+              notes: `Dia: ${todayTrainingDay.label}`,
+              scheduledAt: new Date(
+                `${toDateKey(scheduledDate)}T12:00:00`,
+              ).toISOString(),
+              durationMin: Number.isFinite(todayTrainingDay.duration)
+                ? Number(todayTrainingDay.duration)
+                : 45,
+              exercises: (todayTrainingDay.exercises ?? []).map((exercise, index) => ({
+                exerciseId: exercise.id,
+                name: exercise.name,
+                sets: typeof exercise.sets === "number" || typeof exercise.sets === "string" ? String(exercise.sets) : undefined,
+                reps: exercise.reps ?? parseRepsFromSets(exercise.sets),
+                notes: exercise.notes ?? undefined,
+                order: index,
+              })),
+            }),
+          });
+
+          if (createResponse.ok) {
+            const createdWorkout = (await createResponse.json()) as {
+              id?: string;
+            } | null;
+            nextSignals.todayWorkoutId = createdWorkout?.id ?? null;
+          } else {
+            nextSignals.todayWorkoutId = null;
+          }
+        } else {
+          nextSignals.todayWorkoutId = null;
+        }
       }
 
       setSignals(nextSignals);
