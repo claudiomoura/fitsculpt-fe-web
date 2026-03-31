@@ -52,7 +52,7 @@ export function GymCard({
         <Button variant="secondary" onClick={() => onSelect(id)} disabled={disabled || isSelected}>
           {selectLabel}
         </Button>
-        <Button onClick={onRequestJoin} disabled={requestDisabled || !isSelected || isPending}>
+        <Button onClick={onRequestJoin} disabled={requestDisabled || isPending}>
           {isPending ? pendingRequestLabel : requestLabel}
         </Button>
       </CardFooter>
