@@ -73,6 +73,71 @@ describe("/api/profile BFF contract", () => {
     expect(body).not.toHaveProperty("email");
   });
 
+  it("flattens nested profile envelopes on read and write", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(
+        jsonResponse(200, {
+          profile: {
+            profile: {
+              goal: "bulk",
+              trainingPreferences: {
+                level: "advanced",
+              },
+              profilePhotoUrl: "data:image/png;base64,fresh",
+            },
+          },
+        })
+      )
+      .mockResolvedValueOnce(
+        jsonResponse(200, {
+          profile: {
+            trainingPreferences: {
+              level: "advanced",
+            },
+          },
+        })
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { GET, PUT } = await import("@/app/api/profile/route");
+
+    const getResponse = await GET(new Request("http://localhost/api/profile"));
+    const getBody = await getResponse.json();
+
+    expect(getBody).toMatchObject({
+      goal: "bulk",
+      trainingPreferences: {
+        level: "advanced",
+      },
+      profilePhotoUrl: "data:image/png;base64,fresh",
+    });
+
+    await PUT(
+      new Request("http://localhost/api/profile", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          profile: {
+            profile: {
+              trainingPreferences: {
+                level: "advanced",
+              },
+              avatarDataUrl: "data:image/png;base64,fresh",
+            },
+          },
+        }),
+      })
+    );
+
+    const upstreamRequest = fetchMock.mock.calls[1]?.[1] as { body?: string };
+    expect(JSON.parse(upstreamRequest.body ?? "{}")).toEqual({
+      trainingPreferences: {
+        level: "advanced",
+      },
+      avatarDataUrl: "data:image/png;base64,fresh",
+    });
+  });
+
   it("preserves upstream error status and payload", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(422, { error: "VALIDATION_ERROR" })));
 

@@ -39,13 +39,9 @@ function pickProfileFields(payload: Record<string, unknown>): Record<string, unk
   return profileFields;
 }
 
-function normalizeProfilePayload(payload: unknown): Record<string, unknown> {
-  if (!isPlainObject(payload)) {
-    return {};
-  }
-
+function flattenProfileEnvelope(payload: Record<string, unknown>): Record<string, unknown> {
   const rootProfile = pickProfileFields(payload);
-  const nestedProfile = isPlainObject(payload.profile) ? payload.profile : null;
+  const nestedProfile = isPlainObject(payload.profile) ? flattenProfileEnvelope(payload.profile) : null;
 
   if (nestedProfile) {
     return deepMergeRecords(rootProfile, nestedProfile);
@@ -56,6 +52,14 @@ function normalizeProfilePayload(payload: unknown): Record<string, unknown> {
   }
 
   return payload;
+}
+
+function normalizeProfilePayload(payload: unknown): Record<string, unknown> {
+  if (!isPlainObject(payload)) {
+    return {};
+  }
+
+  return flattenProfileEnvelope(payload);
 }
 
 async function readUpstreamPayload(response: Response): Promise<unknown> {
@@ -76,7 +80,7 @@ async function proxyProfileRequest(request: Request, method: "GET" | "PUT") {
   }
 
   try {
-    const requestBody = method === "PUT" ? await request.json() : undefined;
+    const requestBody = method === "PUT" ? normalizeProfilePayload(await request.json()) : undefined;
     const response = await fetch(`${getBackendUrl()}/profile`, {
       method,
       headers: {

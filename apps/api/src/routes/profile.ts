@@ -31,6 +31,22 @@ function mergeProfileSnapshot(current: unknown, incoming: unknown): Record<strin
   return merged;
 }
 
+function flattenStoredProfile(value: unknown): Record<string, unknown> {
+  if (!isPlainRecord(value)) {
+    return {};
+  }
+
+  const flattened: Record<string, unknown> = { ...value };
+  const nestedProfile = flattened.profile;
+  delete flattened.profile;
+
+  if (isPlainRecord(nestedProfile)) {
+    return mergeProfileSnapshot(flattened, flattenStoredProfile(nestedProfile));
+  }
+
+  return flattened;
+}
+
 export function registerProfileRoutes(
   app: FastifyInstance,
   deps: ProfileDeps
@@ -66,7 +82,10 @@ export function registerProfileRoutes(
       const currentProfile = await prisma.userProfile.findUnique({
         where: { userId: user.id },
       });
-      const mergedProfile = mergeProfileSnapshot(currentProfile?.profile, body);
+      const mergedProfile = mergeProfileSnapshot(
+        flattenStoredProfile(currentProfile?.profile),
+        flattenStoredProfile(body)
+      );
 
       const updated = await prisma.userProfile.upsert({
         where: { userId: user.id },

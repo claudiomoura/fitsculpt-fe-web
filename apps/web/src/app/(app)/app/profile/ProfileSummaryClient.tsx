@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
-import { defaultProfile, type ProfileData } from "@/lib/profile";
-import { getUserProfile } from "@/lib/profileService";
+import { defaultProfile, type Goal, type ProfileData, type TrainingLevel } from "@/lib/profile";
+import { getUserProfile, updateUserProfilePreferences } from "@/lib/profileService";
 import { isTrainer as isTrainerRole } from "@/lib/roles";
 import { extractGymMembership, type GymMembership } from "@/lib/gymMembership";
 import TrainerProfileSummary from "@/components/trainer/profile/TrainerProfileSummary";
@@ -44,6 +44,12 @@ export default function ProfileSummaryClient() {
   const [isTrainer, setIsTrainer] = useState(false);
   const [gymMembership, setGymMembership] = useState<GymMembership>(UNKNOWN_MEMBERSHIP);
   const [measurementSystem, setMeasurementSystem] = useState<MeasurementSystem>("metric");
+  const [editingGoal, setEditingGoal] = useState(false);
+  const [editingLevel, setEditingLevel] = useState(false);
+  const [draftGoal, setDraftGoal] = useState<Goal>("maintain");
+  const [draftLevel, setDraftLevel] = useState<TrainingLevel>("beginner");
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [savingField, setSavingField] = useState<"goal" | "level" | null>(null);
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -62,6 +68,11 @@ export default function ProfileSummaryClient() {
       window.removeEventListener("settings:measurement-system", handleMeasurementSystemChange);
     };
   }, []);
+
+  useEffect(() => {
+    setDraftGoal(profile.goal || "maintain");
+    setDraftLevel(profile.trainingPreferences.level || "beginner");
+  }, [profile.goal, profile.trainingPreferences.level]);
 
   useEffect(() => {
     let active = true;
@@ -105,6 +116,43 @@ export default function ProfileSummaryClient() {
       active = false;
     };
   }, []);
+
+  async function saveGoal() {
+    setSaveError(null);
+    setSavingField("goal");
+    try {
+      const nextProfile = await updateUserProfilePreferences({
+        ...profile,
+        goal: draftGoal,
+      });
+      setProfile(nextProfile);
+      setEditingGoal(false);
+    } catch {
+      setSaveError(t("profile.saveError"));
+    } finally {
+      setSavingField(null);
+    }
+  }
+
+  async function saveTrainingLevel() {
+    setSaveError(null);
+    setSavingField("level");
+    try {
+      const nextProfile = await updateUserProfilePreferences({
+        ...profile,
+        trainingPreferences: {
+          ...profile.trainingPreferences,
+          level: draftLevel,
+        },
+      });
+      setProfile(nextProfile);
+      setEditingLevel(false);
+    } catch {
+      setSaveError(t("profile.saveError"));
+    } finally {
+      setSavingField(null);
+    }
+  }
 
   const goalLabel = useMemo(() => {
     if (!profile.goal) return t("profile.noData");
@@ -170,9 +218,60 @@ export default function ProfileSummaryClient() {
       <section className="card premium-surface-card surface-content-card">
         <h3 className={styles.groupTitle}>{t("nav.trainingPlan")}</h3>
         <div className={styles.rows}>
-          <HubRow label={t("profile.goal")} value={goalLabel} href="/app/profile/edit" />
-          <HubRow label={t("profile.trainingLevel")} value={levelLabel} href="/app/profile/edit" />
+          <InlineSelectRow
+            label={t("profile.goal")}
+            value={goalLabel}
+            isEditing={editingGoal}
+            onStartEdit={() => {
+              setEditingGoal(true);
+              setEditingLevel(false);
+            }}
+            onCancel={() => {
+              setEditingGoal(false);
+              setDraftGoal((profile.goal || "maintain") as Goal);
+            }}
+            onSave={saveGoal}
+            saving={savingField === "goal"}
+            saveLabel={t("ui.save")}
+            cancelLabel={t("ui.cancel")}
+            editor={
+              <select value={draftGoal} onChange={(event) => setDraftGoal(event.target.value as Goal)} className={styles.inlineSelect}>
+                <option value="cut">{t("profile.goalCut")}</option>
+                <option value="maintain">{t("profile.goalMaintain")}</option>
+                <option value="bulk">{t("profile.goalBulk")}</option>
+              </select>
+            }
+          />
+          <InlineSelectRow
+            label={t("profile.trainingLevel")}
+            value={levelLabel}
+            isEditing={editingLevel}
+            onStartEdit={() => {
+              setEditingLevel(true);
+              setEditingGoal(false);
+            }}
+            onCancel={() => {
+              setEditingLevel(false);
+              setDraftLevel((profile.trainingPreferences.level || "beginner") as TrainingLevel);
+            }}
+            onSave={saveTrainingLevel}
+            saving={savingField === "level"}
+            saveLabel={t("ui.save")}
+            cancelLabel={t("ui.cancel")}
+            editor={
+              <select
+                value={draftLevel}
+                onChange={(event) => setDraftLevel(event.target.value as TrainingLevel)}
+                className={styles.inlineSelect}
+              >
+                <option value="beginner">{t("profile.trainingLevelBeginner")}</option>
+                <option value="intermediate">{t("profile.trainingLevelIntermediate")}</option>
+                <option value="advanced">{t("profile.trainingLevelAdvanced")}</option>
+              </select>
+            }
+          />
         </div>
+        {saveError ? <p className={styles.inlineError}>{saveError}</p> : null}
       </section>
 
       <section className="card premium-surface-card surface-content-card">
@@ -221,6 +320,61 @@ export default function ProfileSummaryClient() {
         </div>
         <LogoutButton className={styles.logoutButton} />
       </section>
+    </div>
+  );
+}
+
+function InlineSelectRow({
+  label,
+  value,
+  isEditing,
+  onStartEdit,
+  onCancel,
+  onSave,
+  saving,
+  editor,
+  saveLabel,
+  cancelLabel,
+}: {
+  label: string;
+  value: string;
+  isEditing: boolean;
+  onStartEdit: () => void;
+  onCancel: () => void;
+  onSave: () => void;
+  saving: boolean;
+  editor: ReactNode;
+  saveLabel: string;
+  cancelLabel: string;
+}) {
+  if (!isEditing) {
+    return (
+      <button type="button" className={`${styles.row} ${styles.rowButton}`} onClick={onStartEdit}>
+        <div>
+          <p className={styles.rowLabel}>{label}</p>
+          <p className={styles.rowValue}>{value}</p>
+        </div>
+        <span className={styles.chevron} aria-hidden>
+          ›
+        </span>
+      </button>
+    );
+  }
+
+  return (
+    <div className={styles.row}>
+      <div className={styles.inlineEditor}>
+        <p className={styles.rowLabel}>{label}</p>
+        {editor}
+        <div className={styles.inlineActions}>
+          <button type="button" className="btn tiny" onClick={onSave} disabled={saving}>
+            {saving ? "..." : saveLabel}
+          </button>
+          <button type="button" className="btn tiny secondary" onClick={onCancel} disabled={saving}>
+            {cancelLabel}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

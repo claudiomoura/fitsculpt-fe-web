@@ -18,6 +18,20 @@ persistedProfiles.set("user_test", {
     daysPerWeek: 4,
   },
 });
+persistedProfiles.set("user_nested", {
+  profile: {
+    profile: {
+      name: "Nested member",
+      goal: "bulk",
+      trainingPreferences: {
+        level: "advanced",
+        daysPerWeek: 5,
+      },
+      profilePhotoUrl: "data:image/png;base64,nested",
+      avatarDataUrl: "data:image/png;base64,nested",
+    },
+  },
+});
 
 const app = Fastify();
 
@@ -39,8 +53,8 @@ registerProfileRoutes(app, {
       },
     },
   },
-  requireUser: async () => ({
-    id: "user_test",
+  requireUser: async (request) => ({
+    id: (request.headers["x-test-user-id"] as string | undefined) ?? "user_test",
     name: "Member",
     email: "member@example.com",
     plan: "PRO",
@@ -92,6 +106,29 @@ const getProfileBody = getProfileResponse.json() as {
 assert.equal(getProfileBody.id, "user_test");
 assert.equal(getProfileBody.profile.profilePhotoUrl, null);
 assert.equal(getProfileBody.profile.age, 31);
+
+const nestedUpdateResponse = await app.inject({
+  method: "PUT",
+  url: "/profile",
+  headers: {
+    "x-test-user-id": "user_nested",
+  },
+  payload: {
+    profile: {
+      profile: {
+        trainingPreferences: {
+          level: "intermediate",
+        },
+      },
+    },
+  },
+});
+
+assert.equal(nestedUpdateResponse.statusCode, 200);
+const nestedUpdateBody = nestedUpdateResponse.json() as { profile: Record<string, unknown> };
+assert.equal((nestedUpdateBody.profile.trainingPreferences as Record<string, unknown>).level, "intermediate");
+assert.equal(nestedUpdateBody.profile.profilePhotoUrl, "data:image/png;base64,nested");
+assert.ok(!("profile" in nestedUpdateBody.profile));
 
 await app.close();
 console.log("profile route contract test passed");

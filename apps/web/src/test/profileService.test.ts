@@ -107,6 +107,26 @@ describe("mergeProfileData", () => {
     expect(isProfileComplete(merged)).toBe(true);
   });
 
+  it("unwraps recursively nested profile envelopes", () => {
+    const merged = mergeProfileData({
+      profile: {
+        profile: {
+          ...completeProfilePayload,
+          profilePhotoUrl: "data:image/png;base64,fresh",
+          avatarDataUrl: "data:image/png;base64,fresh",
+          trainingPreferences: {
+            ...completeProfilePayload.trainingPreferences,
+            level: "advanced",
+          },
+        },
+      },
+    } as unknown as Partial<ProfileData>);
+
+    expect(merged.trainingPreferences.level).toBe("advanced");
+    expect(merged.profilePhotoUrl).toBe("data:image/png;base64,fresh");
+    expect(merged.avatarDataUrl).toBe("data:image/png;base64,fresh");
+  });
+
   it("backfills legacy missing goal/equipment/formula defaults", () => {
     const merged = mergeProfileData({
       profile: {
@@ -213,6 +233,56 @@ describe("updateUserProfile payload sanitization", () => {
       profilePhotoUrl: null,
       avatarDataUrl: null,
     });
+  });
+
+  it("keeps training and goal fields when saving preferences", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await updateUserProfilePreferences({
+      ...defaultProfile,
+      goal: "bulk",
+      activity: "very",
+      trainingPreferences: {
+        ...defaultProfile.trainingPreferences,
+        level: "advanced",
+        daysPerWeek: 5,
+        equipment: "gym",
+      },
+    });
+
+    const requestOptions = fetchMock.mock.calls[0]?.[1] as { body?: string };
+    const payload = JSON.parse(requestOptions.body ?? "{}");
+
+    expect(payload.goal).toBe("bulk");
+    expect(payload.activity).toBe("very");
+    expect(payload.trainingPreferences?.level).toBe("advanced");
+    expect(payload.trainingPreferences?.daysPerWeek).toBe(5);
+    expect(payload.trainingPreferences?.equipment).toBe("gym");
+  });
+
+  it("preserves explicit empty values when user clears preferences", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await updateUserProfilePreferences({
+      ...defaultProfile,
+      goal: "",
+      activity: "",
+      trainingPreferences: {
+        ...defaultProfile.trainingPreferences,
+        level: "",
+        equipment: "",
+      },
+    });
+
+    const requestOptions = fetchMock.mock.calls[0]?.[1] as { body?: string };
+    const payload = JSON.parse(requestOptions.body ?? "{}");
+
+    expect(payload.goal).toBe("");
+    expect(payload.activity).toBe("");
+    expect(payload.trainingPreferences?.level).toBe("");
+    expect(payload.trainingPreferences?.equipment).toBe("");
   });
 
   it("throws on preferences save backend failure", async () => {

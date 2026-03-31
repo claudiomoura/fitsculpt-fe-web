@@ -68,32 +68,32 @@ function pickKnownProfileFields(data: Record<string, unknown>): Record<string, u
   return picked;
 }
 
-function unwrapProfilePayload(data?: ProfileApiPayload): Partial<ProfileData> | undefined {
-  if (!isPlainObject(data)) return undefined;
-
+function flattenProfileEnvelope(data: Record<string, unknown>): Record<string, unknown> {
   const rootFields = pickKnownProfileFields(data);
+  const nested = data.profile;
 
-  if ("profile" in data) {
-    const nested = (data as ProfileApiEnvelope).profile;
-    if (isPlainObject(nested)) {
-      return deepMergeProfile(rootFields, nested) as Partial<ProfileData>;
-    }
-
-    return rootFields as Partial<ProfileData>;
+  if (isPlainObject(nested)) {
+    return deepMergeProfile(rootFields, flattenProfileEnvelope(nested));
   }
 
   if (Object.keys(rootFields).length > 0) {
-    return rootFields as Partial<ProfileData>;
+    return rootFields;
   }
 
-  return data as Partial<ProfileData>;
+  return data;
+}
+
+function unwrapProfilePayload(data?: ProfileApiPayload): Partial<ProfileData> | undefined {
+  if (!isPlainObject(data)) return undefined;
+
+  return flattenProfileEnvelope(data) as Partial<ProfileData>;
 }
 
 function removeEmptyValues(obj: Record<string, unknown>): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(obj)) {
-    // Skip null, empty string, but keep 0 and false
-    if (value === null || value === "" || value === undefined) continue;
+    // Skip null/undefined, but keep empty string, 0 and false
+    if (value === null || value === undefined) continue;
     if (typeof value === "object" && !Array.isArray(value) && value !== null) {
       result[key] = removeEmptyValues(value as Record<string, unknown>);
     } else {
