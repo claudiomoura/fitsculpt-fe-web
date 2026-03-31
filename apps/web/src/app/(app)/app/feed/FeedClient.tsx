@@ -68,10 +68,36 @@ export default function FeedClient() {
     try {
       const response = await fetch("/api/feed", { cache: "no-store" });
       if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error(t("feed.errorUnauthorized"));
+        }
         throw new Error(t("feed.errorLoad"));
       }
-      const data = (await response.json()) as FeedPost[];
-      setItems(data);
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        throw new Error(t("feed.errorUnexpected"));
+      }
+      const data = await response.json();
+      let feedItems: FeedPost[];
+      
+      if (Array.isArray(data)) {
+        feedItems = data;
+      } else if (data && typeof data === 'object') {
+        // Handle potential API response wrapping
+        if (Array.isArray(data.items)) {
+          feedItems = data.items;
+        } else if (Array.isArray(data.data)) {
+          feedItems = data.data;
+        } else if (Array.isArray(data.posts)) {
+          feedItems = data.posts;
+        } else {
+          throw new Error(t("feed.errorUnexpected"));
+        }
+      } else {
+        throw new Error(t("feed.errorUnexpected"));
+      }
+
+      setItems(feedItems);
     } catch (err) {
       setError(err instanceof Error ? err.message : t("feed.errorUnexpected"));
     } finally {
@@ -191,6 +217,8 @@ export default function FeedClient() {
       const payload = (await response.json().catch(() => null)) as
         | {
             error?: string;
+            reason?: string;
+            providerCode?: string;
             reply?: ContextualChatReply;
             aiTokenBalance?: number;
             usage?: AiUsageSummary;
@@ -206,6 +234,15 @@ export default function FeedClient() {
         ) {
           setTokensExhaustedModalOpen(true);
           throw new Error(t("ai.insufficientTokens"));
+        }
+        if (payload?.error === "AI_NOT_CONFIGURED") {
+          throw new Error("IA no configurada en backend (OPENAI_API_KEY).");
+        }
+        if (payload?.providerCode === "invalid_api_key") {
+          throw new Error("La clave de OpenAI es invalida. Actualiza OPENAI_API_KEY en apps/api y reinicia el backend.");
+        }
+        if (payload?.error === "AI_REQUEST_FAILED" && payload?.reason) {
+          throw new Error(`IA no disponible (${payload.reason}).`);
         }
         throw new Error(t("feed.chatError"));
       }
@@ -362,8 +399,8 @@ export default function FeedClient() {
             <p>{tip.message}</p>
           </article>
         ) : null}
-        {items.map((item) => (
-          <article key={item.id} className="feed-item">
+        {items.map((item, index) => (
+          <article key={item.id || `${item.createdAt}-${index}`} className="feed-item">
             <div>
               <h3>{item.title}</h3>
               <p className="muted">{formatDate(item.createdAt, localeCode)}</p>

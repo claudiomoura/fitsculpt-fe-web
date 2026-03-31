@@ -51,7 +51,7 @@ import AppLayout from "@/components/layout/AppLayout";
 import NutritionStats from "@/components/nutrition/NutritionStats";
 import { WeeklyCalendar } from "@/components/nutrition/WeeklyCalendar";
 import { Accordion, SegmentedControl } from "@/design-system/components";
-import { useNutritionAdherence } from "@/lib/nutritionAdherence";
+import { useNutritionAdherence, useNutritionAdherenceWeek } from "@/lib/nutritionAdherence";
 import { getNutritionMealKey } from "@/lib/nutritionMealKey";
 import {
   clampDateNotBefore,
@@ -1215,7 +1215,7 @@ export default function NutritionPlanClient({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const searchParamsString = searchParams.toString();
-  const safeT = (key: string, fallback: string) => {
+  const safeT = (key: string, fallback: string = "") => {
     const value = t(key);
     return value === key ? fallback : value;
   };
@@ -2083,13 +2083,18 @@ export default function NutritionPlanClient({
 
   const handleSetStartDate = async () => {
     if (!visiblePlan) return;
-    const nextPlan = ensurePlanStartDate({
-      ...visiblePlan,
-      startDate: new Date().toISOString(),
-    });
-    const updated = await updateUserProfile({ nutritionPlan: nextPlan });
-    setSavedPlan(updated.nutritionPlan ?? nextPlan);
-    setManualPlan(updated.nutritionPlan ?? nextPlan);
+    try {
+      const nextPlan = ensurePlanStartDate({
+        ...visiblePlan,
+        startDate: new Date().toISOString(),
+      });
+      const updated = await updateUserProfile({ nutritionPlan: nextPlan });
+      setSavedPlan(updated.nutritionPlan ?? nextPlan);
+      setManualPlan(updated.nutritionPlan ?? nextPlan);
+    } catch (_err) {
+      setSaveMessage(t("nutrition.savePlanError"));
+      window.setTimeout(() => setSaveMessage(null), 2000);
+    }
   };
 
   function updateManualDayLabel(dayIndex: number, value: string) {
@@ -2241,10 +2246,16 @@ export default function NutritionPlanClient({
   const activeQuickLogDayKey =
     selectedMeal?.dayKey ?? toDateKey(clampedSelectedDate);
   const {
-    isConsumed,
+    isConsumed: isConsumedDay,
     toggle,
     error: adherenceError,
   } = useNutritionAdherence(activeQuickLogDayKey);
+
+  // Week adherence hook for calendar (prevents flicker)
+  const weekDateKeys = useMemo(() => weekDates.map(date => toDateKey(date)), [weekDates]);
+  const {
+    isConsumed: isConsumedWeek,
+  } = useNutritionAdherenceWeek(weekDateKeys);
   
   // Calculate consumed totals (only meals marked as consumed in adherence store)
   const highlightedConsumedTotals = useMemo(
@@ -2252,7 +2263,7 @@ export default function NutritionPlanClient({
       highlightedMeals.reduce(
         (acc, meal, index) => {
           const mealKey = getNutritionMealKey(meal, highlightedDayKey, index);
-          if (isConsumed(mealKey, highlightedDayKey)) {
+          if (isConsumedDay(mealKey, highlightedDayKey)) {
             acc.calories += Number(meal.macros?.calories ?? 0);
             acc.protein += Number(meal.macros?.protein ?? 0);
             acc.carbs += Number(meal.macros?.carbs ?? 0);
@@ -2262,7 +2273,7 @@ export default function NutritionPlanClient({
         },
         { calories: 0, protein: 0, carbs: 0, fats: 0 },
       ),
-    [highlightedMeals, highlightedDayKey, isConsumed],
+    [highlightedMeals, highlightedDayKey, isConsumedDay],
   );
   
   const highlightedConsumedMacroTotal =
@@ -2328,7 +2339,7 @@ export default function NutritionPlanClient({
         );
         const completedMeals = mealsForDay.reduce((count, meal, index) => {
           const mealKey = getNutritionMealKey(meal, dayKey, index);
-          return count + (isConsumed(mealKey, dayKey) ? 1 : 0);
+          return count + (isConsumedWeek(mealKey, dayKey) ? 1 : 0);
         }, 0);
         return {
           id: dayKey,
@@ -2345,7 +2356,7 @@ export default function NutritionPlanClient({
       }),
     [
       clampedSelectedDate,
-      isConsumed,
+      isConsumedWeek,
       localeCode,
       normalizedPlanStartDate,
       visibleDayMap,
@@ -2397,7 +2408,7 @@ export default function NutritionPlanClient({
       });
       return;
     }
-    const nextConsumed = !isConsumed(mealKey, dayKey);
+    const nextConsumed = !isConsumedDay(mealKey, dayKey);
     try {
       await toggle(mealKey, dayKey, {
         mealType: meal.type,
@@ -2472,7 +2483,7 @@ export default function NutritionPlanClient({
   const highlightedPrimaryMeal =
     highlightedMeals.find((meal, index) => {
       const key = getNutritionMealKey(meal, highlightedDayKey, index);
-      return !isConsumed(key, highlightedDayKey);
+      return !isConsumedDay(key, highlightedDayKey);
     }) ??
     highlightedMeals[0] ??
     null;
@@ -2489,7 +2500,7 @@ export default function NutritionPlanClient({
       : null;
   const isPrimaryMealConsumed =
     highlightedPrimaryMeal && highlightedPrimaryMealKey
-      ? isConsumed(highlightedPrimaryMealKey, highlightedDayKey)
+      ? isConsumedDay(highlightedPrimaryMealKey, highlightedDayKey)
       : false;
   const activePlanTitle =
     (typeof visiblePlan?.title === "string" &&
@@ -3521,7 +3532,7 @@ export default function NutritionPlanClient({
                         );
                         return (
                           count +
-                          (isConsumed(mealKey, highlightedDayKey) ? 1 : 0)
+                          (isConsumedDay(mealKey, highlightedDayKey) ? 1 : 0)
                         );
                       },
                       0,
@@ -3586,7 +3597,7 @@ export default function NutritionPlanClient({
                                       section.mealIndex,
                                     );
                                     if (
-                                      !isConsumed(mealKey, highlightedDayKey)
+                                      !isConsumedDay(mealKey, highlightedDayKey)
                                     ) {
                                       void toggle(mealKey, highlightedDayKey, {
                                         mealType: section.meal.type,
@@ -3970,7 +3981,7 @@ export default function NutritionPlanClient({
                                       highlightedDayKey,
                                       mealSection.mealIndex ?? mealIndex,
                                     );
-                                    const mealLogged = isConsumed(
+                                    const mealLogged = isConsumedDay(
                                       mealKey,
                                       highlightedDayKey,
                                     );
@@ -4841,7 +4852,7 @@ export default function NutritionPlanClient({
                 }
                 disabled={adherenceError}
               >
-                {isConsumed(selectedMeal.mealKey, selectedMeal.dayKey)
+                {isConsumedDay(selectedMeal.mealKey, selectedMeal.dayKey)
                   ? t("nutrition.quickLogButtonConsumed")
                   : t("nutrition.quickLogButton")}
               </Button>

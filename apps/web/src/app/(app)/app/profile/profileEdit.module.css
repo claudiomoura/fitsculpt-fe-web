@@ -22,6 +22,57 @@
 
 .content {
   width: 100%;
+  max-width: 760px;
+  margin-inline: auto;
+}
+
+.content :global(.onboarding-shell-hero) {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+}
+
+.content :global(.onboarding-shell-brand) {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.content :global(.onboarding-shell-logo) {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  color: white;
+  background: linear-gradient(135deg, var(--accent), var(--brand));
+  box-shadow: var(--shadow-sm);
+}
+
+.content :global(.onboarding-shell-progress) {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+}
+
+.content :global(.onboarding-shell-progress-bar) {
+  border: 0;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.content :global(.onboarding-shell-progress-bar.is-active) {
+  background: color-mix(in srgb, var(--accent) 85%, white 15%);
+}
+
+.content :global(.onboarding-shell-progress-bar.is-current) {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 50%, transparent), var(--shadow-sm);
+}
+
+.content :global(.onboarding-shell-counter) {
+  margin: 0;
 }
 
 .section {
@@ -79,8 +130,13 @@
 
 @media (max-width: 640px) {
   .hero,
-  .section {
+  .section,
+  .content :global(.onboarding-shell-hero) {
     padding: 16px;
+  }
+
+  .content :global(.onboarding-shell-progress) {
+    gap: 6px;
   }
 
   .footerCard :global(.btn) {

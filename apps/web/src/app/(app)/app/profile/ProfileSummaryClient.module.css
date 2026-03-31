@@ -96,6 +96,38 @@
   background: var(--surface-secondary-bg);
 }
 
+.rowButton {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+
+.inlineEditor {
+  display: grid;
+  gap: 0.55rem;
+  width: 100%;
+}
+
+.inlineSelect {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.48rem 0.6rem;
+  color: var(--text-primary);
+  background: var(--surface-primary-bg);
+}
+
+.inlineActions {
+  display: flex;
+  gap: 0.45rem;
+}
+
+.inlineError {
+  margin: 0.7rem 0 0;
+  font-size: 0.84rem;
+  color: var(--danger, #ef4444);
+}
+
 .rowLabel {
   margin: 0;
   font-size: 0.9rem;

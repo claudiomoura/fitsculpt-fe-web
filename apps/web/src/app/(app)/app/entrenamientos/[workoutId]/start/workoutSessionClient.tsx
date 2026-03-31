@@ -7,6 +7,7 @@ import { useToast } from "@/design-system/components/Toast";
 import { useLanguage } from "@/context/LanguageProvider";
 import { trackEvent } from "@/lib/analytics";
 import type { Workout, WorkoutExercise, WorkoutSession } from "@/lib/types";
+import { pickLatestOpenWorkoutSession } from "@/lib/workoutSessionSelection";
 import trackingStyles from "@/app/(app)/app/seguimiento/TrackingClient.module.css";
 
 type WorkoutSessionClientProps = {
@@ -236,6 +237,14 @@ export default function WorkoutSessionClient({
 
   useEffect(() => {
     if (!workout || session) return;
+
+    const resumableSession = pickLatestOpenWorkoutSession(workout.sessions);
+    if (resumableSession) {
+      setSession(resumableSession);
+      setEntries(resumableSession.entries ?? []);
+      return;
+    }
+
     const startSession = async () => {
       try {
         const response = await fetch(`/api/workouts/${workout.id}/start`, {

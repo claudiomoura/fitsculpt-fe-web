@@ -20,7 +20,14 @@ import {
   type TimerSound,
   type WorkoutLength,
 } from "@/lib/profile";
+
+const FORMULA_DEFAULTS: Record<MacroFormula, { proteinGPerKg: number; fatGPerKg: number; cutPercent: number; bulkPercent: number }> = {
+  katch: { proteinGPerKg: 1.8, fatGPerKg: 0.8, cutPercent: 15, bulkPercent: 10 },
+  mifflin: { proteinGPerKg: 1.8, fatGPerKg: 0.8, cutPercent: 15, bulkPercent: 10 },
+};
 import { getUserProfile, updateUserProfile, updateUserProfilePreferences } from "@/lib/profileService";
+import { compressAvatarToDataUrl } from "@/lib/avatarUpload";
+import { normalizeGoalWeightForGoal } from "@/lib/profileGoal";
 import BodyFatSelector from "@/components/profile/BodyFatSelector";
 import styles from "./profileEdit.module.css";
 
@@ -33,6 +40,7 @@ export default function ProfileClient() {
   const [allergyInput, setAllergyInput] = useState("");
   const [avatarSaving, setAvatarSaving] = useState(false);
   const [avatarMessage, setAvatarMessage] = useState<string | null>(null);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [profileStep, setProfileStep] = useState(0);
 
   const formatMetric = (value: number | null | undefined, suffix: string) => {
@@ -68,6 +76,15 @@ export default function ProfileClient() {
   ], [t]);
   const isFirstProfileStep = profileStep === 0;
   const isLastProfileStep = profileStep === profileSteps.length - 1;
+  const isMaintainGoal = profile.goal === "maintain";
+
+  function getProfileErrorMessage(error: unknown, fallbackKey: string): string {
+    const statusMatch = String(error).match(/PROFILE_UPDATE_FAILED:(\d+)/);
+    const status = statusMatch ? Number(statusMatch[1]) : null;
+    if (status === 413) return t("profile.saveErrorPayloadTooLarge");
+    if (status === 502) return t("profile.saveErrorBackendUnavailable");
+    return t(fallbackKey);
+  }
 
   useEffect(() => {
     let active = true;
@@ -133,7 +150,17 @@ export default function ProfileClient() {
   }, []);
 
   function update<K extends keyof ProfileData>(key: K, value: ProfileData[K]) {
-    setProfile((prev) => ({ ...prev, [key]: value }));
+    setProfile((prev) => {
+      const next = { ...prev, [key]: value } as ProfileData;
+      if (key === "goal" || key === "weightKg" || key === "goalWeightKg") {
+        return {
+          ...next,
+          goalWeightKg: normalizeGoalWeightForGoal(next.goal, next.weightKg, next.goalWeightKg),
+        };
+      }
+
+      return next;
+    });
   }
 
   function updateTraining<K extends keyof ProfileData["trainingPreferences"]>(
@@ -254,32 +281,28 @@ export default function ProfileClient() {
   }
 
   async function saveProfile() {
-    const nextProfile = await updateUserProfilePreferences(profile);
-    setProfile(nextProfile);
-    setSaved(true);
-    window.setTimeout(() => setSaved(false), 2000);
-    window.dispatchEvent(new Event("auth:refresh"));
+    setSaveMessage(null);
+    try {
+      const nextProfile = await updateUserProfilePreferences(profile);
+      setProfile(nextProfile);
+      setSaved(true);
+      window.setTimeout(() => setSaved(false), 2000);
+      window.dispatchEvent(new Event("auth:refresh"));
+    } catch (error) {
+      setSaved(false);
+      setSaveMessage(getProfileErrorMessage(error, "profile.saveError"));
+    }
   }
 
   async function resetProfile() {
-    const nextProfile = await updateUserProfilePreferences(defaultProfile);
-    setProfile(nextProfile);
-  }
-
-  async function readFileAsDataUrl(file: File) {
-    return await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const nextUrl = String(reader.result || "");
-        if (!nextUrl) {
-          reject(new Error("avatar-empty"));
-          return;
-        }
-        resolve(nextUrl);
-      };
-      reader.onerror = () => reject(new Error("avatar-read-failed"));
-      reader.readAsDataURL(file);
-    });
+    try {
+      const nextProfile = await updateUserProfilePreferences(defaultProfile);
+      setProfile(nextProfile);
+      setSaveMessage(null);
+    } catch (error) {
+      setSaved(false);
+      setSaveMessage(getProfileErrorMessage(error, "profile.saveError"));
+    }
   }
 
   async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -288,7 +311,7 @@ export default function ProfileClient() {
     setAvatarSaving(true);
     setAvatarMessage(null);
     try {
-      const nextUrl = await readFileAsDataUrl(file);
+      const nextUrl = await compressAvatarToDataUrl(file);
       const nextProfile = await updateUserProfile({ profilePhotoUrl: nextUrl, avatarDataUrl: nextUrl });
       setProfile((prev) => ({
         ...prev,
@@ -297,8 +320,13 @@ export default function ProfileClient() {
         avatarDataUrl: nextProfile.avatarDataUrl ?? nextUrl,
       }));
       window.dispatchEvent(new Event("auth:refresh"));
-    } catch (_err) {
-      setAvatarMessage(t("profile.avatarUploadError"));
+    } catch (error) {
+      const errorCode = String(error);
+      if (errorCode.includes("avatar-file-too-large") || errorCode.includes("avatar-payload-too-large")) {
+        setAvatarMessage(t("profile.avatarPayloadTooLarge"));
+      } else {
+        setAvatarMessage(getProfileErrorMessage(error, "profile.avatarUploadError"));
+      }
     } finally {
       setAvatarSaving(false);
       e.target.value = "";
@@ -320,23 +348,26 @@ export default function ProfileClient() {
   }
 
   return (
-    <div className={`page ${styles.content}`}>
-      <section className={`card premium-stepper-card ${styles.stepper}`}>
+    <div className={`page onboarding-shell ${styles.content}`}>
+      <section className={`card onboarding-shell-hero premium-hero-card ${styles.stepper}`}>
         <div className={styles.stepperHead}>
-          <div>
-            <h2 className="section-title">{profileSteps[profileStep]?.title}</h2>
-            <p className="section-subtitle">{profileSteps[profileStep]?.hint}</p>
+          <div className="onboarding-shell-brand">
+            <div className="onboarding-shell-logo">FS</div>
+            <div>
+              <h2 className="section-title">{t("profile.formTitle")}</h2>
+              <p className="section-subtitle">{profileSteps[profileStep]?.hint}</p>
+            </div>
           </div>
-          <div className={styles.stepCounter}>
+          <div className={`onboarding-shell-counter ${styles.stepCounter}`}>
             {t("profile.stepCounter", { current: profileStep + 1, total: profileSteps.length })}
           </div>
         </div>
-        <div className={styles.stepProgress}>
+        <div className="onboarding-shell-progress">
           {profileSteps.map((stepMeta, index) => (
             <button
               key={stepMeta.title}
               type="button"
-              className={`${styles.stepDot} ${index <= profileStep ? styles.stepDotActive : ""} ${index === profileStep ? styles.stepDotCurrent : ""}`}
+              className={`onboarding-shell-progress-bar ${index <= profileStep ? "is-active" : ""} ${index === profileStep ? "is-current" : ""}`}
               onClick={() => setProfileStep(index)}
               aria-label={stepMeta.title}
             />
@@ -495,11 +526,6 @@ export default function ProfileClient() {
         <div className="form-stack">
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
             <label className="form-stack">
-              {t("profile.goalWeight")}
-              <input type="number" min={35} max={250} value={profile.goalWeightKg ?? ""} onChange={(e) => update("goalWeightKg", parseNumberInput(e.target.value))} />
-            </label>
-
-            <label className="form-stack">
               {t("profile.goal")}
               <select value={profile.goal} onChange={(e) => update("goal", e.target.value as Goal)}>
                 <option value="">{t("profile.selectPlaceholder")}</option>
@@ -508,7 +534,20 @@ export default function ProfileClient() {
                 <option value="bulk">{t("profile.goalBulk")}</option>
               </select>
             </label>
+
+            <label className="form-stack">
+              {t("profile.goalWeight")}
+              <input
+                type="number"
+                min={35}
+                max={250}
+                value={profile.goalWeightKg ?? ""}
+                onChange={(e) => update("goalWeightKg", parseNumberInput(e.target.value))}
+                disabled={isMaintainGoal}
+              />
+            </label>
           </div>
+          {isMaintainGoal ? <span className="muted">{t("profile.goalWeightMaintainHint")}</span> : null}
 
           <div className="form-stack">
             <div style={{ fontWeight: 600 }}>{t("profile.goalTagsLabel")}</div>
@@ -732,7 +771,29 @@ export default function ProfileClient() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>
             <label className="form-stack">
               {t("profile.macroFormula")}
-              <select value={profile.macroPreferences.formula} onChange={(e) => updateMacros("formula", e.target.value as MacroFormula)}>
+              <select
+                value={profile.macroPreferences.formula}
+                onChange={(e) => {
+                  const nextFormula = e.target.value as MacroFormula | "";
+                  updateMacros("formula", nextFormula);
+                  if (!nextFormula) {
+                    return;
+                  }
+                  const defaults = FORMULA_DEFAULTS[nextFormula];
+                  if (profile.macroPreferences.proteinGPerKg === null) {
+                    updateMacros("proteinGPerKg", defaults.proteinGPerKg);
+                  }
+                  if (profile.macroPreferences.fatGPerKg === null) {
+                    updateMacros("fatGPerKg", defaults.fatGPerKg);
+                  }
+                  if (profile.macroPreferences.cutPercent === null) {
+                    updateMacros("cutPercent", defaults.cutPercent);
+                  }
+                  if (profile.macroPreferences.bulkPercent === null) {
+                    updateMacros("bulkPercent", defaults.bulkPercent);
+                  }
+                }}
+              >
                 <option value="">{t("profile.selectPlaceholder")}</option>
                 <option value="mifflin">{t("profile.macroFormulaMifflin")}</option>
                 <option value="katch">{t("profile.macroFormulaKatch")}</option>
@@ -837,6 +898,11 @@ export default function ProfileClient() {
       ) : null}
 
       <section className={`card premium-footer-card ${styles.footerCard}`}>
+        {saveMessage ? (
+          <div className="status-card status-card--warning" role="alert">
+            <p className="muted m-0">{saveMessage}</p>
+          </div>
+        ) : null}
         <div className="inline-actions-sm">
           <button type="button" className="btn secondary" onClick={() => setProfileStep((current) => Math.max(0, current - 1))} disabled={isFirstProfileStep}>
             {t("ui.back")}

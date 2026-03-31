@@ -22,7 +22,9 @@ import {
   type TrainingFocus,
   type TrainingLevel,
 } from "@/lib/profile";
-import { mergeProfileData } from "@/lib/profileService";
+import { mergeProfileData, updateUserProfilePreferences } from "@/lib/profileService";
+import { isProfileComplete } from "@/lib/profileCompletion";
+import { normalizeGoalWeightForGoal } from "@/lib/profileGoal";
 
 type Props = {
   nextUrl?: string;
@@ -119,7 +121,17 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
   const [isBulkTouched, setIsBulkTouched] = useState(false);
 
   const updateProfile = useCallback(<K extends keyof ProfileData>(key: K, value: ProfileData[K]) => {
-    setProfile((prev) => ({ ...prev, [key]: value }));
+    setProfile((prev) => {
+      const next = { ...prev, [key]: value } as ProfileData;
+      if (key === "goal" || key === "weightKg" || key === "goalWeightKg") {
+        return {
+          ...next,
+          goalWeightKg: normalizeGoalWeightForGoal(next.goal, next.weightKg, next.goalWeightKg),
+        };
+      }
+
+      return next;
+    });
   }, []);
 
   const updateTrainingPreference = useCallback(
@@ -167,7 +179,7 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
   const loadProfile = useCallback(async () => {
     setLoadState("loading");
     try {
-      const response = await fetch("/api/profile", { cache: "no-store" });
+      const response = await fetch("/api/profile", { cache: "no-store", credentials: "include" });
       if (!response.ok) {
         setLoadState("error");
         return;
@@ -320,20 +332,17 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
 
   const saveProfile = useCallback(async () => {
     setSaveState("saving");
+    const profileToSave: ProfileData = {
+      ...profile,
+      goalWeightKg: normalizeGoalWeightForGoal(profile.goal, profile.weightKg, profile.goalWeightKg),
+      macroPreferences: {
+        ...profile.macroPreferences,
+        formula: profile.macroPreferences.formula || "mifflin",
+      },
+    };
     try {
-      const response = await fetch("/api/profile", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(profile),
-      });
-
-      if (!response.ok) {
-        setSaveState("error");
-        return;
-      }
-
-      const data = (await response.json()) as Partial<ProfileData> | null;
-      setProfile(mergeProfileData(data ?? profile));
+      const savedProfile = await updateUserProfilePreferences(profileToSave);
+      setProfile(savedProfile);
       setSaveState("success");
       trackEvent("onboarding_completed", { origin: "onboarding" });
     } catch {
@@ -345,7 +354,20 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
     hasPositiveNumber(profile.age) &&
     hasPositiveNumber(profile.heightCm) &&
     hasPositiveNumber(profile.weightKg);
-  const isStepValid = (step === 0 && hasValidBasics) || step > 0;
+  const canFinishOnboarding = isProfileComplete({
+    ...profile,
+    macroPreferences: {
+      ...profile.macroPreferences,
+      formula: profile.macroPreferences.formula || "mifflin",
+    },
+  });
+  const isStepValid =
+    step === 0
+      ? hasValidBasics
+      : step === LAST_STEP
+        ? canFinishOnboarding
+        : true;
+  const isMaintainGoal = profile.goal === "maintain";
 
   if (loadState === "loading") {
     return (
@@ -495,6 +517,8 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
             label={t("profile.goalWeight")}
             value={profile.goalWeightKg ?? ""}
             onChange={(e) => updateProfile("goalWeightKg", parseNumberInput(e.target.value))}
+            disabled={isMaintainGoal}
+            helperText={isMaintainGoal ? t("profile.goalWeightMaintainHint") : undefined}
           />
         </section>
       ) : null}

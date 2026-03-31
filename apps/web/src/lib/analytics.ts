@@ -73,6 +73,14 @@ export function initAnalytics() {
     persistence: "localStorage+cookie",
     loaded: () => {
       analyticsEnabled = true;
+      // Flush any events queued before PostHog initialized
+      const queue = window.__fsAnalyticsQueue;
+      if (queue?.length) {
+        for (const event of queue) {
+          posthog.capture(event.name, event.props ?? {});
+        }
+        window.__fsAnalyticsQueue = [];
+      }
     },
   });
 

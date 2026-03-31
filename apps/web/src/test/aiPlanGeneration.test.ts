@@ -21,6 +21,54 @@ const profile: Parameters<typeof requestAiTrainingPlan>[0] = {
 };
 
 describe("requestAiTrainingPlan", () => {
+  it("omits invalid optional enum fields from AI request payload", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        plan: {
+          days: [
+            {
+              label: "Día 1",
+              focus: "Fuerza",
+              duration: 45,
+              exercises: [{ name: "Sentadilla", sets: 4, reps: "8" }],
+            },
+          ],
+        },
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+
+    await requestAiTrainingPlan(
+      {
+        ...profile,
+        age: null,
+        sex: "",
+        trainingPreferences: {
+          ...profile.trainingPreferences,
+          workoutLength: "",
+          timerSound: "",
+        },
+      },
+      {
+        goal: "cut",
+        level: "beginner",
+        daysPerWeek: 3,
+        equipment: "gym",
+        focus: "full",
+        sessionTime: "medium",
+      },
+    );
+
+    const requestOptions = fetchMock.mock.calls[0]?.[1] as { body?: string };
+    const payload = JSON.parse(requestOptions.body ?? "{}");
+
+    expect(payload.age).toBeUndefined();
+    expect(payload.sex).toBeUndefined();
+    expect(payload.workoutLength).toBeUndefined();
+    expect(payload.timerSound).toBeUndefined();
+  });
+
   it("propagates backend 503 EXERCISE_CATALOG_UNAVAILABLE with hint", async () => {
     vi.stubGlobal(
       "fetch",

@@ -1,7 +1,7 @@
 import "dotenv/config";
 // Override with .env.local for local development (higher priority)
 import { config as dotenvConfig } from "dotenv";
-dotenvConfig({ path: ".env.local" });
+dotenvConfig({ path: ".env.local", override: true });
 import crypto from "node:crypto";
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import cors from "@fastify/cors";
@@ -103,12 +103,19 @@ import { registerRctSummaryRoute } from "./routes/rctSummary.js";
 import { registerRctStatisticalReportRoute } from "./routes/rctStatisticalReport.js";
 import { registerAdminAssignGymRoleRoutes } from "./routes/admin/assignGymRole.js";
 import { registerMealRoutes } from "./routes/mealRoutes.js";
+import { registerAuthRoutes } from "./routes/auth.js";
+import { authRateLimitMiddleware } from "./middleware/authRateLimit.js";
+import { registerProfileRoutes } from "./routes/profile.js";
+import { registerFeedRoutes } from "./routes/feed.js";
+import { registerNutritionRoutes } from "./routes/nutrition.js";
+import { registerGymRoutes } from "./routes/gym.js";
+import { registerTrainerRoutes } from "./routes/trainer.js";
+import { registerAdminRoutes } from "./routes/admin.js";
 import { appendRctEvent, ensureRctAssignment } from "./services/futureProjection.js";
 import { registerAiRoutes } from "./domains/ai/registerAiRoutes.js";
 import { registerBillingRoutes } from "./domains/billing/registerBillingRoutes.js";
 import { registerWorkoutRoutes } from "./domains/training/registerWorkoutRoutes.js";
 import { registerTrainingRoutes } from "./domains/training/registerTrainingRoutes.js";
-import { registerNutritionRoutes } from "./domains/nutrition/registerNutritionRoutes.js";
 import {
   buildEntitlementGuard,
   resolveUserEntitlements,
@@ -125,10 +132,36 @@ import {
 } from "./ai/chat/contextualChatSchemas.js";
 import { rateLimitMiddleware, logAiCall, logAiError, getRecentAiErrors } from "./ai/monitoring/rateLimiter.js";
 import { getAiQueue } from "./ai/queue/aiQueue.js";
+// NEW: AI Prompts (segregated constants for easy editing)
+import * as trainingPrompts from "./ai/prompts/training-prompts.js";
+import * as nutritionPrompts from "./ai/prompts/nutrition-prompts.js";
+// NEW: AI Templates (deterministic/fallback plans)
+import * as aiTemplates from "./ai/templates/ai-templates.js";
+
+// NEW: Lib utilities (refactored from inline)
+import { handleRequestError, mapTrainingPlanCreateError } from "./lib/http-utils.js";
+import * as stripeUtils from "./lib/stripe-utils.js";
+import type { 
+  StripePrice, 
+  StripeProduct, 
+  StripeSubscription,
+  StripeSubscriptionList,
+  StripeInterval,
+  StripeInvoice,
+  StripeCustomer,
+  StripePortalSession,
+  StripeCheckoutSession,
+} from "./lib/stripe-utils.js";
+import * as authUtils from "./lib/auth-utils.js";
+import * as dateUtils from "./lib/date-utils.js";
 
 const env = getEnv();
 const app = Fastify({ logger: true });
 const prisma = await createPrismaClientWithRetry(app.log);
+
+// Register auth routes that are missing from this file:
+// resend-verification, verify-email, forgot-password, reset-password
+registerAuthRoutes(app, { prisma });
 
 const shouldRunDbPreflight =
   process.env.NODE_ENV !== "production" ||
@@ -153,76 +186,6 @@ app.get("/ai/errors", { preHandler: [requireAdmin] }, async (request, reply) => 
   return reply.send({ errors });
 });
 
-type StripeCheckoutSession = {
-  id: string;
-  url: string | null;
-  customer?: string | null;
-  subscription?: string | null;
-};
-
-type StripePortalSession = {
-  id: string;
-  url: string;
-};
-
-type StripeSubscription = {
-  id: string;
-  customer: string;
-  status: string;
-  current_period_end: number | null;
-  items?: { data?: StripeSubscriptionItem[] };
-};
-
-type StripeSubscriptionItem = {
-  current_period_end?: number | null;
-  price?: {
-    id?: string | null;
-  } | null;
-};
-
-type StripeInvoiceLineItem = {
-  price?: {
-    id?: string | null;
-  } | null;
-};
-
-type StripeInvoice = {
-  id: string;
-  customer?: string | null;
-  subscription?: string | null;
-  lines?: { data?: StripeInvoiceLineItem[] };
-};
-
-type StripeSubscriptionList = {
-  data: StripeSubscription[];
-};
-
-type StripeCustomer = {
-  id: string;
-};
-
-type StripeProduct = {
-  id: string;
-  name?: string | null;
-};
-
-type StripePrice = {
-  id: string;
-  currency: string;
-  unit_amount: number | null;
-  recurring?: {
-    interval?: string | null;
-  } | null;
-  product?: string | StripeProduct | null;
-};
-
-type StripeInterval = "day" | "week" | "month" | "year" | "unknown";
-
-await app.register(cors, {
-  origin: env.CORS_ORIGIN,
-  credentials: true,
-});
-
 await app.register(cookie, {
   secret: env.COOKIE_SECRET,
 });
@@ -233,6 +196,12 @@ await app.register(jwt, {
     cookieName: "fs_token",
     signed: false,
   },
+});
+
+// Register CORS with support for multiple origins (comma-separated in CORS_ORIGIN env var)
+await app.register(cors, {
+  origin: env.CORS_ORIGIN,
+  credentials: true,
 });
 
 app.addContentTypeParser(
@@ -281,64 +250,6 @@ function getPayloadSize(value: unknown) {
   }
 }
 
-function mapTrainingPlanCreateError(error: unknown): {
-  statusCode: number;
-  payload: Record<string, unknown>;
-} | null {
-  if (error instanceof z.ZodError) {
-    return {
-      statusCode: 400,
-      payload: {
-        error: "VALIDATION_ERROR",
-        details: error.flatten(),
-      },
-    };
-  }
-
-  const prismaError = error as {
-    code?: string;
-    message?: string;
-    statusCode?: number;
-    debug?: Record<string, unknown>;
-  };
-
-  if (prismaError.code === "P2002") {
-    return {
-      statusCode: 409,
-      payload: {
-        error: "CONFLICT",
-        code: "TRAINING_PLAN_CONFLICT",
-      },
-    };
-  }
-
-  if (prismaError.statusCode === 401) {
-    return {
-      statusCode: 401,
-      payload: { error: "UNAUTHORIZED", code: prismaError.code ?? "UNAUTHORIZED" },
-    };
-  }
-
-  if (prismaError.statusCode === 403) {
-    return {
-      statusCode: 403,
-      payload: { error: "FORBIDDEN", code: prismaError.code ?? "FORBIDDEN" },
-    };
-  }
-
-  if (prismaError.statusCode === 409) {
-    return {
-      statusCode: 409,
-      payload: {
-        error: "CONFLICT",
-        code: prismaError.code ?? "CONFLICT",
-      },
-    };
-  }
-
-  return null;
-}
-
 app.addHook("onRequest", async (request, reply) => {
   const correlationId = resolveCorrelationId(request);
   (request as FastifyRequest & { startTimeMs?: number }).startTimeMs = Date.now();
@@ -376,47 +287,7 @@ function createHttpError(
   return error;
 }
 
-function handleRequestError(reply: FastifyReply, error: unknown) {
-  if (error instanceof z.ZodError) {
-    return reply
-      .status(400)
-      .send({ error: "INVALID_INPUT", details: error.flatten() });
-  }
-  const typed = error as {
-    statusCode?: number;
-    code?: string;
-    debug?: Record<string, unknown>;
-  };
-  if (typed.statusCode === 429 && typed.code === "AI_LIMIT_REACHED") {
-    const retryAfterSec =
-      typeof typed.debug?.retryAfterSec === "number"
-        ? typed.debug.retryAfterSec
-        : undefined;
-    if (retryAfterSec) {
-      reply.header("Retry-After", retryAfterSec.toString());
-    }
-    return reply.status(429).send({
-      error: "AI_LIMIT_REACHED",
-      message:
-        "Has alcanzado el límite diario de IA. Suscríbete a PRO para más usos o intenta mañana.",
-      ...(retryAfterSec ? { retryAfterSec } : {}),
-    });
-  }
-  if (typed.statusCode === 402 && typed.code === "UPGRADE_REQUIRED") {
-    return reply.status(402).send({ code: "UPGRADE_REQUIRED" });
-  }
-  if (typed.statusCode === 409 && typed.code === "PROFILE_INCOMPLETE") {
-    return reply.status(409).send({ code: "PROFILE_INCOMPLETE" });
-  }
-  if (typed.statusCode) {
-    return reply.status(typed.statusCode).send({
-      error: typed.code ?? "REQUEST_ERROR",
-      ...(typed.debug ? { debug: typed.debug } : {}),
-    });
-  }
-  app.log.error({ err: error }, "unhandled error");
-  return reply.status(500).send({ error: "INTERNAL_ERROR" });
-}
+// Removed: handleRequestError - now in lib/http-utils.ts
 
 async function loadExerciseCatalogForAi() {
   try {
@@ -1349,7 +1220,7 @@ const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   name: z.string().min(2).optional(),
-  promoCode: z.string().min(1),
+  promoCode: z.string().optional(),
 });
 
 const loginSchema = z.object({
@@ -5472,7 +5343,8 @@ async function handleSignup(request: FastifyRequest, reply: FastifyReply) {
   const data = registerSchema.parse(request.body);
   const ipAddress = getRequestIp(request);
 
-  if (!isPromoCodeValid(data.promoCode)) {
+  // Promo code is now optional for beta launch — still validated if provided for tracking
+  if (data.promoCode && !isPromoCodeValid(data.promoCode)) {
     await logSignupAttempt({ email: data.email, ipAddress, success: false });
     return reply.status(403).send({ error: "INVALID_PROMO_CODE" });
   }
@@ -5504,115 +5376,8 @@ async function handleSignup(request: FastifyRequest, reply: FastifyReply) {
     .send({ id: user.id, email: user.email, name: user.name });
 }
 
-app.post("/auth/signup", handleSignup);
-app.post("/auth/register", handleSignup);
-
-app.post("/auth/login", async (request, reply) => {
-  try {
-    const data = loginSchema.parse(request.body);
-    const user = await prisma.user.findUnique({ where: { email: data.email } });
-
-    if (!user || user.deletedAt || !user.passwordHash) {
-      return reply.status(401).send({ error: "INVALID_CREDENTIALS" });
-    }
-
-    if (user.isBlocked) {
-      return reply.status(403).send({ error: "USER_BLOCKED" });
-    }
-
-    if (!user.emailVerifiedAt) {
-      return reply.status(403).send({ error: "EMAIL_NOT_VERIFIED" });
-    }
-
-    const valid = await bcrypt.compare(data.password, user.passwordHash);
-    if (!valid) {
-      return reply.status(401).send({ error: "INVALID_CREDENTIALS" });
-    }
-
-    const token = await reply.jwtSign({
-      sub: user.id,
-      email: user.email,
-      role: user.role,
-    });
-    reply.setCookie("fs_token", token, buildCookieOptions());
-
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { lastLoginAt: new Date() },
-    });
-
-    return { id: user.id, email: user.email, name: user.name };
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
-});
-
-app.post("/auth/logout", async (_request, reply) => {
-  reply.clearCookie("fs_token", { path: "/" });
-  return { ok: true };
-});
-
-app.post("/auth/resend-verification", async (request, reply) => {
-  const schema = z.object({ email: z.string().email() });
-  try {
-    const { email } = schema.parse(request.body);
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user || user.deletedAt) {
-      return reply.status(200).send({ ok: true });
-    }
-    if (user.emailVerifiedAt) {
-      return reply.status(200).send({ ok: true });
-    }
-
-    const latestToken = await prisma.emailVerificationToken.findFirst({
-      where: { userId: user.id },
-      orderBy: { createdAt: "desc" },
-    });
-
-    if (
-      latestToken &&
-      Date.now() - latestToken.createdAt.getTime() < RESEND_COOLDOWN_MS
-    ) {
-      return reply.status(429).send({ error: "RESEND_TOO_SOON" });
-    }
-
-    const token = await createVerificationToken(user.id);
-    await sendVerificationEmail(user.email, token);
-
-    return reply.status(200).send({ ok: true });
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
-});
-
-app.get("/auth/verify-email", async (request, reply) => {
-  const schema = z.object({ token: z.string().min(1) });
-  try {
-    const { token } = schema.parse(request.query);
-    const tokenHash = hashToken(token);
-    const record = await prisma.emailVerificationToken.findUnique({
-      where: { tokenHash },
-    });
-    if (!record) {
-      return reply.status(400).send({ error: "INVALID_TOKEN" });
-    }
-    if (record.expiresAt.getTime() < Date.now()) {
-      await prisma.emailVerificationToken.delete({ where: { id: record.id } });
-      return reply.status(400).send({ error: "TOKEN_EXPIRED" });
-    }
-
-    await prisma.user.update({
-      where: { id: record.userId },
-      data: { emailVerifiedAt: new Date() },
-    });
-
-    await prisma.emailVerificationToken.delete({ where: { id: record.id } });
-
-    return reply.status(200).send({ ok: true });
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
-});
+// Auth routes now in routes/auth.ts - via registerAuthRoutes()
+// Duplicate handlers removed to avoid conflicts
 
 const billingCheckoutHandler = async (request: FastifyRequest, reply: FastifyReply) => {
   /**
@@ -6140,6 +5905,43 @@ const billingStripeWebhookHandler = async (
     }
 };
 
+// POST /auth/login
+app.post("/auth/login", { preHandler: [authRateLimitMiddleware] }, async (request, reply) => {
+  try {
+    const data = loginSchema.parse(request.body);
+    const user = await prisma.user.findUnique({ where: { email: data.email } });
+
+    if (!user || user.deletedAt || !user.passwordHash) {
+      return reply.status(401).send({ error: "INVALID_CREDENTIALS" });
+    }
+
+    if (user.isBlocked) {
+      return reply.status(403).send({ error: "USER_BLOCKED" });
+    }
+
+    if (!user.emailVerifiedAt) {
+      return reply.status(403).send({ error: "EMAIL_NOT_VERIFIED" });
+    }
+
+    const valid = await bcrypt.compare(data.password, user.passwordHash);
+    if (!valid) {
+      return reply.status(401).send({ error: "INVALID_CREDENTIALS" });
+    }
+
+    const token = await reply.jwtSign({
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+    });
+
+    reply.setCookie("fs_token", token, buildCookieOptions());
+    // Token is only sent via httpOnly cookie — never expose in response body
+    return reply.status(200).send({ id: user.id, email: user.email, name: user.name });
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
 app.get("/auth/me", async (request, reply) => {
   try {
     reply.header("Cache-Control", "no-store");
@@ -6209,6 +6011,16 @@ app.post("/auth/change-password", async (request, reply) => {
       where: { id: user.id },
       data: { passwordHash },
     });
+    return reply.status(200).send({ ok: true });
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+// POST /auth/logout
+app.post("/auth/logout", async (request: FastifyRequest, reply: FastifyReply) => {
+  try {
+    reply.clearCookie("fs_token", buildCookieOptions());
     return reply.status(200).send({ ok: true });
   } catch (error) {
     return handleRequestError(reply, error);
@@ -6368,144 +6180,20 @@ app.get("/auth/google/callback", async (request, reply) => {
   });
 
   if (mode === "bff") {
-    return reply.status(200).send({ token });
+    // Token is only sent via httpOnly cookie — never expose in response body
+    reply.setCookie("fs_token", token, buildCookieOptions());
+    return reply.status(200).send({ id: user.id, email: user.email, name: user.name });
   }
 
   reply.setCookie("fs_token", token, buildCookieOptions());
   return reply.redirect(`${env.APP_BASE_URL}/app`, 302);
 });
 
-app.get("/profile", async (request, reply) => {
-  try {
-    const user = await requireUser(request);
-    const profile = await getOrCreateProfile(user.id);
-    return profile.profile ?? null;
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
-});
-
-app.put("/profile", async (request, reply) => {
-  try {
-    const user = await requireUser(request);
-    const data = profileUpdateSchema.parse(request.body);
-    if (typeof data.name === "string") {
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { name: data.name.trim() ? data.name : null },
-      });
-    }
-    const current = await getOrCreateProfile(user.id);
-    const existingProfile =
-      (current.profile as Record<string, unknown> | null) ?? {};
-    const existingMeasurements =
-      typeof existingProfile.measurements === "object" &&
-      existingProfile.measurements
-        ? (existingProfile.measurements as Record<string, unknown>)
-        : {};
-    const existingTraining =
-      typeof existingProfile.trainingPreferences === "object" &&
-      existingProfile.trainingPreferences
-        ? (existingProfile.trainingPreferences as Record<string, unknown>)
-        : {};
-    const existingNutrition =
-      typeof existingProfile.nutritionPreferences === "object" &&
-      existingProfile.nutritionPreferences
-        ? (existingProfile.nutritionPreferences as Record<string, unknown>)
-        : {};
-    const existingMacros =
-      typeof existingProfile.macroPreferences === "object" &&
-      existingProfile.macroPreferences
-        ? (existingProfile.macroPreferences as Record<string, unknown>)
-        : {};
-    const fallbackGoal =
-      typeof existingProfile.goal === "string"
-        ? existingProfile.goal
-        : typeof existingTraining.goal === "string"
-          ? existingTraining.goal
-          : typeof existingNutrition.goal === "string"
-            ? existingNutrition.goal
-            : "maintain";
-
-    const nextProfile = {
-      ...existingProfile,
-      ...data,
-      goal: typeof data.goal === "string" ? data.goal : fallbackGoal,
-      goals: Array.isArray(data.goals)
-        ? data.goals
-        : Array.isArray(existingProfile.goals)
-          ? existingProfile.goals
-          : defaultGoals,
-      injuries:
-        typeof data.injuries === "string"
-          ? data.injuries
-          : typeof existingProfile.injuries === "string"
-            ? existingProfile.injuries
-            : "",
-      measurements: {
-        ...existingMeasurements,
-        ...data.measurements,
-      },
-      trainingPreferences: {
-        ...defaultTrainingPreferences,
-        ...existingTraining,
-        ...data.trainingPreferences,
-      },
-      nutritionPreferences: {
-        ...defaultNutritionPreferences,
-        ...existingNutrition,
-        ...data.nutritionPreferences,
-        dislikedFoods:
-          typeof data.nutritionPreferences?.dislikedFoods === "string"
-            ? data.nutritionPreferences.dislikedFoods
-            : typeof existingNutrition.dislikedFoods === "string"
-              ? existingNutrition.dislikedFoods
-              : typeof existingNutrition.dislikes === "string"
-                ? existingNutrition.dislikes
-                : "",
-        mealDistribution: normalizeMealDistribution(
-          data.nutritionPreferences?.mealDistribution ??
-            existingNutrition.mealDistribution,
-        ),
-      },
-      macroPreferences: {
-        ...existingMacros,
-        ...data.macroPreferences,
-      },
-    };
-
-    const mutableProfile = nextProfile as Record<string, unknown>;
-    mutableProfile.age = normalizeInvalidPositiveMetric(mutableProfile.age);
-    mutableProfile.heightCm = normalizeInvalidPositiveMetric(mutableProfile.heightCm);
-    mutableProfile.weightKg = normalizeInvalidPositiveMetric(mutableProfile.weightKg);
-    mutableProfile.goalWeightKg = normalizeInvalidPositiveMetric(mutableProfile.goalWeightKg);
-    if (
-      nextProfile.trainingPreferences &&
-      typeof nextProfile.trainingPreferences === "object"
-    ) {
-      delete (nextProfile.trainingPreferences as Record<string, unknown>).goal;
-    }
-    if (
-      nextProfile.nutritionPreferences &&
-      typeof nextProfile.nutritionPreferences === "object"
-    ) {
-      delete (nextProfile.nutritionPreferences as Record<string, unknown>).goal;
-      delete (nextProfile.nutritionPreferences as Record<string, unknown>)
-        .dislikes;
-    }
-    const updated = await prisma.userProfile.update({
-      where: { userId: user.id },
-      data: { profile: nextProfile },
-    });
-    return updated.profile ?? null;
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
-});
-
 const billingStatusHandler = async (request: FastifyRequest, reply: FastifyReply) => {
   try {
-    reply.header("Cache-Control", "no-store");
+    // Short TTL (60s) to reduce Stripe API load while keeping data reasonably fresh
+    // Use ?sync=1 query param to force a fresh sync when needed
+    reply.header("Cache-Control", "public, max-age=60, s-maxage=60");
     const user = await requireUser(request);
     const query = request.query as { sync?: string };
     const shouldCreateCustomer = query?.sync === "1";
@@ -6753,12 +6441,17 @@ registerMealRoutes(app, {
   requireUser,
 });
 
-registerNutritionRoutes(app, {
+registerProfileRoutes(app, {
   prisma,
   requireUser,
-  handleRequestError,
-  userFoodSchema,
 });
+
+registerFeedRoutes(app, {
+  prisma,
+  requireUser,
+});
+
+// Nutrition, Gym, Trainer, Admin routes are registered directly in index.ts
 
 registerAiRoutes(app, {
   aiAccessGuard,
@@ -6853,51 +6546,6 @@ registerAiRoutes(app, {
   buildContextualChatPrompt,
   logAiCall,
   logAiError,
-});
-
-app.get("/feed", async (request, reply) => {
-  try {
-    logAuthCookieDebug(request, "/feed");
-    const user = await requireUser(request);
-    const { limit } = feedQuerySchema.parse(request.query);
-    const posts = await prisma.feedPost.findMany({
-      where: { userId: user.id },
-      orderBy: { createdAt: "desc" },
-      take: limit,
-    });
-    return posts;
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
-});
-
-app.post("/feed/generate", async (request, reply) => {
-  try {
-    logAuthCookieDebug(request, "/feed/generate");
-    const user = await requireUser(request);
-    const profile = await getOrCreateProfile(user.id);
-    const profileData =
-      typeof profile.profile === "object" && profile.profile
-        ? (profile.profile as Record<string, unknown>)
-        : null;
-    const trackingData =
-      typeof profile.tracking === "object" && profile.tracking
-        ? (profile.tracking as FeedTrackingSnapshot)
-        : null;
-    const summary = buildFeedSummary(profileData, trackingData);
-    const post = await prisma.feedPost.create({
-      data: {
-        userId: user.id,
-        title: summary.title,
-        summary: summary.summary,
-        type: "summary",
-        metadata: summary.metadata,
-      },
-    });
-    return reply.status(201).send(post);
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
 });
 
 const workoutExerciseSchema = z.object({
@@ -8841,6 +8489,31 @@ app.post("/trainer/plans", async (request, reply) => {
     const daysPerWeek = payload.daysPerWeek ?? Math.min(daysCount, 7);
     const dates = buildDateRange(startDate, daysCount);
 
+    const dayPlansByIndex = new Map<number, z.infer<typeof trainerPlanDayCreateSchema>>();
+    for (const dayPlan of payload.days ?? []) {
+      dayPlansByIndex.set(dayPlan.dayIndex, dayPlan);
+    }
+
+    const referencedExerciseIds = Array.from(
+      new Set(
+        (payload.days ?? [])
+          .flatMap((dayPlan) => dayPlan.exercises ?? [])
+          .map((exercise) => exercise.exerciseId)
+          .filter((exerciseId) => typeof exerciseId === "string" && exerciseId.trim().length > 0),
+      ),
+    );
+
+    const referencedExercises = referencedExerciseIds.length > 0
+      ? await prisma.exercise.findMany({
+          where: { id: { in: referencedExerciseIds } },
+          select: { id: true, name: true, imageUrl: true },
+        })
+      : [];
+
+    const exerciseById = new Map(
+      referencedExercises.map((exercise) => [exercise.id, exercise]),
+    );
+
     const createdPlan = await prisma.trainingPlan.create({
       data: {
         userId: requester.id,
@@ -8854,13 +8527,39 @@ app.post("/trainer/plans", async (request, reply) => {
         startDate,
         daysCount,
         days: {
-          create: dates.map((date, index) => ({
-            date: new Date(`${date}T00:00:00.000Z`),
-            label: `Día ${index + 1}`,
-            focus: payload.focus,
-            duration: 45,
-            order: index + 1,
-          })),
+          create: dates.map((date, index) => {
+            const dayPlan = dayPlansByIndex.get(index);
+            const dayExercises = (dayPlan?.exercises ?? [])
+              .map((exerciseInput) => {
+                const exerciseMeta = exerciseById.get(exerciseInput.exerciseId);
+                if (!exerciseMeta) return null;
+
+                return {
+                  exerciseId: exerciseMeta.id,
+                  name: exerciseInput.name ?? exerciseMeta.name,
+                  imageUrl: exerciseMeta.imageUrl,
+                  sets: exerciseInput.sets ?? 3,
+                  reps: exerciseInput.reps ?? "8-12",
+                  rest: exerciseInput.rest ?? 60,
+                };
+              })
+              .filter((exercise): exercise is NonNullable<typeof exercise> => Boolean(exercise));
+
+            return {
+              date: new Date(`${date}T00:00:00.000Z`),
+              label: dayPlan?.label ?? `Día ${index + 1}`,
+              focus: dayPlan?.focus ?? payload.focus,
+              duration: dayPlan?.duration ?? 45,
+              order: index + 1,
+              ...(dayExercises.length > 0
+                ? {
+                    exercises: {
+                      create: dayExercises,
+                    },
+                  }
+                : {}),
+            };
+          }),
         },
       },
       include: {

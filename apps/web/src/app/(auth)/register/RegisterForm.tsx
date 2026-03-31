@@ -85,7 +85,6 @@ export default function RegisterForm({ action, labels }: RegisterFormProps) {
         type="text"
         label={labels.promoCode}
         helperText={labels.promoHelper}
-        required
       />
 
       <SubmitButton label={labels.submit} loadingLabel={labels.loading} />

@@ -14,7 +14,7 @@ describe("navConfig", () => {
     expect(activeHref).toBe("/app/biblioteca/planes-entrenamiento");
   });
 
-  it("locks only items with feature requirements when entitlements are unavailable", () => {
+  it("keeps nutrition navigation visible even when nutrition entitlements are unavailable", () => {
     const gated = applyEntitlementGating(sidebarUser, {
       status: "known",
       features: {
@@ -26,10 +26,17 @@ describe("navConfig", () => {
     });
 
     const nutritionSection = gated.find((section) => section.id === "nutrition");
+    const moreSection = gated.find((section) => section.id === "more");
     const accountSection = gated.find((section) => section.id === "account");
+    const recipeLibraryItem = moreSection?.items.find((item) => item.id === "recipe-library");
+    const dietPlansItem = moreSection?.items.find((item) => item.id === "diet-plans");
+    const macrosItem = moreSection?.items.find((item) => item.id === "macros");
     const gymItem = accountSection?.items.find((item) => item.id === "gym");
 
-    expect(nutritionSection?.items.every((item) => item.disabled === true)).toBe(true);
+    expect(nutritionSection?.items.every((item) => item.disabled !== true)).toBe(true);
+    expect(recipeLibraryItem?.disabled).not.toBe(true);
+    expect(dietPlansItem?.disabled).not.toBe(true);
+    expect(macrosItem?.disabled).not.toBe(true);
     expect(gymItem?.disabled).not.toBe(true);
   });
 

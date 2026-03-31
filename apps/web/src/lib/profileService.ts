@@ -1,4 +1,11 @@
 import { defaultProfile, type MealDistribution, type ProfileData } from "@/lib/profile";
+import { normalizeGoalWeightForGoal } from "@/lib/profileGoal";
+
+type ProfileApiEnvelope = {
+  profile?: Partial<ProfileData> | null;
+};
+
+type ProfileApiPayload = Partial<ProfileData> | ProfileApiEnvelope | null | undefined;
 
 type CheckinMetrics = {
   weightKg: number;
@@ -19,6 +26,12 @@ type TrackingPayload = {
   mealLog: Array<Record<string, unknown>>;
 };
 
+const PROFILE_KEYS = new Set(Object.keys(defaultProfile));
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
 function normalizeMealDistribution(input?: MealDistribution | string | null): MealDistribution {
   if (!input) return defaultProfile.nutritionPreferences.mealDistribution;
   if (typeof input === "string") {
@@ -30,20 +43,93 @@ function normalizeMealDistribution(input?: MealDistribution | string | null): Me
   };
 }
 
-export function mergeProfileData(data?: Partial<ProfileData> | null): ProfileData {
-  const profilePhotoUrl = data?.profilePhotoUrl ?? data?.avatarDataUrl ?? defaultProfile.profilePhotoUrl;
-  const incomingNutrition = data?.nutritionPreferences;
+function deepMergeProfile(base: Record<string, unknown>, incoming: Record<string, unknown>): Record<string, unknown> {
+  const merged: Record<string, unknown> = { ...base };
+
+  Object.entries(incoming).forEach(([key, value]) => {
+    const currentValue = merged[key];
+    if (isPlainObject(currentValue) && isPlainObject(value)) {
+      merged[key] = deepMergeProfile(currentValue, value);
+      return;
+    }
+    merged[key] = value;
+  });
+
+  return merged;
+}
+
+function pickKnownProfileFields(data: Record<string, unknown>): Record<string, unknown> {
+  const picked: Record<string, unknown> = {};
+  Object.entries(data).forEach(([key, value]) => {
+    if (PROFILE_KEYS.has(key)) {
+      picked[key] = value;
+    }
+  });
+  return picked;
+}
+
+function flattenProfileEnvelope(data: Record<string, unknown>): Record<string, unknown> {
+  const rootFields = pickKnownProfileFields(data);
+  const nested = data.profile;
+
+  if (isPlainObject(nested)) {
+    return deepMergeProfile(rootFields, flattenProfileEnvelope(nested));
+  }
+
+  if (Object.keys(rootFields).length > 0) {
+    return rootFields;
+  }
+
+  return data;
+}
+
+function unwrapProfilePayload(data?: ProfileApiPayload): Partial<ProfileData> | undefined {
+  if (!isPlainObject(data)) return undefined;
+
+  return flattenProfileEnvelope(data) as Partial<ProfileData>;
+}
+
+function removeEmptyValues(obj: Record<string, unknown>): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    // Skip null/undefined, but keep empty string, 0 and false
+    if (value === null || value === undefined) continue;
+    if (typeof value === "object" && !Array.isArray(value) && value !== null) {
+      result[key] = removeEmptyValues(value as Record<string, unknown>);
+    } else {
+      result[key] = value;
+    }
+  }
+  return result;
+}
+
+export function mergeProfileData(data?: ProfileApiPayload): ProfileData {
+  const rawNormalized = unwrapProfilePayload(data);
+  // Remove empty values so they don't overwrite valid defaults
+  const normalizedData = rawNormalized ? removeEmptyValues(rawNormalized as Record<string, unknown>) : undefined;
+  const normalized = normalizedData as Partial<ProfileData> | undefined;
+  const normalizedGoal = normalized?.goal ? normalized.goal : ("maintain" as ProfileData["goal"]);
+  const normalizedEquipment = normalized?.trainingPreferences?.equipment
+    ? normalized.trainingPreferences.equipment
+    : ("gym" as ProfileData["trainingPreferences"]["equipment"]);
+  const normalizedFormula = normalized?.macroPreferences?.formula
+    ? normalized.macroPreferences.formula
+    : ("mifflin" as ProfileData["macroPreferences"]["formula"]);
+  const profilePhotoUrl = normalized?.profilePhotoUrl ?? normalized?.avatarDataUrl ?? defaultProfile.profilePhotoUrl;
+  const incomingNutrition = normalized?.nutritionPreferences;
   const mealDistribution = normalizeMealDistribution(
     incomingNutrition?.mealDistribution ?? defaultProfile.nutritionPreferences.mealDistribution
   );
   return {
     ...defaultProfile,
-    ...data,
+    ...normalized,
+    goal: normalizedGoal,
     profilePhotoUrl,
-    avatarDataUrl: data?.avatarDataUrl ?? profilePhotoUrl ?? null,
+    avatarDataUrl: normalized?.avatarDataUrl ?? profilePhotoUrl ?? null,
     trainingPreferences: {
       ...defaultProfile.trainingPreferences,
-      ...data?.trainingPreferences,
+      ...normalized?.trainingPreferences,
+      equipment: normalizedEquipment,
     },
     nutritionPreferences: {
       ...defaultProfile.nutritionPreferences,
@@ -56,38 +142,40 @@ export function mergeProfileData(data?: Partial<ProfileData> | null): ProfileDat
     },
     macroPreferences: {
       ...defaultProfile.macroPreferences,
-      ...data?.macroPreferences,
+      ...normalized?.macroPreferences,
+      formula: normalizedFormula,
     },
     measurements: {
       ...defaultProfile.measurements,
-      ...data?.measurements,
+      ...normalized?.measurements,
     },
-    trainingPlan: data?.trainingPlan ?? defaultProfile.trainingPlan,
-    nutritionPlan: data?.nutritionPlan ?? defaultProfile.nutritionPlan,
+    trainingPlan: normalized?.trainingPlan ?? defaultProfile.trainingPlan,
+    nutritionPlan: normalized?.nutritionPlan ?? defaultProfile.nutritionPlan,
   };
 }
 
 export async function getUserProfile(): Promise<ProfileData> {
-  const response = await fetch("/api/profile", { cache: "no-store" });
+  const response = await fetch("/api/profile", { cache: "no-store", credentials: "include" });
   if (!response.ok) {
-    return defaultProfile;
+    throw new Error(`PROFILE_FETCH_FAILED:${response.status}`);
   }
   const data = (await response.json()) as Partial<ProfileData> | null;
   return mergeProfileData(data ?? undefined);
 }
 
 export async function updateUserProfilePreferences(profile: ProfileData): Promise<ProfileData> {
-  const sanitized = sanitizeProfilePayload(profile);
+  const sanitized = sanitizeProfilePayload(buildProfilePreferencesPayload(profile));
   const response = await fetch("/api/profile", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify(sanitized),
   });
   if (!response.ok) {
-    return profile;
+    throw new Error(`PROFILE_UPDATE_FAILED:${response.status}`);
   }
   const data = (await response.json()) as Partial<ProfileData> | null;
-  return mergeProfileData(data ?? profile);
+  return mergeProfileData(data ?? sanitized);
 }
 
 export async function updateUserProfile(profile: Partial<ProfileData>): Promise<ProfileData> {
@@ -95,10 +183,11 @@ export async function updateUserProfile(profile: Partial<ProfileData>): Promise<
   const response = await fetch("/api/profile", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify(sanitized),
   });
   if (!response.ok) {
-    return mergeProfileData(profile);
+    throw new Error(`PROFILE_UPDATE_FAILED:${response.status}`);
   }
   const data = (await response.json()) as Partial<ProfileData> | null;
   return mergeProfileData(data ?? profile);
@@ -107,10 +196,12 @@ export async function updateUserProfile(profile: Partial<ProfileData>): Promise<
 function sanitizeProfilePayload<T>(data: T): T {
   if (data === null || data === undefined) return data;
   if (typeof data !== "object") return data;
-  if (Array.isArray(data)) return data as T;
+  if (Array.isArray(data)) {
+    return data.map((item) => sanitizeProfilePayload(item)) as T;
+  }
   const result: Record<string, unknown> = {};
   Object.entries(data as Record<string, unknown>).forEach(([key, value]) => {
-    if (value === null || value === "") return;
+    if (value === undefined) return;
     if (typeof value === "object" && !Array.isArray(value)) {
       const nested = sanitizeProfilePayload(value);
       if (nested && typeof nested === "object" && Object.keys(nested as Record<string, unknown>).length === 0) {
@@ -122,6 +213,30 @@ function sanitizeProfilePayload<T>(data: T): T {
     result[key] = value;
   });
   return result as T;
+}
+
+export function buildProfilePreferencesPayload(profile: ProfileData): Partial<ProfileData> {
+  const normalizedGoalWeight = normalizeGoalWeightForGoal(profile.goal, profile.weightKg, profile.goalWeightKg);
+
+  return {
+    name: profile.name,
+    sex: profile.sex,
+    age: profile.age,
+    heightCm: profile.heightCm,
+    weightKg: profile.weightKg,
+    goal: profile.goal,
+    goalWeightKg: normalizedGoalWeight,
+    goals: profile.goals,
+    activity: profile.activity,
+    injuries: profile.injuries,
+    notes: profile.notes,
+    trainingPreferences: profile.trainingPreferences,
+    nutritionPreferences: profile.nutritionPreferences,
+    macroPreferences: profile.macroPreferences,
+    measurements: profile.measurements,
+    ...(profile.profilePhotoUrl === null ? { profilePhotoUrl: null } : {}),
+    ...(profile.avatarDataUrl === null ? { avatarDataUrl: null } : {}),
+  };
 }
 
 export async function saveCheckinAndSyncProfileMetrics(
@@ -158,11 +273,12 @@ export async function saveCheckinAndSyncProfileMetrics(
   const profileResponse = await fetch("/api/profile", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify(nextProfile),
   });
 
   if (!profileResponse.ok) {
-    return nextProfile;
+    throw new Error(`PROFILE_UPDATE_FAILED:${profileResponse.status}`);
   }
 
   const data = (await profileResponse.json()) as Partial<ProfileData> | null;

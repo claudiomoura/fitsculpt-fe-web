@@ -36,6 +36,8 @@ export type TrainingPlanV2Response = {
     completionTokens: number;
     totalTokens: number;
   };
+  model?: string | null;
+  aiRequestId?: string | null;
 };
 
 type OpenAiCallFn = (
@@ -92,21 +94,25 @@ export async function generateTrainingPlanV2(
   const { prisma, callOpenAi, catalog } = deps;
 
   const userContext = await resolveUserContext(request, prisma, payload as any);
+  const hasExplicitRequestId =
+    typeof payload.aiRequestId === "string" && payload.aiRequestId.trim().length > 0;
 
   // Check versioned cache
   const cacheKey = deps.buildCacheKey("training-v2", buildCachePayloadKey(userContext));
-  try {
-    const cached = await deps.getCachedAiPayload(cacheKey);
-    if (cached && typeof cached === "object" && "plan" in cached) {
-      deps.logger.info({ cacheKey }, "training-v2 cache hit");
-      return {
-        ...(cached as TrainingPlanV2Response),
-        mode: "CACHE",
-        usage: ZERO_USAGE,
-      };
+  if (!hasExplicitRequestId) {
+    try {
+      const cached = await deps.getCachedAiPayload(cacheKey);
+      if (cached && typeof cached === "object" && "plan" in cached) {
+        deps.logger.info({ cacheKey }, "training-v2 cache hit");
+        return {
+          ...(cached as TrainingPlanV2Response),
+          mode: "CACHE",
+          usage: ZERO_USAGE,
+        };
+      }
+    } catch {
+      // Cache miss — continue with generation
     }
-  } catch {
-    // Cache miss — continue with generation
   }
 
   // Step 1: Build day skeletons
@@ -138,6 +144,8 @@ export async function generateTrainingPlanV2(
   // Step 3: For each day, use AI to select exercises
   let totalUsage = { ...ZERO_USAGE };
   let usedAi = false;
+  let lastModel: string | null = null;
+  let lastRequestId: string | null = null;
   const validatedDays: ValidatedDay[] = [];
 
   for (const day of skeletons) {
@@ -148,6 +156,8 @@ export async function generateTrainingPlanV2(
       totalUsage.completionTokens += aiResult.usage.completionTokens;
       totalUsage.totalTokens += aiResult.usage.totalTokens;
     }
+    if (aiResult.model) lastModel = aiResult.model;
+    if (aiResult.requestId) lastRequestId = aiResult.requestId;
 
     let selections = aiResult.selections;
     if (selections.length > 0) {
@@ -215,10 +225,18 @@ export async function generateTrainingPlanV2(
   }
 
   // Cache the result
-  try {
-    await deps.saveCachedAiPayload(cacheKey, "training-v2", { plan, planId, mode: usedAi ? "AI" : "FALLBACK" });
-  } catch (error) {
-    deps.logger.warn({ err: error, cacheKey }, "training-v2: cache save failed");
+  if (!hasExplicitRequestId) {
+    try {
+      await deps.saveCachedAiPayload(cacheKey, "training-v2", {
+        plan,
+        planId,
+        mode: usedAi ? "AI" : "FALLBACK",
+        model: lastModel,
+        aiRequestId: lastRequestId,
+      });
+    } catch (error) {
+      deps.logger.warn({ err: error, cacheKey }, "training-v2: cache save failed");
+    }
   }
 
   // Store AI content for analytics
@@ -233,6 +251,8 @@ export async function generateTrainingPlanV2(
     plan,
     mode: usedAi ? "AI" : "FALLBACK",
     usage: totalUsage,
+    model: lastModel,
+    aiRequestId: lastRequestId,
   };
 }
 

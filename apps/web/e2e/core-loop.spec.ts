@@ -18,13 +18,15 @@ test.describe('Core loop (demo anti-regression)', () => {
       const todayPage = page.getByTestId('today-page');
       await expect(todayPage).toBeVisible({ timeout: 10000 });
 
-      const todayActionsGrid = page.getByTestId('today-actions-grid');
-      await expect(todayActionsGrid).toBeVisible({ timeout: 10000 });
+      // Wait for page to load - look for any article cards
+      await expect(page.locator('article').first()).toBeVisible({ timeout: 15000 });
 
-      const quickActionTracking = page.getByTestId('quick-action-tracking');
-      await expect(quickActionTracking).toBeVisible({ timeout: 10000 });
+      // Look for the weight tracking card which has a "Registrar peso" button
+      const registerWeightButton = page.getByRole('button', { name: /Registrar peso/i });
+      await expect(registerWeightButton).toBeVisible({ timeout: 10000 });
 
-      await quickActionTracking.click();
+      // Click the button to navigate to check-in
+      await registerWeightButton.click();
 
       await page.waitForURL(/\/app\/seguimiento\/check-in$/, { timeout: 10000 });
       await expect(page.getByRole('heading', { name: /check-in/i })).toBeVisible({ timeout: 10000 });

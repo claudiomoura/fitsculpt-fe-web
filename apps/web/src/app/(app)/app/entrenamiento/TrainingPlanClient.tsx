@@ -40,6 +40,7 @@ import { ExerciseThumbnail } from "@/components/exercises/ExerciseThumbnail";
 import { classifyAiError } from "@/lib/aiErrorMapping";
 import { mapAiErrorToUiState, type AiErrorUiState } from "@/lib/aiErrorUi";
 import { getExerciseThumbUrl } from "@/lib/exerciseMedia";
+import { pickWorkoutIdForDateCandidates } from "@/lib/trainingWorkoutSelection";
 import { ExercisePlanDetailModal } from "@/components/exercise-library/detail/ExercisePlanDetailModal";
 import type { Workout } from "@/lib/types";
 import { TRAINING_ANALYTICS_TODO } from "./analytics";
@@ -355,7 +356,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const searchParams = useSearchParams();
   const pathname = usePathname();
   void TRAINING_ANALYTICS_TODO;
-  const safeT = (key: string, fallback: string) => {
+  const safeT = (key: string, fallback: string = "") => {
     const value = t(key);
     return value === key ? fallback : value;
   };
@@ -414,6 +415,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   });
   const autoGenerateRunByContext = useRef<Set<string>>(new Set());
   const aiGenerationInFlight = useRef(false);
+  const ensureWorkoutInFlight = useRef<Map<string, Promise<string | null>>>(new Map());
   const [pendingAutoAiTriggerCtx, setPendingAutoAiTriggerCtx] = useState<string | null>(null);
   const calendarInitialized = useRef(false);
 
@@ -441,9 +443,9 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const loadWorkoutsForLookup = async (activeRef: { current: boolean }) => {
     try {
       const response = await fetch("/api/workouts", { cache: "no-store", credentials: "include" });
-      if (!response.ok || !activeRef.current) return;
+      if (!response.ok || !activeRef.current) return null;
       const payload = (await response.json()) as WorkoutLookupItem[];
-      if (!activeRef.current || !Array.isArray(payload)) return;
+      if (!activeRef.current || !Array.isArray(payload)) return null;
 
       const grouped: Record<string, WorkoutLookupItem[]> = {};
       payload.forEach((workout) => {
@@ -453,8 +455,10 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       });
 
       setWorkoutsByDate(grouped);
+      return grouped;
     } catch (_err) {
-      if (!activeRef.current) return;
+      if (!activeRef.current) return null;
+      return null;
     }
   };
 
@@ -969,10 +973,15 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
 
   const handleSetStartDate = async () => {
     if (!visiblePlan) return;
-    const nextPlan = ensurePlanStartDate({ ...visiblePlan, startDate: new Date().toISOString() });
-    const updated = await updateUserProfile({ trainingPlan: nextPlan });
-    setSavedPlan(updated.trainingPlan ?? nextPlan);
-    setManualPlan(updated.trainingPlan ?? nextPlan);
+    try {
+      const nextPlan = ensurePlanStartDate({ ...visiblePlan, startDate: new Date().toISOString() });
+      const updated = await updateUserProfile({ trainingPlan: nextPlan });
+      setSavedPlan(updated.trainingPlan ?? nextPlan);
+      setManualPlan(updated.trainingPlan ?? nextPlan);
+    } catch (_err) {
+      setSaveMessage(t("training.savePlanError"));
+      window.setTimeout(() => setSaveMessage(null), 2000);
+    }
   };
 
   function updateManualDay(dayIndex: number, field: keyof TrainingDay, value: string | number) {
@@ -1301,20 +1310,14 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const dayEditorHref = `/app/entrenamiento/editar?planId=${encodeURIComponent(dayEditorPlanId)}&day=${encodeURIComponent(dayEditorDay)}`;
   const selectedDayHasWorkout = selectedExercises.length > 0;
 
+  const buildWorkoutGuardKey = (entry: PlanEntry) =>
+    `${toDateKey(entry.date)}::${(entry.day.focus ?? "").trim().toLowerCase()}`;
+
   const nextEntryHasWorkout = (nextPlannedEntry?.day.exercises?.length ?? 0) > 0;
-  const normalizeName = (value?: string | null) => (value ?? "").trim().toLowerCase();
   const pickWorkoutIdForDate = (date: Date, focus?: string | null) => {
     const dateKey = toDateKey(date);
     const candidates = workoutsByDate[dateKey] ?? [];
-    if (candidates.length === 0) return null;
-
-    const focusName = normalizeName(focus);
-    if (focusName) {
-      const byName = candidates.find((candidate) => normalizeName(candidate.name).includes(focusName) || focusName.includes(normalizeName(candidate.name)));
-      if (byName?.id) return byName.id;
-    }
-
-    return candidates[0]?.id ?? null;
+    return pickWorkoutIdForDateCandidates(candidates, focus);
   };
   const nextPlannedWorkoutId = nextPlannedEntry ? pickWorkoutIdForDate(nextPlannedEntry.date, nextPlannedEntry.day.focus) : null;
   const selectedWorkoutId = selectedEntry ? pickWorkoutIdForDate(selectedEntry.date, selectedEntry.day.focus) : null;
@@ -1430,24 +1433,51 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   };
 
   const ensureWorkoutIdForEntry = async (entry: PlanEntry) => {
-    const existingId = pickWorkoutIdForDate(entry.date, entry.day.focus);
-    if (existingId) return existingId;
+    const guardKey = buildWorkoutGuardKey(entry);
+    const inFlight = ensureWorkoutInFlight.current.get(guardKey);
+    if (inFlight) {
+      return inFlight;
+    }
 
-    const createResponse = await fetch("/api/workouts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify(buildWorkoutPayload(entry)),
+    const ensurePromise = (async () => {
+      const existingId = pickWorkoutIdForDate(entry.date, entry.day.focus);
+      if (existingId) return existingId;
+
+      const dateKey = toDateKey(entry.date);
+      const refreshed = { current: true };
+      const refreshedLookup = await loadWorkoutsForLookup(refreshed);
+      const refreshedCandidates = refreshedLookup?.[dateKey] ?? [];
+      const refreshedId = pickWorkoutIdForDateCandidates(
+        refreshedCandidates,
+        entry.day.focus,
+      );
+      if (refreshedId) return refreshedId;
+
+      const createResponse = await fetch("/api/workouts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(buildWorkoutPayload(entry)),
+      });
+      if (!createResponse.ok) return null;
+
+      const created = (await createResponse.json()) as WorkoutLookupItem | null;
+      const createdId = created?.id ?? null;
+      if (!createdId) return null;
+
+      const afterCreateLookup = await loadWorkoutsForLookup(refreshed);
+      const afterCreateCandidates = afterCreateLookup?.[dateKey] ?? [];
+      const resolvedId = pickWorkoutIdForDateCandidates(
+        afterCreateCandidates,
+        entry.day.focus,
+      );
+      return resolvedId ?? createdId;
+    })().finally(() => {
+      ensureWorkoutInFlight.current.delete(guardKey);
     });
-    if (!createResponse.ok) return null;
 
-    const created = (await createResponse.json()) as WorkoutLookupItem | null;
-    const createdId = created?.id ?? null;
-    if (!createdId) return null;
-
-    const refreshed = { current: true };
-    await loadWorkoutsForLookup(refreshed);
-    return createdId;
+    ensureWorkoutInFlight.current.set(guardKey, ensurePromise);
+    return ensurePromise;
   };
 
   const loadWorkoutDetail = async (workoutId: string) => {
@@ -1600,7 +1630,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   };
 
   const handleLogExercise = async (exercise: Exercise, index: number) => {
-    if (!selectedEntry || exerciseLogLoadingKey) return;
+    if (!selectedEntry || exerciseLogLoadingKey || isSelectedDayCompleted) return;
 
     const actionKey = `${selectedDayKey}:${normalizeExerciseLogName(exercise.name)}:${index}`;
     setExerciseLogLoadingKey(actionKey);
@@ -1885,12 +1915,12 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                 )}
                 actions={isAiLocked
                   ? [
-                    { label: safeT("training.selectPlanCta", "Seleccionar plan"), href: "/app/biblioteca/planes-entrenamiento" },
+                    { label: safeT("training.selectPlanCta", "Seleccionar plan"), href: "/app/biblioteca" },
                     { label: t("billing.manageBilling"), href: "/app/settings/billing", variant: "secondary" },
                     { label: safeT("training.manualCreate", "Crear manual"), href: "/app/entrenamiento/editar", variant: "secondary" },
                   ]
                   : [
-                    { label: safeT("training.selectPlanCta", "Seleccionar plan"), href: "/app/biblioteca/planes-entrenamiento" },
+                    { label: safeT("training.selectPlanCta", "Seleccionar plan"), href: "/app/biblioteca" },
                     { label: safeT("training.createPlanCta", "Crear con IA"), href: "/app/entrenamiento?ai=1", variant: "secondary" },
                     { label: safeT("training.manualCreate", "Crear manual"), href: "/app/entrenamiento/editar", variant: "secondary" },
                   ]}
@@ -2258,8 +2288,8 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                       const exerciseHref = exerciseId ? buildExerciseTechniqueHref(exerciseId) : null;
                       const progress = selectedExerciseProgress.get(normalizeExerciseLogName(exercise.name));
                       const targetSets = progress?.targetSets ?? parseSetCountFromExercise(exercise);
-                      const loggedSets = progress?.loggedSets ?? 0;
-                      const isExerciseCompleted = progress?.completed ?? false;
+                      const isExerciseCompleted = isSelectedDayCompleted || (progress?.completed ?? false);
+                      const loggedSets = isExerciseCompleted ? targetSets : (progress?.loggedSets ?? 0);
                       const exerciseActionKey = `${selectedDayKey}:${normalizeExerciseLogName(exercise.name)}:${index}`;
                       const isLoggingExercise = exerciseLogLoadingKey === exerciseActionKey;
                       return (
@@ -2331,7 +2361,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
           {hasPlan && (
             <aside className={styles.layoutInsights}>
               <section className="card premium-surface-card surface-content-card training-insights-card">
-                <Link
+<Link
                   href={selectedPlanId ? `/app/biblioteca/planes-entrenamiento?planId=${encodeURIComponent(selectedPlanId)}` : "/app/biblioteca/planes-entrenamiento"}
                   className="training-insight-link training-insight-link--with-affordance"
                 >
@@ -2375,7 +2405,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
               </section>
 
               <section className="card premium-surface-card surface-content-card training-insights-card">
-                <Link href="/app/biblioteca/planes-entrenamiento" className="training-insight-link">
+                <Link href="/app/biblioteca" className="training-insight-link">
                   <div className="training-insight-link-icon">
                     <Icon name="book" size={20} />
                   </div>

@@ -56,6 +56,7 @@ export default function LoginForm({ action, next, labels }: LoginFormProps) {
             type={showPassword ? "text" : "password"}
             className="ui-input"
             required
+            minLength={8}
             autoComplete="current-password"
           />
           <button
@@ -71,6 +72,12 @@ export default function LoginForm({ action, next, labels }: LoginFormProps) {
       </div>
 
       <SubmitButton label={labels.submit} loadingLabel={labels.loading} />
+
+      <div style={{ textAlign: "center" }}>
+        <a href="/forgot-password" className="link" style={{ fontSize: "0.875rem" }}>
+          ¿Olvidaste tu contraseña?
+        </a>
+      </div>
     </form>
   );
 }

@@ -12,12 +12,15 @@ function sendToAnalytics(metric: Metric) {
   });
 
   // Send to PostHog if available
-  if (typeof window !== "undefined" && window.posthog) {
-    window.posthog.capture("web_vitals", {
-      metric_name: metric.name,
-      value: metric.value,
-      rating: metric.rating,
-    });
+  if (typeof window !== "undefined") {
+    const posthog = (window as any).posthog;
+    if (posthog && typeof posthog.capture === "function") {
+      posthog.capture("web_vitals", {
+        metric_name: metric.name,
+        value: metric.value,
+        rating: metric.rating,
+      });
+    }
   }
 
   // Log in development

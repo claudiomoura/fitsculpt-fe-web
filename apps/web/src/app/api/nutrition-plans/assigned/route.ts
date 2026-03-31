@@ -45,6 +45,9 @@ function normalizeAssignedPlan(payload: unknown) {
 
 export async function GET(request: Request) {
   const result = await fetchBackend("/members/me/assigned-nutrition-plan", { request });
+  if (result.status === 404) {
+    return NextResponse.json({ assignedPlan: null }, { status: 200 });
+  }
   if (result.status < 200 || result.status >= 300) {
     return NextResponse.json(result.payload, { status: result.status });
   }

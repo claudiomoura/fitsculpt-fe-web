@@ -30,7 +30,9 @@ export async function POST(request: Request) {
       body,
       cache: "no-store",
     });
+
     const responseText = await response.text();
+
     const payload = parseJsonOrNull(responseText);
 
     if (!response.ok) {

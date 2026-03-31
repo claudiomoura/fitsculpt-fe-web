@@ -10,6 +10,11 @@ type TypedError = {
   debug?: Record<string, unknown>;
 };
 
+function readDebugString(debug: Record<string, unknown> | undefined, key: string) {
+  const value = debug?.[key];
+  return typeof value === "string" && value.trim().length > 0 ? value : undefined;
+}
+
 function asKind(value: unknown): AiErrorKind | undefined {
   if (value === "validation" || value === "quota" || value === "upstream" || value === "auth" || value === "internal") {
     return value;
@@ -79,9 +84,13 @@ export function sendAiEndpointError(reply: FastifyReply, error: unknown) {
     (typeof typed.statusCode === "number" && typed.statusCode >= 500 && typed.statusCode <= 599)
   ) {
     const status = typed.statusCode && typed.statusCode >= 500 ? typed.statusCode : 502;
+    const reason = readDebugString(typed.debug, "reason") ?? readDebugString(typed.debug, "cause");
+    const providerCode = readDebugString(typed.debug, "providerCode");
     return reply.status(status).send({
       error: code || "AI_REQUEST_FAILED",
       kind: "upstream",
+      ...(reason ? { reason } : {}),
+      ...(providerCode ? { providerCode } : {}),
     });
   }
 

@@ -69,7 +69,13 @@ export function registerWorkoutRoutes(app: FastifyInstance, deps: Record<string,
       const { id } = paramsSchema.parse(request.params);
       const workout = await prisma.workout.findFirst({
         where: { id, userId: user.id },
-        include: { exercises: { orderBy: { order: "asc" } } },
+        include: {
+          exercises: { orderBy: { order: "asc" } },
+          sessions: {
+            orderBy: { startedAt: "desc" },
+            include: { entries: true },
+          },
+        },
       });
       if (!workout) {
         return reply.status(404).send({ error: "NOT_FOUND" });

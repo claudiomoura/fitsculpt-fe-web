@@ -35,6 +35,7 @@ model User {
   aiUsageLogs             AiUsageLog[]
   authProviders           AuthProvider[]
   emailVerificationTokens EmailVerificationToken[]
+  passwordResetTokens     PasswordResetToken[]
   feedPosts               FeedPost[]
   gymMemberships          GymMembership[]
   nutritionPlans          NutritionPlan[]
@@ -357,6 +358,17 @@ model AuthProvider {
 }
 
 model EmailVerificationToken {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model PasswordResetToken {
   id        String   @id @default(cuid())
   userId    String
   tokenHash String   @unique

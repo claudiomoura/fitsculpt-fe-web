@@ -55,7 +55,7 @@ export default function TrainerClientContextClient() {
         if (!canAccess) return;
 
         setClientState("loading");
-        const profileResponse = await fetch("/api/profile", { cache: "no-store" });
+        const profileResponse = await fetch("/api/profile", { cache: "no-store", credentials: "include" });
         if (!profileResponse.ok) {
           if (active) setClientState("error");
           return;

@@ -38,17 +38,22 @@ export function TodayPriorityHero({
 
   const handleStart = () => {
     if (todayWorkoutId) {
-      router.push(`/app/entreno/${todayWorkoutId}`);
+      router.push(`/app/entrenamiento/${encodeURIComponent(todayWorkoutId)}/start`);
+      return;
     }
+    router.push("/app/entrenamiento");
   };
 
   const handleDetails = () => {
-    router.push("/app/entreno");
+    if (todayWorkoutId) {
+      router.push(`/app/entrenamiento/${encodeURIComponent(todayWorkoutId)}`);
+      return;
+    }
+    router.push("/app/entrenamiento");
   };
 
   const handleDone = () => {
-    // Mark as complete - would call API
-    console.log("Mark workout as done");
+    router.push("/app/seguimiento/check-in");
   };
 
   // Determine display based on training state

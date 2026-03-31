@@ -149,6 +149,7 @@ async function seedDemoExercises() {
 }
 
 const SMOKE_TEST_USERS = [
+  { email: "demo.user@fitsculpt.local", role: "USER", plan: "FREE" as const },
   { email: "smoke-free@test.com", role: "USER", plan: "FREE" as const },
   { email: "smoke-pro@test.com", role: "USER", plan: "PRO" as const },
   { email: "smoke-gym@test.com", role: "ADMIN", plan: "PRO" as const },
@@ -156,7 +157,7 @@ const SMOKE_TEST_USERS = [
 ];
 
 async function seedSmokeTestUsers() {
-  const passwordHash = await bcrypt.hash("SmokeTest123!", PASSWORD_SALT_ROUNDS);
+  const passwordHash = await bcrypt.hash("DemoUser123!", PASSWORD_SALT_ROUNDS);
   
   for (const user of SMOKE_TEST_USERS) {
     // First ensure user exists

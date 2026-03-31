@@ -7,7 +7,9 @@ const envSchema = z.object({
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
   JWT_SECRET: z.string().min(16, "JWT_SECRET must be at least 16 chars"),
   COOKIE_SECRET: z.string().min(16, "COOKIE_SECRET must be at least 16 chars"),
-  CORS_ORIGIN: z.string().default("http://localhost:3000"),
+  CORS_ORIGIN: z.string().default("http://localhost:3000").transform((val) =>
+    val.split(",").map((origin) => origin.trim()).filter(Boolean)
+  ),
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   GOOGLE_REDIRECT_URI: z.string().optional(),

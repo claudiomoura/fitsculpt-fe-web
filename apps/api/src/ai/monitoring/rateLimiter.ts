@@ -7,10 +7,15 @@ const env = getEnv();
 // Redis client for distributed rate limiting
 let redisClient: RedisClientType | null = null;
 let redisReady = false;
+let redisConnectionAttempted = false;
 
 async function getRedisClient(): Promise<RedisClientType | null> {
   if (!env.REDIS_URL) {
-    console.warn("[RateLimiter] REDIS_URL not configured, falling back to in-memory");
+    return null;
+  }
+
+  // If we already tried and failed, don't retry — use in-memory fallback
+  if (redisConnectionAttempted && !redisReady) {
     return null;
   }
 
@@ -19,9 +24,14 @@ async function getRedisClient(): Promise<RedisClientType | null> {
   }
 
   try {
+    redisConnectionAttempted = true;
     redisClient = createClient({ url: env.REDIS_URL });
-    redisClient.on("error", (err) => console.error("[RateLimiter] Redis error:", err));
-    redisClient.on("connect", () => console.log("[RateLimiter] Connected to Redis"));
+    redisClient.on("error", (err) => {
+      // Only log on first error to avoid spam
+      if (!redisReady) {
+        console.error("[RateLimiter] Redis connection failed, using in-memory fallback:", err.message);
+      }
+    });
     redisClient.on("ready", () => {
       redisReady = true;
       console.log("[RateLimiter] Redis ready");
@@ -29,7 +39,9 @@ async function getRedisClient(): Promise<RedisClientType | null> {
     await redisClient.connect();
     return redisClient;
   } catch (err) {
-    console.error("[RateLimiter] Failed to connect to Redis:", err);
+    if (!redisReady) {
+      console.error("[RateLimiter] Failed to connect to Redis, using in-memory fallback");
+    }
     return null;
   }
 }
