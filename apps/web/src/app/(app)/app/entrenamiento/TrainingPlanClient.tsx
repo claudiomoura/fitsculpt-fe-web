@@ -2361,8 +2361,8 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
           {hasPlan && (
             <aside className={styles.layoutInsights}>
               <section className="card premium-surface-card surface-content-card training-insights-card">
-                <Link
-                  href="/app/biblioteca"
+<Link
+                  href={selectedPlanId ? `/app/biblioteca/planes-entrenamiento?planId=${encodeURIComponent(selectedPlanId)}` : "/app/biblioteca/planes-entrenamiento"}
                   className="training-insight-link training-insight-link--with-affordance"
                 >
                   <div className="training-insight-link-icon">
