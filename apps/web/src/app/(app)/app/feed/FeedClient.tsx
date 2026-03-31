@@ -68,10 +68,40 @@ export default function FeedClient() {
     try {
       const response = await fetch("/api/feed", { cache: "no-store" });
       if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error(t("feed.errorUnauthorized"));
+        }
         throw new Error(t("feed.errorLoad"));
       }
-      const data = (await response.json()) as FeedPost[];
-      setItems(data);
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        throw new Error(t("feed.errorUnexpected"));
+      }
+      const data = await response.json();
+      console.log('Feed API response:', data);
+      let feedItems: FeedPost[];
+      
+      if (Array.isArray(data)) {
+        feedItems = data;
+      } else if (data && typeof data === 'object') {
+        // Handle potential API response wrapping
+        if (Array.isArray(data.items)) {
+          feedItems = data.items;
+        } else if (Array.isArray(data.data)) {
+          feedItems = data.data;
+        } else if (Array.isArray(data.posts)) {
+          feedItems = data.posts;
+        } else {
+          console.error('Feed API returned unexpected structure:', data);
+          throw new Error(t("feed.errorUnexpected"));
+        }
+      } else {
+        console.error('Feed API returned non-object:', data);
+        throw new Error(t("feed.errorUnexpected"));
+      }
+      
+      console.log('Feed items extracted:', feedItems);
+      setItems(feedItems);
     } catch (err) {
       setError(err instanceof Error ? err.message : t("feed.errorUnexpected"));
     } finally {

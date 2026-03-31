@@ -21,6 +21,7 @@ export async function GET(request: Request) {
     }
     try {
       const data = JSON.parse(responseText);
+      console.log('Backend feed response:', data);
       return NextResponse.json(data, { status: response.status });
     } catch (_err) {
       return new NextResponse(responseText, {
