@@ -6017,6 +6017,16 @@ app.post("/auth/change-password", async (request, reply) => {
   }
 });
 
+// POST /auth/logout
+app.post("/auth/logout", async (request: FastifyRequest, reply: FastifyReply) => {
+  try {
+    reply.clearCookie("fs_token", buildCookieOptions());
+    return reply.status(200).send({ ok: true });
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
 app.get("/auth/google/start", async (_request, reply) => {
   if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_REDIRECT_URI) {
     return reply.status(501).send({ error: "GOOGLE_OAUTH_NOT_CONFIGURED" });
