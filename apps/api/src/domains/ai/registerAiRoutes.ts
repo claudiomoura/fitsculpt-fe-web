@@ -1891,14 +1891,63 @@ app.post(
         },
       );
 
+      const balanceBefore = aiMeta.aiTokenBalance;
+      let aiTokenBalance: number | null = null;
+      let chargedCostCents = 0;
+      let chargedUsage: AiUsageSummary | undefined;
+      if (
+        shouldChargeAi
+        && result.mode === "AI"
+        && Number.isFinite(result.usage.totalTokens)
+        && result.usage.totalTokens > 0
+      ) {
+        const charged = await chargeAiUsageForResult({
+          prisma,
+          pricing: aiPricing,
+          user: {
+            id: user.id,
+            plan: user.plan,
+            aiTokenBalance: user.aiTokenBalance ?? 0,
+            aiTokenResetAt: user.aiTokenResetAt,
+            aiTokenRenewalAt: user.aiTokenRenewalAt,
+          },
+          feature: "training-generate",
+          result: {
+            payload: result.plan,
+            model: result.model ?? "gpt-4o-mini",
+            requestId: result.aiRequestId ?? null,
+            usage: {
+              prompt_tokens: result.usage.promptTokens,
+              completion_tokens: result.usage.completionTokens,
+              total_tokens: result.usage.totalTokens,
+            },
+          },
+          meta: { route: "training-generate-v2" },
+          createHttpError,
+        });
+        aiTokenBalance = charged.balance;
+        chargedCostCents = charged.costCents;
+        chargedUsage = charged.usage;
+      }
+
+      const responseBalanceAfter =
+        shouldChargeAi && typeof aiTokenBalance === "number"
+          ? aiTokenBalance
+          : aiMeta.aiTokenBalance;
+      const responseUsage = chargedUsage ?? result.usage;
+
       return reply.status(200).send({
         ...result,
-        aiTokenBalance: aiMeta.aiTokenBalance,
-        aiTokenRenewalAt: aiMeta.aiTokenRenewalAt,
-        costCents: 0,
-        costEur: 0,
-        balanceBefore: aiMeta.aiTokenBalance,
-        balanceAfter: aiMeta.aiTokenBalance,
+        aiRequestId: result.aiRequestId ?? payload.aiRequestId ?? null,
+        aiTokenBalance: responseBalanceAfter,
+        aiTokenRenewalAt: shouldChargeAi
+          ? getUserTokenExpiryAt(user)
+          : aiMeta.aiTokenRenewalAt,
+        usage: responseUsage,
+        costCents: chargedCostCents,
+        costEur: toEurAmount(chargedCostCents),
+        balanceBefore,
+        balanceAfter: responseBalanceAfter,
       });
     } catch (error) {
       return sendAiEndpointError(reply, error);

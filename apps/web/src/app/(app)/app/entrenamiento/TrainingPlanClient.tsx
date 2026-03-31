@@ -1915,12 +1915,12 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                 )}
                 actions={isAiLocked
                   ? [
-                    { label: safeT("training.selectPlanCta", "Seleccionar plan"), href: "/app/biblioteca/planes-entrenamiento" },
+                    { label: safeT("training.selectPlanCta", "Seleccionar plan"), href: "/app/biblioteca" },
                     { label: t("billing.manageBilling"), href: "/app/settings/billing", variant: "secondary" },
                     { label: safeT("training.manualCreate", "Crear manual"), href: "/app/entrenamiento/editar", variant: "secondary" },
                   ]
                   : [
-                    { label: safeT("training.selectPlanCta", "Seleccionar plan"), href: "/app/biblioteca/planes-entrenamiento" },
+                    { label: safeT("training.selectPlanCta", "Seleccionar plan"), href: "/app/biblioteca" },
                     { label: safeT("training.createPlanCta", "Crear con IA"), href: "/app/entrenamiento?ai=1", variant: "secondary" },
                     { label: safeT("training.manualCreate", "Crear manual"), href: "/app/entrenamiento/editar", variant: "secondary" },
                   ]}
