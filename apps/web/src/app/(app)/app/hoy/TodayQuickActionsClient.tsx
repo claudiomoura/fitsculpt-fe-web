@@ -46,6 +46,9 @@ import { TodayCheckinCard } from "./components/TodayCheckinCard";
 import { TodayWeeklySummaryCard } from "./components/TodayWeeklySummaryCard";
 
 const trainingRoute = "/app/entrenamiento";
+const nutritionRoute = "/app/nutricion";
+const nutritionEditRoute = "/app/nutricion/editar";
+const nutritionAiRoute = "/app/nutricion?ai=1";
 const billingRoute = "/app/settings/billing";
 const manualPlanRoute = "/app/entrenamiento/editar";
 const aiPlanRoute = "/app/entrenamiento?ai=1";
@@ -1018,6 +1021,8 @@ export default function TodayQuickActionsClient() {
   const trainingCompleted = signals.trainingState === "workout" ? 1 : 0;
   const nutritionCompleted = signals.nutritionMealsLogged > 0 ? 1 : 0;
   const checkinCompleted = signals.checkinDoneThisWeek ? 1 : 0;
+  const todayDayKey = toDateKey(new Date());
+  const nutritionTodayHref = `${nutritionRoute}?day=${encodeURIComponent(todayDayKey)}`;
 
   return (
     <div className="today-page-stack flex flex-col gap-6 pb-0">
@@ -1119,6 +1124,11 @@ export default function TodayQuickActionsClient() {
               fatsG={signals.nutritionFatsG}
               mealsLogged={signals.nutritionMealsLogged}
               mealsTotal={signals.nutritionMealsTotal}
+              hasPlan={signals.nutritionStatus === "ready" || signals.nutritionMealsTotal > 0}
+              nutritionHref={nutritionTodayHref}
+              detailsHref={nutritionRoute}
+              editHref={nutritionEditRoute}
+              aiCreateHref={nutritionAiRoute}
             />
 
             {/* Block 6: Check-in Card - Weight tracking */}
