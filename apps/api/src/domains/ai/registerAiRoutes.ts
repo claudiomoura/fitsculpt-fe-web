@@ -554,13 +554,80 @@ const nutritionPlanHandler = async (
       });
       const cacheKey = buildCacheKey("nutrition:v2", data);
       const recipeQuery = data.preferredFoods?.split(",")[0]?.trim();
-      const recipeWhere = recipeQuery
-        ? {
-            name: { contains: recipeQuery, mode: Prisma.QueryMode.insensitive },
+
+      // Build structured filters based on user profile
+      const mealTypesForPlan = data.mealsPerDay >= 4
+        ? ["breakfast", "lunch", "dinner", "snack"]
+        : data.mealsPerDay === 3
+        ? ["breakfast", "lunch", "dinner"]
+        : ["lunch", "dinner"];
+
+      // Map allergies to ingredient exclusions (simplified)
+      const allergenIngredients: Record<string, string[]> = {
+        "gluten": ["trigo", "avena", "cebada", "centeno", "pan", "pasta", "harina"],
+        "lactosa": ["leche", "yogur", "queso", "mantequilla", "nata", "lácteo"],
+        "huevo": ["huevo", "mayonesa", "tortilla"],
+        "frutos secos": ["nuez", "almendra", "pistacho", "cacahuete", "avellana"],
+        "soja": ["soja", "edamame", "tofu", "tempeh"],
+        "marisco": ["gamba", "camarón", "langostino", "cangrejo", "marisco"],
+        "pescado": ["salmón", "atún", "merluza", "bacalao", "pescado"],
+      };
+
+      const avoidIngredients: string[] = [];
+      if (data.allergies && data.allergies.length > 0) {
+        for (const allergy of data.allergies) {
+          const lower = allergy.toLowerCase();
+          for (const [allergen, ingredients] of Object.entries(allergenIngredients)) {
+            if (lower.includes(allergen)) {
+              avoidIngredients.push(...ingredients);
+            }
           }
-        : undefined;
+          // Direct match
+          avoidIngredients.push(allergy);
+        }
+      }
+
+      // Map diet type
+      const dietTypeMap: Record<string, string> = {
+        "vegetarian": "vegetarian",
+        "vegan": "vegan",
+        "keto": "keto",
+        "low-carb": "low-carb",
+        "high-protein": "high-protein",
+        "balanced": "balanced",
+      };
+
+      // Goal fit mapping
+      const goalFitMap: Record<string, string[]> = {
+        "bulk": ["bulk", "all"],
+        "cut": ["cut", "all"],
+        "maintain": ["maintain", "all"],
+        "weight-loss": ["cut", "all"],
+        "muscle-gain": ["bulk", "all"],
+        "healthy-lifestyle": ["all", "maintain"],
+      };
+
+      const recipeWhere: Prisma.RecipeWhereInput = {
+        // Always filter by available meal types for this plan
+        mealType: { in: mealTypesForPlan },
+        // Filter by diet type if specified
+        ...(data.dietType ? { dietType: dietTypeMap[data.dietType] ?? data.dietType } : {}),
+        // Filter by goal fit — recipes that match the goal or are "all"
+        ...(data.goal && goalFitMap[data.goal]
+          ? { goalFit: { in: goalFitMap[data.goal] } }
+          : {}),
+        // Exclude recipes with allergenic main ingredients
+        ...(avoidIngredients.length > 0
+          ? { mainIngredient: { notIn: avoidIngredients } }
+          : {}),
+        // Filter by preferred foods if specified
+        ...(recipeQuery
+          ? { name: { contains: recipeQuery, mode: Prisma.QueryMode.insensitive } }
+          : {}),
+      };
+
       const recipes = await prisma.recipe.findMany({
-        ...(recipeWhere ? { where: recipeWhere } : {}),
+        where: recipeWhere,
         take: 100,
         orderBy: { name: "asc" },
         include: { ingredients: true },

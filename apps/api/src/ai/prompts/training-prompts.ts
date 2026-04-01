@@ -114,6 +114,39 @@ export function buildTrainingPrompt(
     ? `Usa SOLO exerciseId existentes en catalogo (id:nombre): ${exerciseCatalogPrompt}`
     : "";
 
+  const EQUIPMENT_PROHIBITION_RULES: Record<string, string> = {
+    "home": `
+PROHIBICIÓN ABSOLUTA - EQUIPO:
+Para usuarios que entrenan EN CASA (equipment=home) está PROHIBIDO sugerir:
+- Cualquier ejercicio en banco de pesas (bench press, incline press, decline press)
+- Máquina Smith
+- Poleas o máquinas de cable (excepto si tiene banda elástica en casa)
+- Prensa de piernas (leg press)
+- Butterfly / apertura de pecho en máquina
+- Remo sentado en máquina
+- Guía o Smith machine para sentadilla
+SOLO permitir: peso corporal (flexiones, dominadas, sentadillas, zancadas, planchas, fondos), 
+mancuernas (si tiene), bandas elásticas, kettlebell (si tiene), botella de agua como peso.
+    `.trim(),
+    "gym": `
+RECOMENDACIÓN - EQUIPO:
+El usuario tiene acceso a gimnasio. Prioriza ejercicios con equipamiento de gimnasio.
+    `.trim(),
+  };
+
+  const equipmentRule = EQUIPMENT_PROHIBITION_RULES[data.equipment] ?? EQUIPMENT_PROHIBITION_RULES["gym"];
+
+  const INJURY_RULES = `
+LESIONES Y LIMITACIONES:
+Si el usuario tiene lesiones descritas, EVITA ejercicios que las empeoren:
+- Lesión de hombro/hombros: evitar press militar, press inclinado, elevaciones laterales
+- Lesión de rodilla/rodillas: evitar sentadilla profunda, zancadas profundas, leg press
+- Lesión de espalda/columna: evitar deadlift convencional, peso muerto rumano, hiperextensiones
+- Lesión de muñeca/muñecas: evitar flexiones, планка en forearms si duele
+- Lesión de cuello/cervical: evitar shruggs, press militar
+ADAPTA los ejercicios: si una lesión impide un movimiento, usa una variante o sustitución.
+  `.trim();
+
   return [
     TRAINING_SYSTEM_PROMPT,
     TRAINING_OUTPUT_FORMAT,
@@ -127,6 +160,8 @@ export function buildTrainingPrompt(
     `Secundarios: ${secondaryGoals}. Cardio: ${cardio}. Movilidad: ${mobility}.`,
     `Sesion preferida: ${workoutLength}. Timer: ${timerSound}.`,
     `Dias/semana ${data.daysPerWeek}, enfoque ${data.focus}, equipo ${data.equipment}.`,
+    equipmentRule,
+    INJURY_RULES,
     `Tiempo disponible por sesion ${data.timeAvailableMinutes} min. Restricciones/lesiones: ${data.restrictions ?? injuries}.`,
     TRAINING_STRUCTURE_GUIDE,
     `Asigna date (YYYY-MM-DD) desde ${data.startDate ?? "fecha indicada"} y distribuye sesiones en ${daysCount} dias.`,

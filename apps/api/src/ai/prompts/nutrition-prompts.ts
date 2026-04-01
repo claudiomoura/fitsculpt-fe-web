@@ -119,6 +119,12 @@ export function buildNutritionPrompt(
     recipeLibrary
       ? `OBLIGATORIO: usa solo recipes del catálogo con recipeId válido. No inventes recetas.\n${recipeLibrary}`
       : "CATÁLOGO NO DISPONIBLE: responde con comidas simples sin recipeId inventados.",
+    `REGLA ESTRICTA DE TIPO DE COMIDA:
+- Breakfast/Desayuno: recetas ligeras, <400kcal, preparación <20min. Ejemplos: avena, huevos, yogur, tostadas, tortitas.
+- Snack: <250kcal, rápido. Ejemplos: fruta, barrita, yogur, frutos secos, batido.
+- Lunch/Almuerzo y Dinner/Cena: recetas principales 450-800kcal. Ejemplos: carne, pescado, pollo con guarnición.
+- NUNCA asignes una receta principal (carne/pescado/grande) a breakfast o snack.
+- NUNCA asignes avena/yogur/fruta a lunch o dinner.`,
     CATEGORY_RULE,
     `Perfil: Edad ${data.age}, sexo ${data.sex}, objetivo ${data.goal}.`,
     `Calorías objetivo diarias: ${data.calories}. Comidas/día: ${data.mealsPerDay}.`,
