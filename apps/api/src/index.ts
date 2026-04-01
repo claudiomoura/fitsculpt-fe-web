@@ -161,7 +161,7 @@ const prisma = await createPrismaClientWithRetry(app.log);
 
 // Register auth routes that are missing from this file:
 // resend-verification, verify-email, forgot-password, reset-password
-registerAuthRoutes(app, { prisma });
+registerAuthRoutes(app, { prisma, app });
 
 const shouldRunDbPreflight =
   process.env.NODE_ENV !== "production" ||
