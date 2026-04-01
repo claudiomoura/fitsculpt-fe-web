@@ -41,13 +41,15 @@ describe("nutritionAdherence helpers", () => {
     expect(store["2026-03-30"]).toEqual(["2026-03-30:breakfast:avena-con-frutas"]);
   });
 
-  it("only matches exact mealKey — no type-level fallback", () => {
+  it("matches by date + mealType as fallback when exact key differs", () => {
     // Exact match works
     expect(hasConsumedEntryForKey(["2026-03-30:breakfast:oatmeal"], "2026-03-30:breakfast:oatmeal")).toBe(true);
-    // Different mealKey does NOT match (this was the bug — type fallback matched everything)
-    expect(hasConsumedEntryForKey(["2026-03-30:breakfast:oatmeal"], "2026-03-30:breakfast:eggs")).toBe(false);
+    // Same date + same mealType matches even with different title (fallback for API key mismatch)
+    expect(hasConsumedEntryForKey(["2026-03-30:breakfast:oatmeal"], "2026-03-30:breakfast:eggs")).toBe(true);
     // Different date does NOT match
     expect(hasConsumedEntryForKey(["2026-03-30:breakfast:oatmeal"], "2026-03-31:breakfast:oatmeal")).toBe(false);
+    // Different mealType on same date does NOT match
+    expect(hasConsumedEntryForKey(["2026-03-30:breakfast:oatmeal"], "2026-03-30:lunch:oatmeal")).toBe(false);
     // Empty entries returns false
     expect(hasConsumedEntryForKey([], "breakfast:oatmeal")).toBe(false);
     expect(hasConsumedEntryForKey(undefined, "breakfast:oatmeal")).toBe(false);

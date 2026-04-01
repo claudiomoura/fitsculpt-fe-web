@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { MealLogEntry, TrackingSnapshot } from "@/services/tracking";
 import { getMealsByDate, createMealLog, updateMealLog, deleteMealLog, type MealLogResponse } from "@/services/mealApi";
 
@@ -94,7 +94,24 @@ function getMealTypeStoreKey(mealType: ApiMealType): string {
 
 export function hasConsumedEntryForKey(entries: string[] | undefined, itemKey: string): boolean {
   if (!Array.isArray(entries) || entries.length === 0) return false;
-  return entries.includes(itemKey);
+  // Exact match (preferred — works when optimistic update and API keys align)
+  if (entries.includes(itemKey)) return true;
+  // Fallback: match by meal type within the same date.
+  // The itemKey format is "date:mealType:slugTitle" or "date:mealType".
+  // The store entries use the same format from buildAdherenceStoreFromMeals.
+  // Extract the date and mealType from the itemKey and check if any entry
+  // shares the same date and mealType (handles title slug differences).
+  const parts = itemKey.split(":");
+  if (parts.length >= 2) {
+    const datePart = parts[0];
+    const typePart = parts[1].toLowerCase();
+    return entries.some((entry) => {
+      const entryParts = entry.split(":");
+      if (entryParts.length < 2) return false;
+      return entryParts[0] === datePart && entryParts[1].toLowerCase() === typePart;
+    });
+  }
+  return false;
 }
 
 export const readNutritionAdherenceStore = (): NutritionAdherenceStore => ({});
@@ -144,11 +161,8 @@ export const useNutritionAdherence = (dayKey: string) => {
   useEffect(() => {
     if (!isBrowser()) return;
     void loadStore();
-    const handleLocalUpdate = () => {
-      void loadStore();
-    };
-    window.addEventListener(NUTRITION_ADHERENCE_EVENT, handleLocalUpdate);
-    return () => window.removeEventListener(NUTRITION_ADHERENCE_EVENT, handleLocalUpdate);
+    // No event listener — toggle uses optimistic updates directly
+    return () => {};
   }, [loadStore]);
 
   const isConsumed = useCallback(
@@ -354,34 +368,49 @@ export const useNutritionAdherenceWeek = (dateKeys: string[]) => {
   const [store, setStore] = useState<NutritionAdherenceStore>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);
+  // Track which dates have already been loaded to avoid unnecessary reloads
+  const loadedDatesRef = useRef<Set<string>>(new Set());
 
-  const loadStore = useCallback(async () => {
-    if (!isBrowser() || dateKeys.length === 0) {
+  const loadStore = useCallback(async (keys: string[]) => {
+    if (!isBrowser() || keys.length === 0) {
       setIsLoading(false);
       return;
     }
+    // Only load dates that haven't been loaded yet
+    const newDates = keys.filter(k => !loadedDatesRef.current.has(k));
+    if (newDates.length === 0) {
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     try {
-      const newStore = await fetchMealsForDates(dateKeys);
-      setStore(newStore);
+      const apiStore = await fetchMealsForDates(newDates);
+      // Mark these dates as loaded
+      newDates.forEach(d => loadedDatesRef.current.add(d));
+      // MERGE: preserve optimistic updates for days not in the API response
+      setStore((prev) => {
+        const merged = { ...prev };
+        for (const key of newDates) {
+          if (apiStore[key] && apiStore[key].length > 0) {
+            merged[key] = apiStore[key];
+          }
+        }
+        return merged;
+      });
       setError(false);
     } catch (_err) {
-      setStore({});
       setError(true);
     } finally {
       setIsLoading(false);
     }
-  }, [dateKeys.join(",")]); // Use join to create stable dependency
+  }, []); // No dependencies — uses ref for loaded dates
 
   useEffect(() => {
     if (!isBrowser()) return;
-    void loadStore();
-    const handleLocalUpdate = () => {
-      void loadStore();
-    };
-    window.addEventListener(NUTRITION_ADHERENCE_EVENT, handleLocalUpdate);
-    return () => window.removeEventListener(NUTRITION_ADHERENCE_EVENT, handleLocalUpdate);
-  }, [loadStore]);
+    void loadStore(dateKeys);
+    return () => {};
+  }, [dateKeys.join(","), loadStore]);
 
   const isConsumed = useCallback(
     (itemKey?: string | null, dateKey?: string | null) => {
@@ -482,10 +511,10 @@ export const useNutritionAdherenceWeek = (dateKeys: string[]) => {
       // Do NOT reload from API after successful toggle — the optimistic update
       // is the source of truth.
     } catch (_err) {
-      await loadStore();
+      await loadStore(dateKeys);
       throw _err;
     }
-  }, [loadStore, store]);
+  }, [loadStore, store, dateKeys]);
 
   const clearDay = useCallback(async (dateKey?: string | null) => {
     const normalizedDateKey = normalizeKey(dateKey);

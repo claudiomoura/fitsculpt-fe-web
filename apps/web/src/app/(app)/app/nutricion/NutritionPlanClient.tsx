@@ -2171,17 +2171,18 @@ export default function NutritionPlanClient({
     ) ?? [];
   const activeQuickLogDayKey =
     selectedMeal?.dayKey ?? toDateKey(clampedSelectedDate);
-  const {
-    isConsumed: isConsumedDay,
-    toggle,
-    error: adherenceError,
-  } = useNutritionAdherence(activeQuickLogDayKey);
-
-  // Week adherence hook for calendar (prevents flicker)
+  // Single shared adherence hook for the entire week — prevents state loss
+  // when navigating between days and ensures calendar pills stay in sync
+  // with quick-log buttons.
   const weekDateKeys = useMemo(() => weekDates.map(date => toDateKey(date)), [weekDates]);
   const {
     isConsumed: isConsumedWeek,
+    toggle,
+    error: adherenceError,
   } = useNutritionAdherenceWeek(weekDateKeys);
+
+  // Alias for the active day (same underlying store)
+  const isConsumedDay = isConsumedWeek;
   
   // Calculate consumed totals (only meals marked as consumed in adherence store)
   const highlightedConsumedTotals = useMemo(
