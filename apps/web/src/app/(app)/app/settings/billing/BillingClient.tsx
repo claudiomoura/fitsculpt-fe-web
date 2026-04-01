@@ -13,6 +13,7 @@ import { useAccess } from "@/lib/useAccess";
 import { useAuthEntitlements } from "@/hooks/useAuthEntitlements";
 import { readAuthEntitlementSnapshot } from "@/context/auth/entitlements";
 import { normalizeSubscriptionPlan } from "@/lib/subscriptionPlan";
+import { fetchAuthMe, invalidateAuthMeCache } from "@/lib/authDedup";
 import {
   getBillingPlans,
   postBillingCheckout,
@@ -150,10 +151,14 @@ export default function BillingClient() {
       setError(null);
       const shouldSync = checkoutStatus === "success";
 
-      const [statusResponse, plansResult, meResponse] = await Promise.all([
+      if (shouldSync) {
+        invalidateAuthMeCache();
+      }
+
+      const [statusResponse, plansResult, mePayload] = await Promise.all([
         fetch(`/api/billing/status${shouldSync ? "?sync=1" : ""}`, { cache: "no-store" }),
         getBillingPlans(),
-        fetch("/api/auth/me", { cache: "no-store" }),
+        fetchAuthMe(),
       ]);
 
       if (!statusResponse.ok) {
@@ -203,12 +208,7 @@ setPlans([]);
         setSelectedPlanId(null);
       }
 
-      if (meResponse.ok) {
-        const mePayload = (await meResponse.json()) as unknown;
-        setGymMembership(extractGymMembership(mePayload));
-      } else {
-        setGymMembership({ state: "unknown", gymId: null, gymName: null });
-      }
+      setGymMembership(extractGymMembership(mePayload));
 
       if (shouldSync) {
         trackEvent("billing_checkout_returned", { target: "billing", origin: "billing", returnTo: safeReturnTo ?? "/app/settings/billing" });

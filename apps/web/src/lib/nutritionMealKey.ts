@@ -13,10 +13,8 @@ export function getNutritionMealKey(meal: MealKeySource, dayKey: string, index: 
   }
 
   const title = typeof meal.title === "string" ? meal.title.trim() : "";
-  const description = typeof meal.description === "string" ? meal.description.trim() : "";
-  const type = typeof meal.type === "string" ? meal.type : "meal";
+  const type = typeof meal.type === "string" ? meal.type.toLowerCase() : "meal";
   const safeTitle = title ? slugifyExerciseName(title) : "";
-  const safeDescription = description ? slugifyExerciseName(description) : "";
-  const parts = [dayKey, type, safeTitle, safeDescription].filter((value) => typeof value === "string" && value.length > 0);
+  const parts = [dayKey, type, safeTitle].filter((value) => typeof value === "string" && value.length > 0);
   return parts.length > 0 ? parts.join(":") : `meal:${dayKey}:${index}`;
 }

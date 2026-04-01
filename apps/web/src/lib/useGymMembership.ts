@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { extractGymMembership, type GymMembership } from "@/lib/gymMembership";
+import { fetchAuthMe } from "@/lib/authDedup";
 
 type GymMembershipState = {
   membership: GymMembership;
@@ -28,15 +29,7 @@ export function useGymMembership(): GymMembershipState {
       setHasError(false);
 
       try {
-        const response = await fetch("/api/auth/me", { cache: "no-store" });
-        if (!response.ok) {
-          if (!active) return;
-          setMembership(UNKNOWN_MEMBERSHIP);
-          setHasError(true);
-          return;
-        }
-
-        const payload = (await response.json()) as unknown;
+        const payload = await fetchAuthMe();
         if (!active) return;
 
         setMembership(extractGymMembership(payload));

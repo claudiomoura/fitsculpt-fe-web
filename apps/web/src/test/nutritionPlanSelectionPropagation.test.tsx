@@ -79,6 +79,9 @@ describe("Nutrition selection propagation", () => {
       if (url === "/api/auth/me") return mockResponse({ role: "user", aiEntitlements: { nutrition: true } });
       if (url === "/api/nutrition-plans/assigned") return mockResponse({ assignedPlan: createPlanPayload("Plan entrenador") });
       if (url === "/api/nutrition-plans/plan-library") return mockResponse(createPlanPayload("Plan biblioteca activo"));
+      if (url === "/api/billing/status") return mockResponse({ plan: "FREE", status: "active" });
+      if (url === "/api/ai/quota") return mockResponse({ tokens: 10 });
+      if (url.startsWith("/api/recipes")) return mockResponse({ items: [] });
       throw new Error(`Unhandled fetch: ${url}`);
     });
 
@@ -104,6 +107,9 @@ describe("Nutrition selection propagation", () => {
       if (url === "/api/auth/me") return mockResponse({ role: "user", aiEntitlements: { nutrition: true } });
       if (url === "/api/nutrition-plans/assigned") return mockResponse({ assignedPlan: createPlanPayload("Plan trainer fallback") });
       if (url === "/api/nutrition-plans/plan-stale") return mockResponse({ code: "PLAN_NOT_FOUND" }, 404);
+      if (url === "/api/billing/status") return mockResponse({ plan: "FREE", status: "active" });
+      if (url === "/api/ai/quota") return mockResponse({ tokens: 10 });
+      if (url.startsWith("/api/recipes")) return mockResponse({ items: [] });
       throw new Error(`Unhandled fetch: ${url}`);
     });
 

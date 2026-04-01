@@ -4,7 +4,7 @@ import { MealCard } from "@/components/nutrition/MealCard";
 import { RecipeImage } from "@/components/nutrition/RecipeImage";
 import { renderWithProviders } from "@/test/utils/renderWithProviders";
 
-const PLACEHOLDER_SRC = "/placeholders/recipe-cover.svg";
+const PLACEHOLDER_SRC = "/placeholders/recipe-cover.jpg";
 
 describe("RecipeImage fallback behavior", () => {
   it("renders real image when src is valid", () => {

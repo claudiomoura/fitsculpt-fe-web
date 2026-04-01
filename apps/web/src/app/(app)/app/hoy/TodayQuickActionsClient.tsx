@@ -23,6 +23,7 @@ import { useAuthEntitlements } from "@/hooks/useAuthEntitlements";
 import { trackEvent } from "@/lib/analytics";
 import { differenceInDays, parseDate, toDateKey } from "@/lib/calendar";
 import { canAccessFeature } from "@/lib/entitlements";
+import { fetchAuthMe } from "@/lib/authDedup";
 import type {
   AuthMeResponse,
   NutritionPlanDetail,
@@ -459,7 +460,7 @@ export default function TodayQuickActionsClient() {
           cache: "no-store",
           credentials: "include",
         }),
-        fetch("/api/auth/me", { cache: "no-store", credentials: "include" }),
+        fetchAuthMe(),
         fetch("/api/profile", { cache: "no-store", credentials: "include" }),
         fetch("/api/workouts", { cache: "no-store", credentials: "include" }),
       ]);
@@ -512,8 +513,8 @@ export default function TodayQuickActionsClient() {
       let todayTrainingDay: TrainingPlanDetail["days"][number] | null = null;
       let profileEstimatedNutritionTarget: number | null = null;
 
-      if (authMeResponse.ok) {
-        const authMe = (await authMeResponse.json()) as AuthMeResponse;
+      if (authMeResponse) {
+        const authMe = authMeResponse as AuthMeResponse;
         const entitlementSnapshot = readAuthEntitlementSnapshot(authMe);
         nextSignals.userName = authMe.name?.trim() ?? "";
         nextSignals.subscriptionPlan = entitlementSnapshot.subscriptionPlan;

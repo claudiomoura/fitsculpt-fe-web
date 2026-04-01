@@ -189,6 +189,8 @@ export const sidebarAdmin: NavSectionGroup[] = [
         id: "admin-gym-requests",
         href: "/app/admin/gym-requests",
         labelKey: "nav.gymJoinRequests",
+        disabled: true,
+        disabledNoteKey: "common.comingSoon",
       },
       { id: "admin-labs", href: "/app/admin/labs", labelKey: "nav.adminLabs" },
       { id: "admin-preview", href: "/app/admin/preview", labelKey: "nav.adminPreview" },
@@ -210,112 +212,6 @@ export const sidebarTrainer: NavSectionGroup[] = [
         id: "trainer-exercises",
         href: "/app/trainer/exercises",
         labelKey: "nav.trainerExercises",
-      },
-    ],
-  },
-];
-
-export const sidebarDevelopment: NavSectionGroup[] = [
-  {
-    id: "development",
-    labelKey: "navSections.development",
-    items: [
-      { id: "dev-trainer-home", href: "/app/trainer", labelKey: "nav.trainer", meta: "/app/trainer" },
-      {
-        id: "dev-trainer-requests",
-        href: "/app/trainer/requests",
-        labelKey: "nav.gymJoinRequests",
-        meta: "/app/trainer/requests",
-      },
-      {
-        id: "dev-trainer-clients",
-        href: "/app/trainer/clients",
-        labelKey: "nav.trainerClients",
-        meta: "/app/trainer/clients",
-      },
-      {
-        id: "dev-trainer-plans",
-        href: "/app/trainer/plans",
-        labelKey: "nav.trainerPlans",
-        meta: "/app/trainer/plans",
-      },
-      {
-        id: "dev-trainer-nutrition-plans",
-        href: "/app/trainer/nutrition-plans",
-        labelKey: "nav.trainerNutritionPlans",
-        meta: "/app/trainer/nutrition-plans",
-      },
-      {
-        id: "dev-trainer-recipes",
-        href: "/app/trainer/recipes",
-        labelKey: "nav.trainerRecipes",
-        meta: "/app/trainer/recipes",
-      },
-      {
-        id: "dev-trainer-exercises",
-        href: "/app/trainer/exercises",
-        labelKey: "nav.trainerExercises",
-        meta: "/app/trainer/exercises",
-      },
-      {
-        id: "dev-trainer-exercises-new",
-        href: "/app/trainer/exercises/new",
-        labelKey: "nav.newExercise",
-        meta: "/app/trainer/exercises/new",
-      },
-      { id: "dev-onboarding", href: "/app/onboarding", labelKey: "nav.onboarding", meta: "/app/onboarding" },
-      { id: "dev-dashboard", href: "/app/hoy", labelKey: "nav.dashboard", meta: "/app/dashboard" },
-      { id: "dev-weekly-review", href: "/app/weekly-review", labelKey: "nav.weeklyReview", meta: "/app/weekly-review" },
-      { id: "dev-workouts", href: "/app/entrenamiento", labelKey: "nav.workouts", meta: "/app/entrenamiento" },
-      {
-        id: "dev-training-edit",
-        href: "/app/entrenamiento/editar",
-        labelKey: "nav.trainingEditor",
-        meta: "/app/entrenamiento/editar",
-      },
-      {
-        id: "dev-nutrition-edit",
-        href: "/app/nutricion/editar",
-        labelKey: "nav.nutritionEditor",
-        meta: "/app/nutricion/editar",
-      },
-      {
-        id: "dev-profile-legacy",
-        href: "/app/profile/edit",
-        labelKey: "nav.legacyProfile",
-        meta: "/app/profile/edit",
-      },
-      {
-        id: "dev-settings-billing",
-        href: "/app/settings/billing",
-        labelKey: "nav.billing",
-        meta: "/app/settings/billing",
-      },
-      {
-        id: "dev-library-workouts",
-        href: "/app/biblioteca/planes-entrenamiento",
-        labelKey: "nav.workoutLibrary",
-        meta: "/app/biblioteca/planes-entrenamiento",
-      },
-      {
-        id: "dev-library-recipes",
-        href: "/app/biblioteca/recetas",
-        labelKey: "nav.recipeLibrary",
-        meta: "/app/biblioteca/recetas",
-      },
-      {
-        id: "dev-admin-gym-requests",
-        href: "/app/admin/gym-requests",
-        labelKey: "nav.gymJoinRequests",
-        meta: "/app/admin/gym-requests",
-        disabled: true,
-        disabledNoteKey: "common.comingSoon",
-      },
-      {
-        id: "dev-admin-preview",
-        href: "/app/admin/preview",
-        labelKey: "nav.adminPreview",
-        meta: "/app/admin/preview",
       },
     ],
   },
@@ -356,7 +252,13 @@ export function buildNavigationSections(input: RoleAccessInput): NavSectionGroup
     return [...userSections, ...sidebarAdmin, ...sidebarTrainer];
   }
 
-  return [...userSections, ...sidebarAdmin, ...sidebarTrainer, ...sidebarDevelopment];
+  const devSection: NavSectionGroup = {
+    id: "development",
+    labelKey: "navSections.development",
+    items: [{ id: "dev-page", href: "/app/dev", labelKey: "nav.dev" }],
+  };
+
+  return [...userSections, ...sidebarAdmin, ...sidebarTrainer, devSection];
 }
 
 export function applyEntitlementGating(sections: NavSectionGroup[], entitlements: UiEntitlements): NavSectionGroup[] {

@@ -52,27 +52,14 @@ import TrainingAdjustmentDiffSummary, {
 } from "@/components/tracking/TrainingAdjustmentDiffSummary";
 import PassiveHealthSummaryCard from "@/components/tracking/PassiveHealthSummaryCard";
 import TrackingProfessionalInsights from "@/components/tracking/TrackingProfessionalInsights";
+import {
+  type CheckinEntry,
+  type FoodEntry,
+  type MealLogEntry,
+  type WorkoutEntry,
+} from "@/services/tracking";
+import { fetchAuthMe } from "@/lib/authDedup";
 import styles from "./TrackingClient.module.css";
-
-type CheckinEntry = {
-  id: string;
-  date: string;
-  weightKg: number;
-  chestCm: number;
-  waistCm: number;
-  hipsCm: number;
-  bicepsCm: number;
-  thighCm: number;
-  calfCm: number;
-  neckCm: number;
-  bodyFatPercent: number;
-  energy: number;
-  hunger: number;
-  notes: string;
-  recommendation: string;
-  frontPhotoUrl: string | null;
-  sidePhotoUrl: string | null;
-};
 
 type CheckinMetrics = {
   weightKg: number;
@@ -84,34 +71,6 @@ type CheckinMetrics = {
   calfCm: number;
   neckCm: number;
   bodyFatPercent: number;
-};
-
-type FoodEntry = {
-  id: string;
-  date: string;
-  foodKey: string;
-  grams: number;
-};
-
-type WorkoutEntry = {
-  id: string;
-  date: string;
-  name: string;
-  durationMin: number;
-  notes: string;
-};
-
-type MealLogEntry = {
-  id: string;
-  date: string;
-  mealKey: string;
-  mealType: string;
-  title: string;
-  calories: number;
-  protein: number;
-  carbs: number;
-  fats: number;
-  completedAt: string;
 };
 
 type UserFood = {
@@ -560,10 +519,7 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
     let active = true;
     const loadEntitlement = async () => {
       try {
-        const response = await fetch("/api/auth/me", { cache: "no-store" });
-        const data = (await response.json()) as AiEntitlementProfile & {
-          aiTokenBalance?: number;
-        };
+        const data = await fetchAuthMe();
         if (!active) return;
         setHasAdjustmentEntitlement(hasAiEntitlement(data));
         setAdjustmentTokenBalance(
@@ -758,7 +714,7 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
           console.warn("Tracking save failed", response.status);
         }
       });
-    }, 600);
+    }, 2000);
     return () => window.clearTimeout(timeout);
   }, [checkins, foodLog, workoutLog, mealLog, passiveData, trackingLoaded]);
 

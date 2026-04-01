@@ -28,6 +28,7 @@ const FORMULA_DEFAULTS: Record<MacroFormula, { proteinGPerKg: number; fatGPerKg:
 import { getUserProfile, updateUserProfile, updateUserProfilePreferences } from "@/lib/profileService";
 import { compressAvatarToDataUrl } from "@/lib/avatarUpload";
 import { normalizeGoalWeightForGoal } from "@/lib/profileGoal";
+import { fetchAuthMe } from "@/lib/authDedup";
 import BodyFatSelector from "@/components/profile/BodyFatSelector";
 import styles from "./profileEdit.module.css";
 
@@ -90,12 +91,8 @@ export default function ProfileClient() {
     let active = true;
     const loadSession = async () => {
       try {
-        const response = await fetch("/api/auth/me", {
-          cache: "no-store",
-          credentials: "include",
-        });
-        if (!response.ok || !active) return;
-        const data = (await response.json()) as { email?: string | null };
+        const data = await fetchAuthMe();
+        if (!active) return;
         setSessionEmail(data.email ?? null);
       } catch (_err) {
         setSessionEmail(null);

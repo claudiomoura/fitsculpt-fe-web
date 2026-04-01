@@ -5,6 +5,13 @@ export function dayKeyFromDate(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+export function dayKeyFromDateUTC(date: Date): string {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export function dayKey(value?: string | Date | null): string | null {
   if (!value) return null;
   if (value instanceof Date) {
@@ -23,4 +30,8 @@ export function dayKey(value?: string | Date | null): string | null {
 
 export function todayLocalDayKey(): string {
   return dayKeyFromDate(new Date());
+}
+
+export function todayUtcDayKey(): string {
+  return dayKeyFromDateUTC(new Date());
 }

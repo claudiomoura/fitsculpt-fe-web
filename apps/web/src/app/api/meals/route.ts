@@ -1,5 +1,4 @@
-import { NextResponse } from "next/server";
-import { proxyToBackend, fetchBackend, readJsonBody } from "@/app/api/gyms/_proxy";
+import { proxyToBackend, readJsonBody } from "@/app/api/gyms/_proxy";
 
 /**
  * BFF Route Handler for /api/meals

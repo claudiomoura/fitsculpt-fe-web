@@ -1,9 +1,5 @@
-import WeeklyReviewContent from "./WeeklyReviewContent";
+import { redirect } from "next/navigation";
 
-export default async function WeeklyReviewPage() {
-  return (
-    <div className="page">
-      <WeeklyReviewContent />
-    </div>
-  );
+export default function WeeklyReviewPage() {
+  redirect("/app/hoy");
 }

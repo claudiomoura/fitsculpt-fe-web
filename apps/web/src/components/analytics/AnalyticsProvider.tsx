@@ -2,17 +2,7 @@
 
 import { useEffect } from "react";
 import { identifyAnalyticsUser, initAnalytics, resetAnalyticsUser } from "@/lib/analytics";
-
-async function fetchAuthMe() {
-  const response = await fetch("/api/auth/me", { cache: "no-store" });
-  if (!response.ok) return null;
-  return (await response.json()) as {
-    id?: string | null;
-    email?: string | null;
-    subscriptionPlan?: string | null;
-    plan?: string | null;
-  };
-}
+import { fetchAuthMe } from "@/lib/authDedup";
 
 export default function AnalyticsProvider() {
   useEffect(() => {
@@ -24,7 +14,8 @@ export default function AnalyticsProvider() {
       try {
         const user = await fetchAuthMe();
         if (!active) return;
-        if (user?.id) {
+        const userId = (user as Record<string, unknown>)?.id as string | null | undefined;
+        if (userId) {
           identifyAnalyticsUser(user);
         } else {
           resetAnalyticsUser();
