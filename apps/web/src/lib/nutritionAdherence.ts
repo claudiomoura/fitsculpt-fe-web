@@ -268,7 +268,10 @@ export const useNutritionAdherence = (dayKey: string) => {
           }
         }
       }
-      window.dispatchEvent(new Event(NUTRITION_ADHERENCE_EVENT));
+      // Do NOT reload from API after successful toggle — the optimistic update
+      // is the source of truth. Reloading would replace the UI-generated mealKey
+      // with an API-reconstructed key that may not match exactly, causing
+      // meals to appear "unconsumed" again.
     } catch (_err) {
       await loadStore();
       throw _err;
@@ -279,20 +282,26 @@ export const useNutritionAdherence = (dayKey: string) => {
     const normalizedDateKey = normalizeKey(dateKey);
     if (!normalizedDateKey) return;
     const mealKeys = store[normalizedDateKey] ?? [];
-    
+
+    // Optimistic update: clear all entries for this day immediately
+    setStore((prev) => {
+      const next = { ...prev };
+      delete next[normalizedDateKey];
+      return next;
+    });
+
     // Try new API first for bulk delete
     try {
       const response = await getMealsByDate(normalizedDateKey);
       const meals = response.items;
       if (meals.length > 0) {
         await Promise.all(meals.map(meal => deleteMealLog(meal.id)));
-        window.dispatchEvent(new Event(NUTRITION_ADHERENCE_EVENT));
         return;
       }
     } catch {
       // Fall back to legacy tracking if new API fails
     }
-    
+
     // Legacy tracking fallback
     await Promise.all(
       mealKeys.map((mealKey) =>
@@ -302,8 +311,8 @@ export const useNutritionAdherence = (dayKey: string) => {
         }),
       ),
     );
-    await loadStore();
-  }, [loadStore, store]);
+    // No loadStore() — optimistic update is already correct
+  }, [store]);
 
   return {
     isLoading,
@@ -470,7 +479,8 @@ export const useNutritionAdherenceWeek = (dateKeys: string[]) => {
           }
         }
       }
-      window.dispatchEvent(new Event(NUTRITION_ADHERENCE_EVENT));
+      // Do NOT reload from API after successful toggle — the optimistic update
+      // is the source of truth.
     } catch (_err) {
       await loadStore();
       throw _err;
@@ -481,20 +491,26 @@ export const useNutritionAdherenceWeek = (dateKeys: string[]) => {
     const normalizedDateKey = normalizeKey(dateKey);
     if (!normalizedDateKey) return;
     const mealKeys = store[normalizedDateKey] ?? [];
-    
+
+    // Optimistic update: clear all entries for this day immediately
+    setStore((prev) => {
+      const next = { ...prev };
+      delete next[normalizedDateKey];
+      return next;
+    });
+
     // Try new API first for bulk delete
     try {
       const response = await getMealsByDate(normalizedDateKey);
       const meals = response.items;
       if (meals.length > 0) {
         await Promise.all(meals.map(meal => deleteMealLog(meal.id)));
-        window.dispatchEvent(new Event(NUTRITION_ADHERENCE_EVENT));
         return;
       }
     } catch {
       // Fall back to legacy tracking if new API fails
     }
-    
+
     // Legacy tracking fallback
     await Promise.all(
       mealKeys.map((mealKey) =>
@@ -504,8 +520,8 @@ export const useNutritionAdherenceWeek = (dateKeys: string[]) => {
         }),
       ),
     );
-    await loadStore();
-  }, [loadStore, store]);
+    // No loadStore() — optimistic update is already correct
+  }, [store]);
 
   return {
     isLoading,
