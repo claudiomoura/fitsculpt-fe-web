@@ -41,6 +41,11 @@ import { classifyAiError } from "@/lib/aiErrorMapping";
 import { mapAiErrorToUiState, type AiErrorUiState } from "@/lib/aiErrorUi";
 import { getExerciseThumbUrl } from "@/lib/exerciseMedia";
 import { pickWorkoutIdForDateCandidates } from "@/lib/trainingWorkoutSelection";
+import {
+  readAiTokenSnapshot,
+  refreshSubscription as refreshSubscriptionUtil,
+  normalizePlanSelection as normalizePlanSelectionUtil,
+} from "@/lib/aiPlanUtils";
 import { ExercisePlanDetailModal } from "@/components/exercise-library/detail/ExercisePlanDetailModal";
 import type { Workout } from "@/lib/types";
 import { TRAINING_ANALYTICS_TODO } from "./analytics";
@@ -91,17 +96,11 @@ const LEGACY_ACTIVE_PLAN_STORAGE_KEY = "fs_active_training_plan_id";
 const TRAINING_PLANS_UPDATED_AT_KEY = "fs_training_plans_updated_at";
 const AUTO_AI_TRIGGER_GUARD_TTL_MS = 4000;
 
-function normalizePlanSelection(value: string | null | undefined): string {
-  if (typeof value !== "string") return "";
-  const normalized = value.trim();
-  return normalized.length > 0 ? normalized : "";
-}
-
 function readStoredSelectedPlanId(): string {
   if (typeof window === "undefined") return "";
   return (
-    normalizePlanSelection(window.localStorage.getItem(SELECTED_PLAN_STORAGE_KEY))
-    || normalizePlanSelection(window.localStorage.getItem(LEGACY_ACTIVE_PLAN_STORAGE_KEY))
+    normalizePlanSelectionUtil(window.localStorage.getItem(SELECTED_PLAN_STORAGE_KEY))
+    || normalizePlanSelectionUtil(window.localStorage.getItem(LEGACY_ACTIVE_PLAN_STORAGE_KEY))
     || ""
   );
 }
@@ -152,34 +151,6 @@ type PlanEntry = {
   date: Date;
   day: TrainingDay;
 };
-
-async function readAiTokenSnapshot(): Promise<AiTokenSnapshot> {
-  try {
-    const quotaResponse = await fetch("/api/ai/quota", { cache: "no-store", credentials: "include" });
-    if (!quotaResponse.ok) {
-      return { tokens: null };
-    }
-    const quotaData = (await quotaResponse.json()) as {
-      tokens?: unknown;
-      aiTokenBalance?: unknown;
-      remainingTokens?: unknown;
-      balance?: unknown;
-    };
-    const quotaTokens =
-      typeof quotaData.tokens === "number"
-        ? quotaData.tokens
-        : typeof quotaData.aiTokenBalance === "number"
-          ? quotaData.aiTokenBalance
-          : typeof quotaData.remainingTokens === "number"
-            ? quotaData.remainingTokens
-            : typeof quotaData.balance === "number"
-              ? quotaData.balance
-              : null;
-    return { tokens: quotaTokens };
-  } catch (_err) {
-    return { tokens: null };
-  }
-}
 
 const formatDate = (value?: string | null) => {
   if (!value) return "-";
@@ -560,23 +531,16 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   }, [pathname, queryPlanId, router, searchParamsString, storedPlanId]);
 
   const refreshSubscription = async () => {
-    try {
-      const response = await fetch("/api/auth/me", { cache: "no-store" });
-      if (!response.ok) {
-        return;
-      }
-      const data = (await response.json()) as AiEntitlementProfile & {
-        aiTokenBalance?: number;
-        aiTokenRenewalAt?: string | null;
-      };
-      setAiTokenBalance(typeof data.aiTokenBalance === "number" ? data.aiTokenBalance : null);
-      setAiTokenRenewalAt(data.aiTokenRenewalAt ?? null);
-      setAiEntitled(hasStrengthAiEntitlement(data));
-      window.dispatchEvent(new Event("auth:refresh"));
-    } catch (_err) {
-    } finally {
+    const result = await refreshSubscriptionUtil();
+    if (!result) {
       setAiEntitlementResolved(true);
+      return;
     }
+    setAiTokenBalance(result.aiTokenBalance);
+    setAiTokenRenewalAt(result.aiTokenRenewalAt);
+    setAiEntitled(hasStrengthAiEntitlement(result.rawData as AiEntitlementProfile));
+    window.dispatchEvent(new Event("auth:refresh"));
+    setAiEntitlementResolved(true);
   };
 
   useEffect(() => {
@@ -739,7 +703,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     for (let offset = 1; offset <= maxProjectedWeeksAhead; offset += 1) {
       const nextWeek = projectDaysForWeek({
         entries: planEntries,
-        selectedWeekStart: addWeeks(getWeekStart(new Date()), offset),
+        selectedWeekStart: addWeeks(weekStart, offset),
         modelWeekStart,
       });
       if (!nextWeek.isReplicated) continue;
@@ -915,18 +879,14 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     }
   }, [manualPlan, savedPlan, plan, form, locale, t]);
 
+  // Single calendar initialization: when planStartDate loads, set selectedDate
+  // to today (clamped to plan start so we never show dates before the plan exists).
   useEffect(() => {
     if (!normalizedPlanStartDate || calendarInitialized.current) return;
     calendarInitialized.current = true;
-    // Use actual today as default, no clamping to plan start
-    setSelectedDate(new Date());
+    const today = new Date();
+    setSelectedDate(today < normalizedPlanStartDate ? normalizedPlanStartDate : today);
   }, [normalizedPlanStartDate]);
-
-  useEffect(() => {
-    if (!normalizedPlanStartDate) return;
-    if (selectedDate.getTime() === clampedSelectedDate.getTime()) return;
-    setSelectedDate(clampedSelectedDate);
-  }, [clampedSelectedDate, normalizedPlanStartDate, selectedDate]);
 
   const ensurePlanStartDate = (planData: TrainingPlan, date = new Date()) => {
     const baseDate = parseDate(planData.startDate) ?? date;

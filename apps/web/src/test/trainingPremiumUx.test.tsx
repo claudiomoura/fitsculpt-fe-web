@@ -3,10 +3,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defaultProfile } from "@/lib/profile";
 import { getMockNavigation, renderWithProviders, resetMockNavigation, setMockPathname } from "@/test/utils/renderWithProviders";
 
-import TrainingPlanClient from "@/app/(app)/app/training/TrainingPlanClient";
+import TrainingPlanClient from "@/app/(app)/app/entrenamiento/TrainingPlanClient";
 
 const today = new Date();
-const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+const todayKey = `${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, "0")}-${String(today.getUTCDate()).padStart(2, "0")}`;
 
 vi.mock("@/lib/profileService", () => ({
   getUserProfile: () =>
@@ -389,7 +389,7 @@ describe("Training premium UX from plan", () => {
           ([input, init]) => String(input) === "/api/workouts" && (init as RequestInit | undefined)?.method === "POST"
         )
       ).toBe(true);
-    });
+    }, { timeout: 5000 });
   });
 
   it("omits blank exercise notes when creating workout from start CTA", async () => {

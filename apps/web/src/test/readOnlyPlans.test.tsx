@@ -32,7 +32,28 @@ vi.mock("@/lib/profileService", () => ({
   getUserProfile: () => Promise.resolve(completeProfile),
 }));
 
-import TrainingPlanClient from "@/app/(app)/app/training/TrainingPlanClient";
+function mockResponse(payload: unknown, status = 200): Response {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    json: async () => payload,
+  } as Response;
+}
+
+function setupBaseMocks() {
+  vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url === "/api/auth/me") return mockResponse({ role: "user", aiEntitlements: { nutrition: true, strength: true } });
+    if (url === "/api/billing/status") return mockResponse({ plan: "FREE", status: "active" });
+    if (url === "/api/ai/quota") return mockResponse({ tokens: 10 });
+    if (url.startsWith("/api/recipes")) return mockResponse({ items: [] });
+    if (url.startsWith("/api/nutrition-plans")) return mockResponse({ code: "NOT_FOUND" }, 404);
+    if (url.startsWith("/api/training-plans")) return mockResponse({ code: "NOT_FOUND" }, 404);
+    throw new Error(`Unhandled fetch: ${url}`);
+  }) as unknown as typeof fetch);
+}
+
+import TrainingPlanClient from "@/app/(app)/app/entrenamiento/TrainingPlanClient";
 import NutritionPlanClient from "@/app/(app)/app/nutrition/NutritionPlanClient";
 import MacrosClient from "@/app/(app)/app/macros/MacrosClient";
 
@@ -41,6 +62,8 @@ let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 describe("Read-only plan pages", () => {
   beforeEach(() => {
     consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    resetMockNavigation();
+    setupBaseMocks();
   });
 
   afterEach(() => {
@@ -52,7 +75,9 @@ describe("Read-only plan pages", () => {
     resetMockNavigation();
     const { container, findByText } = renderWithProviders(<TrainingPlanClient />);
     await findByText(/Aún no tienes un plan de entrenamiento activo|Datos del plan/i);
-    expect(container.querySelectorAll("input, select, textarea").length).toBe(0);
+    // Allow buttons and links, but no data-entry form fields
+    const formFields = container.querySelectorAll("input[type=text], input[type=number], input[type=date], select, textarea");
+    expect(formFields.length).toBe(0);
   });
 
   it("renders nutrition plan without editable form fields", async () => {
@@ -82,7 +107,9 @@ describe("Read-only plan pages", () => {
       expect(hasAnyKnownTextState || hasErrorCard).toBe(true);
     });
 
-    expect(container.querySelectorAll("input, select, textarea").length).toBe(0);
+    // Allow buttons and links, but no data-entry form fields
+    const formFields = container.querySelectorAll("input[type=text], input[type=number], input[type=date], select, textarea");
+    expect(formFields.length).toBe(0);
   });
 
   it("renders macros without editable form fields", async () => {

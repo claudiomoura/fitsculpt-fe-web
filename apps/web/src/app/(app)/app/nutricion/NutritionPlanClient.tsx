@@ -56,7 +56,7 @@ import { getNutritionMealKey } from "@/lib/nutritionMealKey";
 import {
   clampDateNotBefore,
   clampDayKeyToPlanStart,
-  normalizeToLocalStartOfDay,
+  normalizeToUtcStartOfDay,
 } from "../entrenamiento/hooks/useTrainingCalendar";
 import { trackEvent } from "@/lib/analytics";
 import {
@@ -64,6 +64,12 @@ import {
   useNutritionQuickFavorites,
 } from "@/lib/nutritionQuickFavorites";
 import { useToast } from "@/design-system/components/Toast";
+import {
+  readAiTokenSnapshot,
+  refreshSubscription as refreshSubscriptionUtil,
+  activityMultiplier as activityMultiplierUtil,
+  normalizePlanSelection as normalizePlanSelectionUtil,
+} from "@/lib/aiPlanUtils";
 import {
   ACTIVE_NUTRITION_PLAN_STORAGE_KEY,
   NUTRITION_PLANS_UPDATED_AT_KEY,
@@ -393,59 +399,6 @@ function ProgressRing({
       </span>
     </div>
   );
-}
-
-async function readAiTokenSnapshot(): Promise<AiTokenSnapshot> {
-  try {
-    const billingResponse = await fetch("/api/billing/status", {
-      cache: "no-store",
-      credentials: "include",
-    });
-    if (billingResponse.ok) {
-      const billingData = (await billingResponse.json()) as {
-        tokens?: unknown;
-        aiTokenBalance?: unknown;
-      };
-      const billingTokens =
-        typeof billingData.tokens === "number"
-          ? billingData.tokens
-          : typeof billingData.aiTokenBalance === "number"
-            ? billingData.aiTokenBalance
-            : null;
-      if (billingTokens !== null) {
-        return { tokens: billingTokens };
-      }
-    }
-  } catch (_err) {}
-
-  try {
-    const quotaResponse = await fetch("/api/ai/quota", {
-      cache: "no-store",
-      credentials: "include",
-    });
-    if (!quotaResponse.ok) {
-      return { tokens: null };
-    }
-    const quotaData = (await quotaResponse.json()) as {
-      tokens?: unknown;
-      aiTokenBalance?: unknown;
-      remainingTokens?: unknown;
-      balance?: unknown;
-    };
-    const quotaTokens =
-      typeof quotaData.tokens === "number"
-        ? quotaData.tokens
-        : typeof quotaData.aiTokenBalance === "number"
-          ? quotaData.aiTokenBalance
-          : typeof quotaData.remainingTokens === "number"
-            ? quotaData.remainingTokens
-            : typeof quotaData.balance === "number"
-              ? quotaData.balance
-              : null;
-    return { tokens: quotaTokens };
-  } catch (_err) {
-    return { tokens: null };
-  }
 }
 
 type IngredientProfile = {
@@ -939,21 +892,6 @@ function extractAiActionableHint(
   });
 }
 
-function activityMultiplier(activity: Activity) {
-  switch (activity) {
-    case "sedentary":
-      return 1.2;
-    case "light":
-      return 1.375;
-    case "moderate":
-      return 1.55;
-    case "very":
-      return 1.725;
-    default:
-      return 1.9;
-  }
-}
-
 function gramsForMacro(target: number, macroPer100: number) {
   if (macroPer100 <= 0) return 0;
   return Math.max(0, Math.round((target / macroPer100) * 100));
@@ -1092,7 +1030,7 @@ function calculatePlan(
   const age = clamp(form.age, 10, 100);
 
   const bmr = 10 * weight + 6.25 * height - 5 * age + 5;
-  const tdee = bmr * activityMultiplier(form.activity);
+  const tdee = bmr * activityMultiplierUtil(form.activity);
 
   let targetCalories = tdee;
   if (form.goal === "cut") targetCalories = tdee * 0.85;
@@ -1525,25 +1463,16 @@ export default function NutritionPlanClient({
   ]);
 
   const refreshSubscription = async () => {
-    try {
-      const response = await fetch("/api/auth/me", { cache: "no-store" });
-      if (!response.ok) {
-        return;
-      }
-      const data = (await response.json()) as AiEntitlementProfile & {
-        aiTokenBalance?: number;
-        aiTokenRenewalAt?: string | null;
-      };
-      setAiTokenBalance(
-        typeof data.aiTokenBalance === "number" ? data.aiTokenBalance : null,
-      );
-      setAiTokenRenewalAt(data.aiTokenRenewalAt ?? null);
-      setAiEntitled(hasNutritionAiEntitlement(data));
-      window.dispatchEvent(new Event("auth:refresh"));
-    } catch (_err) {
-    } finally {
+    const result = await refreshSubscriptionUtil();
+    if (!result) {
       setAiEntitlementResolved(true);
+      return;
     }
+    setAiTokenBalance(result.aiTokenBalance);
+    setAiTokenRenewalAt(result.aiTokenRenewalAt);
+    setAiEntitled(hasNutritionAiEntitlement(result.rawData as AiEntitlementProfile));
+    window.dispatchEvent(new Event("auth:refresh"));
+    setAiEntitlementResolved(true);
   };
 
   useEffect(() => {
@@ -1639,7 +1568,7 @@ export default function NutritionPlanClient({
     [visiblePlan?.startDate, visiblePlan?.days],
   );
   const normalizedPlanStartDate = useMemo(
-    () => (planStartDate ? normalizeToLocalStartOfDay(planStartDate) : null),
+    () => (planStartDate ? normalizeToUtcStartOfDay(planStartDate) : null),
     [planStartDate],
   );
   const planDays = visiblePlan?.days ?? [];
@@ -1864,23 +1793,20 @@ export default function NutritionPlanClient({
     }
   }, [manualPlan, visiblePlan]);
 
+  // Single calendar initialization: when planStartDate loads, set selectedDate
+  // to today (clamped to plan start so we never show dates before the plan exists).
   useEffect(() => {
-    if (!planStartDate || calendarInitialized.current) return;
+    if (!normalizedPlanStartDate || calendarInitialized.current) return;
     calendarInitialized.current = true;
-    // Use URL day param if available, otherwise use today's date
     const dayParam = clampDayKeyToPlanStart(
       searchParams.get("day"),
       normalizedPlanStartDate,
     );
     const parsedDate = parseDate(dayParam);
-    setSelectedDate(parsedDate ?? new Date());
-  }, [normalizedPlanStartDate, planStartDate, searchParams]);
-
-  useEffect(() => {
-    if (!normalizedPlanStartDate) return;
-    if (selectedDate.getTime() === clampedSelectedDate.getTime()) return;
-    setSelectedDate(clampedSelectedDate);
-  }, [clampedSelectedDate, normalizedPlanStartDate, selectedDate]);
+    const today = new Date();
+    const baseDate = parsedDate ?? (today < normalizedPlanStartDate ? normalizedPlanStartDate : today);
+    setSelectedDate(baseDate);
+  }, [normalizedPlanStartDate, searchParams]);
 
   const updateNutritionSearchParams = (
     nextDayKey: string,

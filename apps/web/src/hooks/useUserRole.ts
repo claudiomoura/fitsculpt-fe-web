@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { extractGymMembership, type GymMembershipState } from "@/lib/gymMembership";
 import { getUserCapabilities } from "@/lib/userCapabilities";
 import { getPrimaryRole } from "@/lib/roles";
+import { fetchAuthMe } from "@/lib/authDedup";
 
 type AccessRole = "user" | "coach" | "admin";
 
@@ -33,48 +34,30 @@ export function useUserRole(): UserRoleState {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadRole = useCallback(async (signal?: AbortSignal) => {
+  const loadRole = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch("/api/auth/me", {
-        cache: "no-store",
-        signal,
-      });
-
-      if (!response.ok) {
-        setProfile(null);
-        if (response.status !== 401) {
-          setError(`HTTP_${response.status}`);
-        }
-        return;
-      }
-
-      const data = (await response.json()) as unknown;
+      const data = await fetchAuthMe();
       setProfile(data);
     } catch (fetchError) {
-      if (signal?.aborted) return;
       setProfile(null);
       setError(fetchError instanceof Error ? fetchError.message : "NETWORK_ERROR");
     } finally {
-      if (!signal?.aborted) {
-        setLoading(false);
-      }
+      setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    const controller = new AbortController();
-    void loadRole(controller.signal);
+    void loadRole();
 
     const handleRefresh = () => {
-      void loadRole(controller.signal);
+      void loadRole();
     };
 
     window.addEventListener("auth:refresh", handleRefresh);
     return () => {
-      controller.abort();
       window.removeEventListener("auth:refresh", handleRefresh);
     };
   }, [loadRole]);

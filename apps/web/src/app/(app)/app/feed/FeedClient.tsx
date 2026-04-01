@@ -6,7 +6,8 @@ import { Modal } from "@/design-system/components/Modal";
 import { Button, ButtonLink } from "@/design-system/components/Button";
 import { useLanguage } from "@/context/LanguageProvider";
 import { getLocaleCode } from "@/lib/i18n";
-import { hasAiEntitlement, type AiEntitlementProfile } from "@/components/access/aiEntitlements";
+import { hasAiEntitlement } from "@/components/access/aiEntitlements";
+import { fetchAuthMe } from "@/lib/authDedup";
 
 type FeedPost = {
   id: string;
@@ -111,11 +112,7 @@ export default function FeedClient() {
 
   const refreshSubscription = async () => {
     try {
-      const response = await fetch("/api/auth/me", { cache: "no-store" });
-      if (!response.ok) return;
-      const data = (await response.json()) as AiEntitlementProfile & {
-        aiTokenBalance?: number;
-      };
+      const data = await fetchAuthMe();
       setAiTokenBalance(typeof data.aiTokenBalance === "number" ? data.aiTokenBalance : null);
       setAiEntitled(hasAiEntitlement(data));
     } catch (_err) {

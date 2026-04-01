@@ -40,17 +40,26 @@ function buildMealLogId(dateKey: string, mealKey: string) {
   return `${dateKey}:${mealKey}`;
 }
 
+import { slugifyExerciseName } from "@/lib/slugify";
+
 /**
- * Convert new API meal logs to adherence store format
+ * Convert new API meal logs to adherence store format.
+ * Only includes meals that have been actually logged (completedAt present).
+ * Reconstructs the same mealKey format the UI generates: dayKey:mealType:slugifiedTitle
  */
 export function buildAdherenceStoreFromMeals(meals: MealLogResponse[]): NutritionAdherenceStore {
   const store: NutritionAdherenceStore = {};
   for (const meal of meals) {
-    if (!meal.date || !meal.mealType) continue;
+    if (!meal.date || !meal.mealType || !meal.completedAt) continue;
     const current = store[meal.date] ?? [];
-    const mealTypeKey = meal.mealType.toLowerCase();
-    if (!current.includes(mealTypeKey)) {
-      store[meal.date] = [...current, mealTypeKey];
+    // Reconstruct the same mealKey format as getNutritionMealKey:
+    // dayKey:mealType:slugifiedTitle
+    const slugTitle = meal.title ? slugifyExerciseName(meal.title) : "";
+    const mealKey = slugTitle
+      ? `${meal.date}:${meal.mealType.toLowerCase()}:${slugTitle}`
+      : `${meal.date}:${meal.mealType.toLowerCase()}`;
+    if (!current.includes(mealKey)) {
+      store[meal.date] = [...current, mealKey];
     }
   }
   return store;
@@ -85,9 +94,7 @@ function getMealTypeStoreKey(mealType: ApiMealType): string {
 
 export function hasConsumedEntryForKey(entries: string[] | undefined, itemKey: string): boolean {
   if (!Array.isArray(entries) || entries.length === 0) return false;
-  if (entries.includes(itemKey)) return true;
-  const mealTypeKey = getMealTypeStoreKey(mapMealKeyToType(itemKey));
-  return entries.includes(mealTypeKey);
+  return entries.includes(itemKey);
 }
 
 export const readNutritionAdherenceStore = (): NutritionAdherenceStore => ({});

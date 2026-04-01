@@ -48,7 +48,8 @@
     "trainingPlans": "Training plans",
     "weeklyReview": "Weekly review",
     "trainerNutritionPlans": "Nutrition plans",
-    "trainerRecipes": "Trainer recipes"
+    "trainerRecipes": "Trainer recipes",
+    "dev": "Dev"
   },
   "navSections": {
     "summary": "Summary",

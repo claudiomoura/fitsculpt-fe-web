@@ -6,41 +6,40 @@ export function parseDate(value?: string | null): Date | null {
     const year = Number(match[1]);
     const month = Number(match[2]) - 1;
     const day = Number(match[3]);
-    const localDate = new Date(year, month, day);
-    return Number.isNaN(localDate.getTime()) ? null : localDate;
+    return new Date(Date.UTC(year, month, day));
   }
   const parsed = new Date(normalized);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
 export function toDateKey(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
 
 export function addDays(date: Date, days: number): Date {
   const next = new Date(date);
-  next.setDate(next.getDate() + days);
+  next.setUTCDate(next.getUTCDate() + days);
   return next;
 }
 
 export function startOfWeek(date: Date, weekStartsOn = 1): Date {
-  const day = date.getDay();
+  const day = date.getUTCDay();
   const diff = (day + 7 - weekStartsOn) % 7;
   const start = new Date(date);
-  start.setDate(date.getDate() - diff);
-  start.setHours(0, 0, 0, 0);
+  start.setUTCDate(date.getUTCDate() - diff);
+  start.setUTCHours(0, 0, 0, 0);
   return start;
 }
 
 export function startOfMonth(date: Date): Date {
-  return new Date(date.getFullYear(), date.getMonth(), 1);
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
 }
 
 export function endOfMonth(date: Date): Date {
-  return new Date(date.getFullYear(), date.getMonth() + 1, 0);
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0));
 }
 
 export function buildMonthGrid(date: Date, weekStartsOn = 1): Date[] {
@@ -57,14 +56,14 @@ export function buildMonthGrid(date: Date, weekStartsOn = 1): Date[] {
 
 export function isSameDay(a: Date, b: Date): boolean {
   return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
+    a.getUTCFullYear() === b.getUTCFullYear() &&
+    a.getUTCMonth() === b.getUTCMonth() &&
+    a.getUTCDate() === b.getUTCDate()
   );
 }
 
 export function differenceInDays(later: Date, earlier: Date): number {
-  const utcLater = Date.UTC(later.getFullYear(), later.getMonth(), later.getDate());
-  const utcEarlier = Date.UTC(earlier.getFullYear(), earlier.getMonth(), earlier.getDate());
+  const utcLater = Date.UTC(later.getUTCFullYear(), later.getUTCMonth(), later.getUTCDate());
+  const utcEarlier = Date.UTC(earlier.getUTCFullYear(), earlier.getUTCMonth(), earlier.getUTCDate());
   return Math.floor((utcLater - utcEarlier) / 86_400_000);
 }

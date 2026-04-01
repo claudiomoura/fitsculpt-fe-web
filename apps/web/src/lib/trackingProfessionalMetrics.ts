@@ -249,7 +249,7 @@ function buildWeeklySeries(entries: DailyNormalizedCheckin[], now: Date, weeks =
     });
 
     const weekKey = toDateKey(startDate);
-    const label = `${String(startDate.getDate()).padStart(2, "0")}/${String(startDate.getMonth() + 1).padStart(2, "0")}`;
+    const label = `${String(startDate.getUTCDate()).padStart(2, "0")}/${String(startDate.getUTCMonth() + 1).padStart(2, "0")}`;
 
     series.push({
       weekKey,

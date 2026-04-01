@@ -88,13 +88,12 @@ export function mapAiUpstreamError(status: number, payload: unknown): NextRespon
   const upstreamMessage = getErrorMessage(payload);
 
   if (status >= 500) {
-    const upstreamCode = getPayloadError(payload) ?? getErrorCode(payload);
     const upstreamReason = getPayloadField(payload, "reason");
     const providerCode = getPayloadField(payload, "providerCode");
     return NextResponse.json(
       {
-        error: upstreamCode ?? CLIENT_ERROR_CODE,
-        code: upstreamCode ?? UPSTREAM_ERROR_CODE,
+        error: CLIENT_ERROR_CODE,
+        code: UPSTREAM_ERROR_CODE,
         kind: "upstream",
         status: 502,
         ...(upstreamReason ? { reason: upstreamReason } : {}),

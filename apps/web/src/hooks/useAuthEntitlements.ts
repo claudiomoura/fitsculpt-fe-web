@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { getUiEntitlements, type AuthMePayload, type UiEntitlements } from "@/lib/entitlements";
+import { fetchAuthMe, invalidateAuthMeCache } from "@/lib/authDedup";
 
 type UseAuthEntitlementsState = {
   entitlements: UiEntitlements;
@@ -9,6 +10,7 @@ type UseAuthEntitlementsState = {
   loading: boolean;
   error: string | null;
   reload: () => Promise<void>;
+  invalidateCache: () => void;
 };
 
 const unknownEntitlements: UiEntitlements = { status: "unknown" };
@@ -24,15 +26,7 @@ export function useAuthEntitlements(): UseAuthEntitlementsState {
       setLoading(true);
       setError(null);
 
-      const response = await fetch("/api/auth/me", { cache: "no-store" });
-      if (!response.ok) {
-        setAuthMe(null);
-        setEntitlements(unknownEntitlements);
-        setError(`HTTP_${response.status}`);
-        return;
-      }
-
-      const data = (await response.json()) as AuthMePayload;
+      const data = await fetchAuthMe();
       setAuthMe(data);
       setEntitlements(getUiEntitlements(data));
     } catch (fetchError) {
@@ -54,5 +48,6 @@ export function useAuthEntitlements(): UseAuthEntitlementsState {
     loading,
     error,
     reload: load,
+    invalidateCache: invalidateAuthMeCache,
   };
 }
