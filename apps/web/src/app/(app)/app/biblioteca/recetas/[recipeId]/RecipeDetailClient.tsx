@@ -11,6 +11,55 @@ type RecipeDetailClientProps = {
   error?: string | null;
 };
 
+const MEAL_TYPE_LABELS: Record<string, string> = {
+  breakfast: "Desayuno",
+  lunch: "Almuerzo",
+  dinner: "Cena",
+  snack: "Snack",
+  "pre-workout": "Pre-entreno",
+  "post-workout": "Post-entreno",
+};
+
+const DIET_TYPE_LABELS: Record<string, string> = {
+  balanced: "Equilibrada",
+  "high-protein": "Alta en proteína",
+  "low-carb": "Baja en carbos",
+  keto: "Keto",
+  "calorie-deficit": "Déficit calórico",
+};
+
+const DIFFICULTY_LABELS: Record<string, string> = {
+  easy: "Fácil",
+  medium: "Media",
+  hard: "Difícil",
+};
+
+const CUISINE_LABELS: Record<string, string> = {
+  mediterranean: "Mediterránea",
+  asian: "Asiática",
+  mexican: "Mexicana",
+  american: "Americana",
+  spanish: "Española",
+  italian: "Italiana",
+  indian: "India",
+};
+
+const GOAL_FIT_LABELS: Record<string, string> = {
+  "muscle-gain": "Ganancia muscular",
+  "weight-loss": "Pérdida de peso",
+  maintenance: "Mantenimiento",
+  "athletic-performance": "Rendimiento atlético",
+  "healthy-lifestyle": "Vida saludable",
+};
+
+const INGREDIENT_CATEGORY_LABELS: Record<string, string> = {
+  protein: "proteína",
+  carb: "carb",
+  vegetable: "verdura",
+  fat: "grasa",
+  sauce: "salsa",
+  seasoning: "condimento",
+};
 
 export default function RecipeDetailClient({ recipe, error }: RecipeDetailClientProps) {
   const { t } = useLanguage();
@@ -41,11 +90,18 @@ export default function RecipeDetailClient({ recipe, error }: RecipeDetailClient
   const hasSteps = steps.length > 0;
   const hasDetails = hasDescription || hasIngredients || hasSteps;
 
+  const mealTypeLabel = recipe.mealType ? MEAL_TYPE_LABELS[recipe.mealType] : null;
+  const dietTypeLabel = recipe.dietType ? DIET_TYPE_LABELS[recipe.dietType] : null;
+  const difficultyLabel = recipe.difficulty ? DIFFICULTY_LABELS[recipe.difficulty] : null;
+  const cuisineLabel = recipe.cuisine ? CUISINE_LABELS[recipe.cuisine] : null;
+  const goalFitLabel = recipe.goalFit ? GOAL_FIT_LABELS[recipe.goalFit] : null;
+
   return (
     <section className="card centered-card">
       <div className="page-header">
         <div className="page-header-body">
-          <h1 className="section-title">{recipe.name}</h1>
+          <h1 className="section-title">{recipe.displayName || recipe.name}</h1>
+          {recipe.tagline ? <p className="section-tagline">{recipe.tagline}</p> : null}
           <p className="section-subtitle">{t("recipes.detailSubtitle")}</p>
         </div>
         <div className="page-header-actions">
@@ -54,6 +110,31 @@ export default function RecipeDetailClient({ recipe, error }: RecipeDetailClient
           </ButtonLink>
         </div>
       </div>
+
+      {/* New badges row */}
+      <div className="recipe-badges mt-4">
+        {mealTypeLabel && <span className="recipe-badge badge-meal-type">{mealTypeLabel}</span>}
+        {difficultyLabel && <span className="recipe-badge badge-difficulty">{difficultyLabel}</span>}
+        {cuisineLabel && <span className="recipe-badge badge-cuisine">{cuisineLabel}</span>}
+        {dietTypeLabel && <span className="recipe-badge badge-diet-type">{dietTypeLabel}</span>}
+        {goalFitLabel && <span className="recipe-badge badge-goal-fit">{goalFitLabel}</span>}
+      </div>
+
+      {/* Time info */}
+      {(recipe.prepTimeMinutes || recipe.cookTimeMinutes) && (
+        <div className="recipe-times mt-4">
+          {recipe.prepTimeMinutes && (
+            <span className="time-item">
+              Prep: {recipe.prepTimeMinutes} min
+            </span>
+          )}
+          {recipe.cookTimeMinutes && (
+            <span className="time-item">
+              Cocina: {recipe.cookTimeMinutes} min
+            </span>
+          )}
+        </div>
+      )}
 
       <div className="recipe-media mt-16">
         <RecipeImage
@@ -107,9 +188,13 @@ export default function RecipeDetailClient({ recipe, error }: RecipeDetailClient
           <h3>{t("recipes.ingredientsTitle")}</h3>
           <ul className="muted list-muted">
             {ingredients.map((ingredient) => (
-              <li key={ingredient.id}>
-                {ingredient.name}{" "}
-                {ingredient.grams ? `· ${ingredient.grams} ${t("recipes.gramsUnit")}` : ""}
+              <li key={ingredient.id} className={ingredient.isMainIngredient ? "ingredient-main" : ""}>
+                {ingredient.isMainIngredient && <span className="main-ingredient-badge">Principal</span>}
+                {ingredient.name}
+                {ingredient.category && (
+                  <span className="ingredient-category">{INGREDIENT_CATEGORY_LABELS[ingredient.category]}</span>
+                )}
+                {ingredient.grams ? ` · ${ingredient.grams} ${t("recipes.gramsUnit")}` : ""}
               </li>
             ))}
           </ul>

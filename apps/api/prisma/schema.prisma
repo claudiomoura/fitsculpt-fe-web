@@ -151,39 +151,60 @@ model UserFood {
 }
 
 model Recipe {
-  id                String             @id @default(cuid())
-  name              String             @unique
-  description       String?
-  calories          Float
-  protein           Float
-  carbs             Float
-  fat               Float
-  photoUrl          String?
-  imageUrls         String[]           @default([])
-  source            String?
-  sourceId          String?
-  slug              String?            @unique
-  category          String?
-  steps             String[]
-  tiempoPreparacion Int?
-  porciones         Int?
-  trainerId         String?
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  trainer           User?              @relation(fields: [trainerId], references: [id], onDelete: Cascade)
-  ingredients       RecipeIngredient[]
+  id           String             @id @default(cuid())
+  name         String             @unique
+  description  String?
+  calories     Float
+  protein      Float
+  carbs        Float
+  fat          Float
+  photoUrl     String?
+  imageUrls    String[]           @default([])
+  source       String?
+  sourceId     String?
+  slug         String?            @unique
+  category     String?            // legacy — mantenido para backwards
+  steps        String[]
+  trainerId    String?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  trainer      User?              @relation(fields: [trainerId], references: [id], onDelete: Cascade)
+  ingredients  RecipeIngredient[]
+
+  // --- NUEVOS CAMPOS (identificación + filtrado) ---
+  displayName         String?
+  tagline            String?
+  mealType           String?    // breakfast | lunch | dinner | snack
+  dietType           String?    // omnivore | vegetarian | vegan | mediterranean | keto | dairyFree | glutenFree | pescatarian
+  goalFit            String?   // bulk | cut | maintain | all
+  mainIngredient     String?   // tuna | chicken | salmon | tofu | beef | quinoa | ...
+  cuisine            String?    // mediterranean | asian | mexican | american | indian | ...
+  difficulty         String?    // easy | medium | hard
+  tags               String[]   @default([]) // high-protein | low-carb | quick | meal-prep | ...
+  keywords           String[]   @default([]) // sin lactosa | sin gluten | post-workout | ...
+  prepTimeMinutes    Int?
+  cookTimeMinutes    Int?
+  servingSize        String?    // "200g" | "1 bowl" | ...
+  servings           Int        @default(1)
 
   @@index([source, sourceId])
   @@index([category])
   @@index([trainerId])
+  @@index([mealType])
+  @@index([dietType])
+  @@index([mainIngredient])
+  @@index([goalFit])
+  @@index([cuisine])
 }
 
 model RecipeIngredient {
-  id       String @id @default(cuid())
-  recipeId String
-  name     String
-  grams    Float
-  recipe   Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  id                String @id @default(cuid())
+  recipeId          String
+  name              String
+  grams             Float
+  isMainIngredient  Boolean @default(false) // true si es el ingrediente protagonista
+  category          String? // protein | carb | vegetable | fat | dressing | other
+  recipe            Recipe  @relation(fields: [recipeId], references: [id], onDelete: Cascade)
 
   @@index([recipeId])
 }

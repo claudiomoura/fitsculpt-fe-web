@@ -121,21 +121,94 @@ export function registerNutritionRoutes(
     }
   });
 
-  // GET /recipes - List recipes
+  // GET /recipes - List recipes (enhanced filtering)
   const recipeListSchema = z.object({
     query: z.string().optional(),
     limit: z.coerce.number().int().min(1).max(100).default(20),
     offset: z.coerce.number().int().min(0).default(0),
+    // Legacy category (backwards compat)
     category: z.string().optional(),
+    // New filters
+    mealType: z.string().optional(),
+    dietType: z.string().optional(),
+    goalFit: z.string().optional(),
+    mainIngredient: z.string().optional(),
+    cuisine: z.string().optional(),
+    difficulty: z.string().optional(),
+    tags: z.string().optional(), // comma-separated: "high-protein,low-carb"
+    includeIngredients: z.string().optional(), // busca en nombres de ingredientes
   });
 
   app.get("/recipes", async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { query, limit, offset, category } = recipeListSchema.parse(request.query);
+      const {
+        query,
+        limit,
+        offset,
+        category,
+        mealType,
+        dietType,
+        goalFit,
+        mainIngredient,
+        cuisine,
+        difficulty,
+        tags,
+        includeIngredients,
+      } = recipeListSchema.parse(request.query);
+
+      // Build OR search across name + description + keywords + tags
+      const textSearch = query
+        ? {
+            OR: [
+              { name: { contains: query, mode: Prisma.QueryMode.insensitive } },
+              { description: { contains: query, mode: Prisma.QueryMode.insensitive } },
+              { displayName: { contains: query, mode: Prisma.QueryMode.insensitive } },
+              { tagline: { contains: query, mode: Prisma.QueryMode.insensitive } },
+            ],
+          }
+        : {};
+
+      // Parse comma-separated tags
+      const tagArray = tags
+        ? tags
+            .split(",")
+            .map((t) => t.trim().toLowerCase())
+            .filter(Boolean)
+        : [];
+
       const where: Prisma.RecipeWhereInput = {
-        ...(query ? { name: { contains: query, mode: Prisma.QueryMode.insensitive } } : {}),
+        ...textSearch,
+        // Legacy
         ...(category ? { category: { equals: category } } : {}),
+        // New filters (all additive — no filter = no condition)
+        ...(mealType ? { mealType: { equals: mealType } } : {}),
+        ...(dietType ? { dietType: { equals: dietType } } : {}),
+        ...(goalFit ? { goalFit: { equals: goalFit } } : {}),
+        ...(mainIngredient
+          ? { mainIngredient: { contains: mainIngredient, mode: Prisma.QueryMode.insensitive } }
+          : {}),
+        ...(cuisine ? { cuisine: { equals: cuisine } } : {}),
+        ...(difficulty ? { difficulty: { equals: difficulty } } : {}),
+        // Tags: all requested tags must be present (AND logic)
+        ...(tagArray.length > 0
+          ? {
+              AND: tagArray.map((tag) => ({
+                tags: { has: tag },
+              })),
+            }
+          : {}),
+        // Ingredient search: recipe must have at least one ingredient matching
+        ...(includeIngredients
+          ? {
+              ingredients: {
+                some: {
+                  name: { contains: includeIngredients, mode: Prisma.QueryMode.insensitive },
+                },
+              },
+            }
+          : {}),
       };
+
       const [items, total] = await prisma.$transaction([
         prisma.recipe.findMany({
           where,
@@ -151,13 +224,17 @@ export function registerNutritionRoutes(
     }
   });
 
-  // GET /recipes/:id - Get single recipe
+  // GET /recipes/:id - Get single recipe (full detail)
   app.get("/recipes/:id", async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
     try {
       const { id } = z.object({ id: z.string() }).parse(request.params);
       const recipe = await prisma.recipe.findUnique({
         where: { id },
-        include: { ingredients: true },
+        include: {
+          ingredients: {
+            orderBy: { isMainIngredient: "desc" },
+          },
+        },
       });
       if (!recipe) {
         return reply.status(404).send({ error: "NOT_FOUND" });
