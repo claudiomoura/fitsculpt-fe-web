@@ -3011,6 +3011,97 @@ label {
   border: 1px solid var(--border);
 }
 
+.recipe-badges {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.recipe-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.badge-meal-type {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+.badge-difficulty {
+  background: var(--surface-alt);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.badge-cuisine {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.badge-diet-type {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.badge-goal-fit {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.recipe-times {
+  display: flex;
+  gap: 16px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.time-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.section-tagline {
+  margin: 4px 0 0;
+  font-size: 15px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.ingredient-main {
+  font-weight: 600;
+}
+
+.main-ingredient-badge {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 2px 6px;
+  background: var(--primary);
+  color: var(--on-primary);
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.ingredient-category {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 6px;
+  background: var(--surface-alt);
+  color: var(--text-muted);
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: lowercase;
+}
+
 .feature-card h3 {
   margin: 0;
   font-size: 18px;

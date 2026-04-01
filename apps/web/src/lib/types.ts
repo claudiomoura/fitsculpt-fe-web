@@ -77,6 +77,8 @@ export type RecipeIngredient = {
   recipeId?: string;
   name: string;
   grams: number;
+  isMainIngredient?: boolean;
+  category?: "protein" | "carb" | "vegetable" | "fat" | "sauce" | "seasoning" | null;
 };
 
 export type Recipe = {
@@ -96,6 +98,20 @@ export type Recipe = {
   tiempoPreparacion?: number | null;
   porciones?: number | null;
   ingredients: RecipeIngredient[];
+  mealType?: "breakfast" | "lunch" | "dinner" | "snack" | "pre-workout" | "post-workout" | null;
+  dietType?: "balanced" | "high-protein" | "low-carb" | "keto" | "calorie-deficit" | null;
+  goalFit?: "muscle-gain" | "weight-loss" | "maintenance" | "athletic-performance" | "healthy-lifestyle" | null;
+  mainIngredient?: "chicken" | "beef" | "fish" | "egg" | "tofu" | "turkey" | "shrimp" | "pasta" | "rice" | "quinoa" | "pork" | "lamb" | null;
+  cuisine?: "mediterranean" | "asian" | "mexican" | "american" | "spanish" | "italian" | "indian" | null;
+  difficulty?: "easy" | "medium" | "hard" | null;
+  tags?: string[];
+  keywords?: string[];
+  prepTimeMinutes?: number | null;
+  cookTimeMinutes?: number | null;
+  servingSize?: number | null;
+  servings?: number | null;
+  displayName?: string | null;
+  tagline?: string | null;
 };
 
 export type TrainingPlanListItem = {

@@ -145,6 +145,7 @@ export async function resetDemoState(prisma: PrismaClient, options: DemoResetOpt
     await tx.trainingPlan.deleteMany({ where: { id: DEMO_TRAINING_PLAN_ID } });
     await tx.nutritionPlan.deleteMany({ where: { id: DEMO_NUTRITION_PLAN_ID } });
     await tx.user.deleteMany({ where: { email: DEMO_USER_EMAIL } });
+    await tx.user.deleteMany({ where: { id: DEMO_USER_ID } });
 
     await tx.recipe.deleteMany({ where: { name: { startsWith: "DEMO:" } } });
     await tx.exercise.deleteMany({ where: { source: "demo-seed" } });

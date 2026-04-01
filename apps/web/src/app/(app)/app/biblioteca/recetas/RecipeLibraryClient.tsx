@@ -32,27 +32,105 @@ function useDebounce<T>(value: T, delayMs: number): T {
   return debounced;
 }
 
-const CATEGORY_OPTIONS = [
+const MEAL_TYPE_OPTIONS = [
   { value: "", label: "Todas" },
   { value: "breakfast", label: "Desayuno" },
+  { value: "lunch", label: "Almuerzo" },
+  { value: "dinner", label: "Cena" },
   { value: "snack", label: "Snack" },
-  { value: "fish", label: "Pescado" },
-  { value: "seafood", label: "Marisco" },
-  { value: "poultry", label: "Pollo/Pavo" },
-  { value: "beef", label: "Ternera" },
-  { value: "vegetarian", label: "Vegetariano" },
-  { value: "salad", label: "Ensalada" },
-  { value: "soup", label: "Sopa/Crema" },
-  { value: "pasta", label: "Pasta" },
-  { value: "rice", label: "Arroz/Bowl" },
-  { value: "wrap", label: "Wrap/Taco" },
+  { value: "pre-workout", label: "Pre-entreno" },
+  { value: "post-workout", label: "Post-entreno" },
 ];
+
+const DIET_TYPE_OPTIONS = [
+  { value: "", label: "Todas" },
+  { value: "balanced", label: "Equilibrada" },
+  { value: "high-protein", label: "Alta en proteína" },
+  { value: "low-carb", label: "Baja en carbos" },
+  { value: "keto", label: "Keto" },
+  { value: "calorie-deficit", label: "Déficit calórico" },
+];
+
+const DIFFICULTY_OPTIONS = [
+  { value: "", label: "Todas" },
+  { value: "easy", label: "Fácil" },
+  { value: "medium", label: "Media" },
+  { value: "hard", label: "Difícil" },
+];
+
+const CUISINE_OPTIONS = [
+  { value: "", label: "Todas" },
+  { value: "mediterranean", label: "Mediterránea" },
+  { value: "asian", label: "Asiática" },
+  { value: "mexican", label: "Mexicana" },
+  { value: "american", label: "Americana" },
+  { value: "spanish", label: "Española" },
+  { value: "italian", label: "Italiana" },
+  { value: "indian", label: "India" },
+];
+
+const GOAL_FIT_OPTIONS = [
+  { value: "", label: "Todos" },
+  { value: "muscle-gain", label: "Ganancia muscular" },
+  { value: "weight-loss", label: "Pérdida de peso" },
+  { value: "maintenance", label: "Mantenimiento" },
+  { value: "athletic-performance", label: "Rendimiento atlético" },
+  { value: "healthy-lifestyle", label: "Vida saludable" },
+];
+
+const MAIN_INGREDIENT_OPTIONS = [
+  { value: "", label: "Todos" },
+  { value: "chicken", label: "Pollo" },
+  { value: "beef", label: "Carne" },
+  { value: "fish", label: "Pescado" },
+  { value: "egg", label: "Huevos" },
+  { value: "tofu", label: "Tofu" },
+  { value: "turkey", label: "Pavo" },
+  { value: "shrimp", label: "Gambas" },
+  { value: "pasta", label: "Pasta" },
+  { value: "rice", label: "Arroz" },
+  { value: "quinoa", label: "Quinoa" },
+  { value: "pork", label: "Cerdo" },
+  { value: "lamb", label: "Cordero" },
+];
+
+interface FilterSectionProps {
+  label: string;
+  options: { value: string; label: string }[];
+  value: string;
+  onChange: (value: string) => void;
+}
+
+function FilterSection({ label, options, value, onChange }: FilterSectionProps) {
+  return (
+    <div className="filter-section">
+      <label className="filter-label">{label}</label>
+      <div className="filter-chips">
+        {options.map((opt) => (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => onChange(opt.value)}
+            className={`filter-chip ${value === opt.value ? "active" : ""}`}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function RecipeLibraryClient() {
   const { t } = useLanguage();
   const [query, setQuery] = useState("");
   const [searchMode, setSearchMode] = useState<SearchMode>("name");
-  const [category, setCategory] = useState("");
+  const [mealType, setMealType] = useState("");
+  const [dietType, setDietType] = useState("");
+  const [goalFit, setGoalFit] = useState("");
+  const [mainIngredient, setMainIngredient] = useState("");
+  const [cuisine, setCuisine] = useState("");
+  const [difficulty, setDifficulty] = useState("");
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -70,8 +148,7 @@ export default function RecipeLibraryClient() {
         if (!response.ok) return;
         const data = (await response.json()) as { role?: "ADMIN" | "USER" };
         setIsAdmin(data.role === "ADMIN");
-      } catch (_err) {
-      }
+      } catch (_err) {}
     };
     void loadRole();
     return () => controller.abort();
@@ -93,9 +170,12 @@ export default function RecipeLibraryClient() {
           }
         }
 
-        if (category) {
-          params.set("category", category);
-        }
+        if (mealType) params.set("mealType", mealType);
+        if (dietType) params.set("dietType", dietType);
+        if (goalFit) params.set("goalFit", goalFit);
+        if (mainIngredient) params.set("mainIngredient", mainIngredient);
+        if (cuisine) params.set("cuisine", cuisine);
+        if (difficulty) params.set("difficulty", difficulty);
 
         params.set("limit", "100");
 
@@ -125,19 +205,39 @@ export default function RecipeLibraryClient() {
 
     void loadRecipes();
     return () => controller.abort();
-  }, [debouncedQuery, searchMode, category, retryKey, t]);
+  }, [debouncedQuery, searchMode, mealType, dietType, goalFit, mainIngredient, cuisine, difficulty, retryKey, t]);
 
   const activeFilters = useMemo(() => {
     const filters: string[] = [];
     if (debouncedQuery.trim()) {
       filters.push(searchMode === "ingredient" ? `Ingrediente: ${debouncedQuery.trim()}` : `Nombre: ${debouncedQuery.trim()}`);
     }
-    if (category) {
-      const cat = CATEGORY_OPTIONS.find((c) => c.value === category);
-      filters.push(`Categoría: ${cat?.label ?? category}`);
+    if (mealType) {
+      const opt = MEAL_TYPE_OPTIONS.find((o) => o.value === mealType);
+      filters.push(`Comida: ${opt?.label ?? mealType}`);
+    }
+    if (dietType) {
+      const opt = DIET_TYPE_OPTIONS.find((o) => o.value === dietType);
+      filters.push(`Dieta: ${opt?.label ?? dietType}`);
+    }
+    if (goalFit) {
+      const opt = GOAL_FIT_OPTIONS.find((o) => o.value === goalFit);
+      filters.push(`Objetivo: ${opt?.label ?? goalFit}`);
+    }
+    if (mainIngredient) {
+      const opt = MAIN_INGREDIENT_OPTIONS.find((o) => o.value === mainIngredient);
+      filters.push(`Ingrediente: ${opt?.label ?? mainIngredient}`);
+    }
+    if (cuisine) {
+      const opt = CUISINE_OPTIONS.find((o) => o.value === cuisine);
+      filters.push(`Cocina: ${opt?.label ?? cuisine}`);
+    }
+    if (difficulty) {
+      const opt = DIFFICULTY_OPTIONS.find((o) => o.value === difficulty);
+      filters.push(`Dificultad: ${opt?.label ?? difficulty}`);
     }
     return filters;
-  }, [debouncedQuery, searchMode, category]);
+  }, [debouncedQuery, searchMode, mealType, dietType, goalFit, mainIngredient, cuisine, difficulty]);
 
   return (
     <section className="card">
@@ -185,25 +285,14 @@ export default function RecipeLibraryClient() {
           }
         />
 
-        {/* Category filter */}
-        <div className="mt-3">
-          <label className="block text-xs font-medium text-text-muted mb-1.5">Categoría</label>
-          <div className="flex flex-wrap gap-1.5">
-            {CATEGORY_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => setCategory(opt.value)}
-                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                  category === opt.value
-                    ? "bg-primary text-on-primary"
-                    : "bg-surface-alt text-text-muted hover:text-text"
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
+        {/* Filters - horizontal scrollable row */}
+        <div className="filters-scroll mt-4">
+          <FilterSection label="Tipo de comida" options={MEAL_TYPE_OPTIONS} value={mealType} onChange={setMealType} />
+          <FilterSection label="Dieta" options={DIET_TYPE_OPTIONS} value={dietType} onChange={setDietType} />
+          <FilterSection label="Dificultad" options={DIFFICULTY_OPTIONS} value={difficulty} onChange={setDifficulty} />
+          <FilterSection label="Cocina" options={CUISINE_OPTIONS} value={cuisine} onChange={setCuisine} />
+          <FilterSection label="Objetivo" options={GOAL_FIT_OPTIONS} value={goalFit} onChange={setGoalFit} />
+          <FilterSection label="Ingrediente principal" options={MAIN_INGREDIENT_OPTIONS} value={mainIngredient} onChange={setMainIngredient} />
         </div>
 
         {/* Active filters badges */}

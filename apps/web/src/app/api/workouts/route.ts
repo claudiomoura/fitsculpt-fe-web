@@ -3,7 +3,10 @@ import { fetchBackend } from "@/app/api/gyms/_proxy";
 import { jsonBffError } from "@/app/api/_utils/normalizeBffError";
 
 export async function GET(request?: Request) {
-  const result = await fetchBackend("/workouts", { request });
+  const url = request ? new URL(request.url) : null;
+  const query = url?.searchParams.toString();
+  const path = query && query.length > 0 ? `/workouts?${query}` : "/workouts";
+  const result = await fetchBackend(path, { request });
   if (result.status === 401) {
     return jsonBffError({ status: 401 });
   }

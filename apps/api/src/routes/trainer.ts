@@ -39,6 +39,7 @@ export function registerTrainerRoutes(
       const offset = parseInt(query?.offset || "0") || 0;
       
       const plans = await prisma.nutritionPlan.findMany({
+        where: { userId: user.id },
         skip: offset,
         take: limit,
         orderBy: { createdAt: "desc" },
@@ -126,11 +127,17 @@ export function registerTrainerRoutes(
     try {
       const user = await requireUser(request);
       const membership = await requireTrainer(user);
-      
+      const query = request.query as { take?: string; skip?: string };
+      const take = Math.min(parseInt(query.take ?? "50", 10) || 50, 100);
+      const skip = parseInt(query.skip ?? "0", 10) || 0;
+
       const plans = await prisma.trainingPlan.findMany({
+        where: { userId: user.id },
         orderBy: { createdAt: "desc" },
+        take,
+        skip,
       });
-      
+
       return { items: plans };
     } catch (error) {
       return handleRequestError(reply, error, (err) => app.log.error({ err }, "trainer plans list error"));
@@ -332,11 +339,16 @@ export function registerTrainerRoutes(
     try {
       const user = await requireUser(request);
       const membership = await requireTrainer(user);
-      
+      const query = request.query as { take?: string; skip?: string };
+      const take = Math.min(parseInt(query.take ?? "100", 10) || 100, 200);
+      const skip = parseInt(query.skip ?? "0", 10) || 0;
+
       const recipes = await prisma.recipe.findMany({
         orderBy: { name: "asc" },
+        take,
+        skip,
       });
-      
+
       return { items: recipes };
     } catch (error) {
       return handleRequestError(reply, error, (err) => app.log.error({ err }, "trainer recipes error"));

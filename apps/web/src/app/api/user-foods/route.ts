@@ -19,6 +19,10 @@ export async function GET() {
       cache: "no-store",
     });
 
+    if (response.status === 404) {
+      return NextResponse.json([], { status: 200 });
+    }
+
     const data = await response.json();
     return NextResponse.json(data, { status: response.status });
   } catch (_err) {
