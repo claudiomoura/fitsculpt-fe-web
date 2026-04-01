@@ -449,7 +449,6 @@ export default function TodayQuickActionsClient() {
         nutritionListResponse,
         authMeResponse,
         profileResponse,
-        workoutsResponse,
       ] = await Promise.all([
         fetch("/api/tracking", { cache: "no-store", credentials: "include" }),
         fetch("/api/training-plans/active?includeDays=1", {
@@ -462,7 +461,6 @@ export default function TodayQuickActionsClient() {
         }),
         fetchAuthMe(),
         fetch("/api/profile", { cache: "no-store", credentials: "include" }),
-        fetch("/api/workouts", { cache: "no-store", credentials: "include" }),
       ]);
 
       if (
@@ -781,68 +779,76 @@ export default function TodayQuickActionsClient() {
         nextSignals.nutritionTargetCalories = profileEstimatedNutritionTarget;
       }
 
-      if (workoutsResponse.ok) {
-        const workoutsPayload =
-          (await workoutsResponse.json()) as WorkoutLookupItem[];
+      if (
+        todayTrainingDay
+        && nextSignals.trainingState === "workout"
+        && nextSignals.hasTrainingAccess
+      ) {
+        const workoutsResponse = await fetch("/api/workouts?take=30", {
+          cache: "no-store",
+          credentials: "include",
+        });
         const targetDayKey = nextSignals.trainingDayKey ?? todayDateKey;
-        const dayCandidates = Array.isArray(workoutsPayload)
-          ? workoutsPayload.filter(
-              (workout) =>
-                normalizeWorkoutDateKey(workout.scheduledAt) === targetDayKey,
-            )
-          : [];
+        if (workoutsResponse.ok) {
+          const workoutsPayload =
+            (await workoutsResponse.json()) as WorkoutLookupItem[];
+          const dayCandidates = Array.isArray(workoutsPayload)
+            ? workoutsPayload.filter(
+                (workout) =>
+                  normalizeWorkoutDateKey(workout.scheduledAt) === targetDayKey,
+              )
+            : [];
 
-        const matchedWorkoutId = pickWorkoutIdForDateCandidates(
-          dayCandidates,
-          todayTrainingDay?.focus,
-        );
+          const matchedWorkoutId = pickWorkoutIdForDateCandidates(
+            dayCandidates,
+            todayTrainingDay.focus,
+          );
 
-        if (matchedWorkoutId) {
-          nextSignals.todayWorkoutId = matchedWorkoutId;
-        } else if (
-          todayTrainingDay
-          && nextSignals.trainingState === "workout"
-          && nextSignals.hasTrainingAccess
-        ) {
-          const scheduledDate = parseDate(targetDayKey) ?? new Date();
-          const createResponse = await fetch("/api/workouts", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({
-              name:
-                todayTrainingDay.focus
-                || todayTrainingDay.label
-                || nextSignals.trainingName,
-              notes: `Dia: ${todayTrainingDay.label}`,
-              scheduledAt: new Date(
-                `${toDateKey(scheduledDate)}T12:00:00`,
-              ).toISOString(),
-              durationMin: Number.isFinite(todayTrainingDay.duration)
-                ? Number(todayTrainingDay.duration)
-                : 45,
-              exercises: (todayTrainingDay.exercises ?? []).map((exercise, index) => ({
-                exerciseId: exercise.id,
-                name: exercise.name,
-                sets: typeof exercise.sets === "number" || typeof exercise.sets === "string" ? String(exercise.sets) : undefined,
-                reps: exercise.reps ?? parseRepsFromSets(exercise.sets),
-                notes: exercise.notes ?? undefined,
-                order: index,
-              })),
-            }),
-          });
-
-          if (createResponse.ok) {
-            const createdWorkout = (await createResponse.json()) as {
-              id?: string;
-            } | null;
-            nextSignals.todayWorkoutId = createdWorkout?.id ?? null;
+          if (matchedWorkoutId) {
+            nextSignals.todayWorkoutId = matchedWorkoutId;
           } else {
-            nextSignals.todayWorkoutId = null;
+            const scheduledDate = parseDate(targetDayKey) ?? new Date();
+            const createResponse = await fetch("/api/workouts", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+              body: JSON.stringify({
+                name:
+                  todayTrainingDay.focus
+                  || todayTrainingDay.label
+                  || nextSignals.trainingName,
+                notes: `Dia: ${todayTrainingDay.label}`,
+                scheduledAt: new Date(
+                  `${toDateKey(scheduledDate)}T12:00:00`,
+                ).toISOString(),
+                durationMin: Number.isFinite(todayTrainingDay.duration)
+                  ? Number(todayTrainingDay.duration)
+                  : 45,
+                exercises: (todayTrainingDay.exercises ?? []).map((exercise, index) => ({
+                  exerciseId: exercise.id,
+                  name: exercise.name,
+                  sets: typeof exercise.sets === "number" || typeof exercise.sets === "string" ? String(exercise.sets) : undefined,
+                  reps: exercise.reps ?? parseRepsFromSets(exercise.sets),
+                  notes: exercise.notes ?? undefined,
+                  order: index,
+                })),
+              }),
+            });
+
+            if (createResponse.ok) {
+              const createdWorkout = (await createResponse.json()) as {
+                id?: string;
+              } | null;
+              nextSignals.todayWorkoutId = createdWorkout?.id ?? null;
+            } else {
+              nextSignals.todayWorkoutId = null;
+            }
           }
         } else {
           nextSignals.todayWorkoutId = null;
         }
+      } else {
+        nextSignals.todayWorkoutId = null;
       }
 
       setSignals(nextSignals);

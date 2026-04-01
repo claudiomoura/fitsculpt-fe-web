@@ -14,9 +14,14 @@ export function registerWorkoutRoutes(app: FastifyInstance, deps: Record<string,
   app.get("/workouts", async (request, reply) => {
     try {
       const user = await requireUser(request);
+      const query = request.query as { take?: string; skip?: string };
+      const take = Math.min(parseInt(query.take ?? "30", 10) || 30, 100); // cap at 100
+      const skip = parseInt(query.skip ?? "0", 10) || 0;
       const workouts = await prisma.workout.findMany({
         where: { userId: user.id },
         orderBy: { createdAt: "desc" },
+        take,
+        skip,
         include: {
           sessions: {
             select: { finishedAt: true },

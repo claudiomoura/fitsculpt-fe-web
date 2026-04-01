@@ -791,6 +791,39 @@ async function getExistingStripeCustomerId(userId: string) {
   return existing?.stripeCustomerId ?? null;
 }
 
+// In-memory cache for billing state to avoid hitting Stripe on every /auth/me call.
+// TTL: 5 minutes per user. Billing state rarely changes within this window.
+type BillingCacheEntry = {
+  user: User;
+  expiresAt: number;
+};
+const billingStateCache = new Map<string, BillingCacheEntry>();
+const BILLING_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+async function syncUserBillingFromStripeWithCache(
+  user: User,
+  options?: {
+    createCustomerIfMissing?: boolean;
+  },
+) {
+  const shouldBypassCache = options?.createCustomerIfMissing === true;
+  if (!shouldBypassCache) {
+    const cached = billingStateCache.get(user.id);
+    if (cached && Date.now() < cached.expiresAt) {
+      return cached.user;
+    }
+  }
+
+  const syncedUser = await syncUserBillingFromStripe(user, options);
+  if (syncedUser) {
+    billingStateCache.set(user.id, {
+      user: syncedUser,
+      expiresAt: Date.now() + BILLING_CACHE_TTL_MS,
+    });
+  }
+  return syncedUser;
+}
+
 async function syncUserBillingFromStripe(
   user: User,
   options?: {
@@ -5948,7 +5981,7 @@ app.get("/auth/me", async (request, reply) => {
     const user = await requireUser(request);
     let effectiveUser = user;
     try {
-      const syncedUser = await syncUserBillingFromStripe(user, {
+      const syncedUser = await syncUserBillingFromStripeWithCache(user, {
         createCustomerIfMissing: false,
       });
       if (syncedUser) {
@@ -6201,7 +6234,7 @@ const billingStatusHandler = async (request: FastifyRequest, reply: FastifyReply
     let refreshedUser = user;
 
     try {
-      const syncedUser = await syncUserBillingFromStripe(user, {
+      const syncedUser = await syncUserBillingFromStripeWithCache(user, {
         createCustomerIfMissing: shouldCreateCustomer,
       });
       if (syncedUser) {

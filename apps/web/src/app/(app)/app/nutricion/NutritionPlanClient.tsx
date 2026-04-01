@@ -1483,7 +1483,7 @@ export default function NutritionPlanClient({
   useEffect(() => {
     const loadRecipeCatalog = async () => {
       try {
-        const response = await fetch("/api/recipes?limit=200", {
+        const response = await fetch("/api/recipes?limit=30", {
           cache: "no-store",
         });
         if (!response.ok) return;
