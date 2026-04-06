@@ -3280,40 +3280,40 @@
     },
     "plans": {
       "strength": {
-        "title": "Strength IA",
-        "price": "14,99€",
-        "tagline": "Fuerza, hipertrofia y progresión automática",
-        "cta": "Empezar Strength",
+        "title": "TrainingAI",
+        "price": "5,99€",
+        "tagline": "Solo entrenamiento con IA",
+        "cta": "Empezar Prueba",
         "features": {
-          "1": "Progresión inteligente de cargas",
-          "2": "Rutinas adaptadas a tu nivel",
-          "3": "Seguimiento de PRs y volumen",
-          "4": "Técnica y cues clave por ejercicio"
+          "1": "Planes de entrenamiento ilimitados IA",
+          "2": "Seguimiento avanzado",
+          "3": "Estadísticas detalladas",
+          "4": "Sin anuncios"
         }
       },
       "pro": {
-        "title": "PRO",
-        "price": "19,99€",
+        "title": "Pro",
+        "price": "9,99€",
         "badge": "Más popular",
-        "tagline": "Strength + Nutrition en un solo sistema",
+        "tagline": "Todo incluido: Training + Nutri",
         "cta": "Elegir Pro",
         "features": {
-          "1": "Todo en Strength AI",
-          "2": "Todo en Nutrition AI",
-          "3": "Ajustes inteligentes semana a semana",
-          "4": "Panel de progreso avanzado"
+          "1": "TrainingAI + NutriAI",
+          "2": "Coach IA 24/7",
+          "3": "Análisis completos",
+          "4": "Soporte prioritario"
         }
       },
       "nutrition": {
-        "title": "Nutrition IA",
-        "price": "14,99€",
-        "tagline": "Macros, recetas y adherencia sin complicarte",
-        "cta": "Empezar Nutrition",
+        "title": "NutriAI",
+        "price": "5,99€",
+        "tagline": "Solo nutrición con IA",
+        "cta": "Empezar Prueba",
         "features": {
-          "1": "Objetivos de macros automáticos",
-          "2": "Recomendaciones de comidas",
-          "3": "Ajustes según progreso",
-          "4": "Lista de la compra sugerida"
+          "1": "Planes de nutrición IA",
+          "2": "Recetas personalizadas",
+          "3": "Seguimiento de macros",
+          "4": "Sin anuncios"
         }
       }
     },

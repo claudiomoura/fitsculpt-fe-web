@@ -3277,40 +3277,40 @@
     },
     "plans": {
       "strength": {
-        "title": "Strength IA",
-        "price": "14,99€",
-        "tagline": "Strength, hypertrophy, and automatic progression",
-        "cta": "Start Strength",
+        "title": "TrainingAI",
+        "price": "5,99€",
+        "tagline": "AI-powered training only",
+        "cta": "Start Trial",
         "features": {
-          "1": "Smart load progression",
-          "2": "Routines adapted to your level",
-          "3": "PR and volume tracking",
-          "4": "Technique and key cues by exercise"
+          "1": "Unlimited AI training plans",
+          "2": "Advanced tracking",
+          "3": "Detailed statistics",
+          "4": "No ads"
         }
       },
       "pro": {
-        "title": "PRO",
-        "price": "19,99€",
+        "title": "Pro",
+        "price": "9,99€",
         "badge": "Most popular",
-        "tagline": "Strength + Nutrition in one system",
+        "tagline": "Everything: Training + Nutrition",
         "cta": "Choose Pro",
         "features": {
-          "1": "Everything in Strength AI",
-          "2": "Everything in Nutrition AI",
-          "3": "Smart week-to-week adjustments",
-          "4": "Advanced progress dashboard"
+          "1": "TrainingAI + NutriAI",
+          "2": "AI Coach 24/7",
+          "3": "Complete analytics",
+          "4": "Priority support"
         }
       },
       "nutrition": {
-        "title": "Nutrition IA",
-        "price": "14,99€",
-        "tagline": "Macros, recipes, and adherence without overcomplicating",
-        "cta": "Start Nutrition",
+        "title": "NutriAI",
+        "price": "5,99€",
+        "tagline": "AI-powered nutrition only",
+        "cta": "Start Trial",
         "features": {
-          "1": "Automatic macro targets",
-          "2": "Meal recommendations",
-          "3": "Progress-based adjustments",
-          "4": "Suggested grocery list"
+          "1": "AI nutrition plans",
+          "2": "Personalized recipes",
+          "3": "Macro tracking",
+          "4": "No ads"
         }
       }
     },

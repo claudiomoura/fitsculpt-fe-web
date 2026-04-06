@@ -4,176 +4,396 @@ import Link from "next/link";
 export type LandingFeature = {
   title: string;
   description: string;
-  iconSrc: string;
+  iconEmoji: string;
   iconAlt: string;
+  imageSrc?: string;
+};
+
+export type PricingTier = {
+  name: string;
+  price: string;
+  period: string;
+  description: string;
+  features: string[];
+  cta: string;
+  popular?: boolean;
 };
 
 export type LandingCopy = {
   hero: {
-    titleA: string;
-    titleB: string; // verde
-    titleC: string;
-    titleD: string; // azul
-    titleE: string;
+    title: string;
     subtitle: string;
     primaryCta: string;
     secondaryCta: string;
+    heroImage: string;
+  };
+  socialProof: {
+    label: string;
+    logos: string[];
   };
   features: {
     items: LandingFeature[];
   };
-  testimonial: {
-    quote: string;
-    subquote: string;
-    author: string;
-    metaLeft: string;
+  howItWorks: {
+    steps: { title: string; description: string; image: string }[];
+  };
+  pricing: {
+    tiers: PricingTier[];
+    title: string;
+    subtitle: string;
+  };
+  testimonials: {
+    items: { quote: string; author: string; role: string; image: string }[];
   };
   finalCta: {
-    titleA: string;
-    titleB: string; // verde
-    titleC: string;
+    title: string;
     subtitle: string;
     placeholder: string;
     button: string;
   };
 };
 
-export function LandingHomePage({ copy }: { copy: LandingCopy }) {
+const defaultCopy: LandingCopy = {
+  hero: {
+    title: "Tu Entrenador IA",
+    subtitle: "Transforma tu cuerpo con planes de entrenamiento y nutrición personalizados generados por inteligencia artificial.",
+    primaryCta: "Empezar Gratis",
+    secondaryCta: "Ver Demo",
+    heroImage: "/branding/girl_front.png",
+  },
+  socialProof: {
+    label: "Más de 10,000 usuarios confían en FitSculpt",
+    logos: ["FORBES", "WIRED", "TECHCRUNCH", "MEN'S HEALTH"],
+  },
+  features: {
+    items: [
+      {
+        title: "IA Personalizada",
+        description: "Algoritmos que adaptan tu plan a tu progreso real y preferencias.",
+        iconEmoji: "🧠",
+        iconAlt: "AI",
+      },
+      {
+        title: "Nutrición Inteligente",
+        description: "Planes de comida personalizados basados en tus objetivos y gustos.",
+        iconEmoji: "🍎",
+        iconAlt: "Nutrition",
+      },
+      {
+        title: "Seguimiento Real",
+        description: "Métricas detalladas y analytics para entender tu evolución.",
+        iconEmoji: "📊",
+        iconAlt: "Analytics",
+      },
+      {
+        title: "Comunidad Activa",
+        description: "Retos mensuales, leaderboards y soporte de otros atletas.",
+        iconEmoji: "👥",
+        iconAlt: "Community",
+      },
+    ],
+  },
+  howItWorks: {
+    steps: [
+      {
+        title: "Crea tu perfil",
+        description: "Cuéntanos sobre tus objetivos, nivel de experiencia y preferencias alimentarias.",
+        image: "/branding/girl_front.png",
+      },
+      {
+        title: "Recibe tu plan",
+        description: "La IA genera rutinas de entrenamiento y nutrición 100% personalizadas para ti.",
+        image: "/branding/girl_back.png",
+      },
+      {
+        title: "Entrena y evoluciona",
+        description: "Seguimiento en tiempo real con ajustes automáticos según tu progreso.",
+        image: "/branding/girl_front.png",
+      },
+    ],
+  },
+  pricing: {
+    title: "Elige tu plan",
+    subtitle: "Comienza gratis o level up cuando quieras",
+    tiers: [
+      {
+        name: "TrainingAI",
+        price: "5,99€",
+        period: "/mes",
+        description: "Solo entrenamiento con IA",
+        features: [
+          "Planes de entrenamiento ilimitados IA",
+          "Seguimiento avanzado",
+          "Estadísticas detalladas",
+          "Sin anuncios",
+        ],
+        cta: "Empezar Prueba",
+      },
+      {
+        name: "Pro",
+        price: "9,99€",
+        period: "/mes",
+        description: "Todo incluido: Training + Nutri",
+        features: [
+          "TrainingAI + NutriAI",
+          "Coach IA 24/7",
+          "Análisis completos",
+          "Soporte prioritario",
+        ],
+        cta: "Elegir Pro",
+        popular: true,
+      },
+      {
+        name: "NutriAI",
+        price: "5,99€",
+        period: "/mes",
+        description: "Solo nutrición con IA",
+        features: [
+          "Planes de nutrición IA",
+          "Recetas personalizadas",
+          "Seguimiento de macros",
+          "Sin anuncios",
+        ],
+        cta: "Empezar Prueba",
+      },
+    ],
+  },
+  testimonials: {
+    items: [
+      {
+        quote: "FitSculpt cambió completamente mi forma de entrenar. En 3 meses logré resultados que no había conseguido en 1 año.",
+        author: "Carlos M.",
+        role: "Usuario Pro",
+        image: "/branding/guys.png",
+      },
+    ],
+  },
+  finalCta: {
+    title: "¿Listo para transformar tu cuerpo?",
+    subtitle: "Únete hoy y obtén tu primer mes gratis",
+    placeholder: "tu@email.com",
+    button: "Empezar",
+  },
+};
+
+// Simple emoji icon component with brand styling
+function FeatureIcon({ emoji }: { emoji: string }) {
   return (
-    <div className="lp">
-      <section className="lp-hero">
-        <div className="lp-hero__bg" aria-hidden="true" />
-        <div className="lp-hero__inner">
-          <div className="lp-hero__left">
-            <h1 className="lp-hero__title">
-              <span>{copy.hero.titleA} </span>
-              <span className="lp-accent-green">{copy.hero.titleB} </span>
-              <span>{copy.hero.titleC} </span>
-              <span className="lp-accent-blue">{copy.hero.titleD} </span>
-              <span>{copy.hero.titleE}</span>
-            </h1>
+    <div className="lp-feature-icon-wrapper">
+      <span className="lp-feature-icon-emoji">{emoji}</span>
+    </div>
+  );
+}
 
-            <p className="lp-hero__subtitle">{copy.hero.subtitle}</p>
-
-            <div className="lp-hero__ctas">
-              <Link href="/register" className="lp-btn lp-btn--green">
+export function LandingHomePage({ copy = defaultCopy }: { copy?: LandingCopy }) {
+  return (
+    <div className="lp-v2">
+      {/* Hero Section */}
+      <section className="lp-hero-v2">
+        <div className="lp-hero-v2__inner">
+          <div className="lp-hero-v2__content">
+            <h1 className="lp-hero-v2__title">{copy.hero.title}</h1>
+            <p className="lp-hero-v2__subtitle">{copy.hero.subtitle}</p>
+            <div className="lp-hero-v2__ctas">
+              <Link href="/register" className="lp-btn-v2 lp-btn-v2--primary">
                 {copy.hero.primaryCta}
               </Link>
-              <Link href="/demo" className="lp-btn lp-btn--blue">
+              <Link href="/demo" className="lp-btn-v2 lp-btn-v2--secondary">
                 {copy.hero.secondaryCta}
               </Link>
             </div>
           </div>
 
-          <div className="lp-hero__right" aria-hidden="true">
-            <div className="lp-hero__figure">
-              <Image
-                src="/branding/girl_front.png"
-                alt=""
-                width={720}
-                height={900}
-                priority
-                className="lp-hero__girl"
-              />
-              {/* Si tiveres um screenshot do app, mete aqui: /branding/phone.png 
-              <div className="lp-hero__phone">
-                <div className="lp-phone__frame">
+          <div className="lp-hero-v2__image">
+            <Image
+              src={copy.hero.heroImage}
+              alt="FitSculpt - Transforma tu cuerpo"
+              width={600}
+              height={800}
+              priority
+              className="lp-hero-v2__img"
+            />
+            <div className="lp-hero-v2__image-glow" />
+          </div>
+        </div>
+      </section>
+
+      {/* Social Proof */}
+      <section className="lp-social-v2">
+        <p className="lp-social-v2__label">{copy.socialProof.label}</p>
+        <div className="lp-social-v2__logos">
+          {copy.socialProof.logos.map((logo) => (
+            <span key={logo} className="lp-social-v2__logo">
+              {logo}
+            </span>
+          ))}
+        </div>
+      </section>
+
+      {/* Features */}
+      <section id="caracteristicas" className="lp-features-v2">
+        <div className="lp-features-v2__header">
+          <h2 className="lp-features-v2__title">¿Por qué FitSculpt?</h2>
+          <p className="lp-features-v2__subtitle">Todo lo que necesitas para transformar tu cuerpo</p>
+        </div>
+        <div className="lp-features-v2__grid">
+          {copy.features.items.map((feature) => (
+            <div key={feature.title} className="lp-feature-card-v2">
+              <FeatureIcon emoji={feature.iconEmoji} />
+              <h3 className="lp-feature-card-v2__title">{feature.title}</h3>
+              <p className="lp-feature-card-v2__desc">{feature.description}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* How It Works */}
+      <section className="lp-how-it-works">
+        <div className="lp-how-it-works__inner">
+          <div className="lp-how-it-works__header">
+            <h2 className="lp-how-it-works__title">¿Cómo funciona?</h2>
+            <p className="lp-how-it-works__subtitle">En solo 3 pasos estarás listo para transformar tu cuerpo</p>
+          </div>
+          <div className="lp-how-it-works__steps">
+            {copy.howItWorks.steps.map((step, index) => (
+              <div key={step.title} className="lp-step-v2">
+                <div className="lp-step-v2__number">{index + 1}</div>
+                <div className="lp-step-v2__image">
                   <Image
-                    src="/branding/logo.png"
-                    alt=""
-                    width={120}
-                    height={28}
-                    className="lp-phone__logo"
+                    src={step.image}
+                    alt={step.title}
+                    width={280}
+                    height={320}
+                    className="lp-step-v2__img"
                   />
-                  <div className="lp-phone__card">
-                    <p className="lp-phone__kicker">TU ENTRENADOR IA</p>
-                    <p className="lp-phone__small">Rutina de Fuerza Hoy</p>
-                    <div className="lp-phone__stats">
-                      <span><b>450</b> kcal</span>
-                      <span><b>45</b> min</span>
-                    </div>
-                    <div className="lp-phone__row">
-                      <span className="lp-phone__pill">SQUATS</span>
-                      <span className="lp-phone__pill">12 REPS</span>
-                    </div>
-                  </div>
                 </div>
+                <h3 className="lp-step-v2__title">{step.title}</h3>
+                <p className="lp-step-v2__desc">{step.description}</p>
               </div>
-              */}
-            </div>
-
-            <div className="lp-glow" />
-          </div>
-        </div>
-
-        <div id="caracteristicas" className="lp-feature-panel">
-          <ul className="lp-feature-panel__grid">
-            {copy.features.items.map((f) => (
-              <li key={f.title} className="lp-feature">
-                <Image src={f.iconSrc} alt={f.iconAlt} width={42} height={42} className="lp-feature__icon" />
-                <div className="lp-feature__text">
-                  <p className="lp-feature__title">{f.title}</p>
-                  <p className="lp-feature__desc">{f.description}</p>
-                </div>
-              </li>
             ))}
-          </ul>
-        </div>
-      </section>
-
-      <section id="testimonios" className="lp-testimonial">
-        <div className="lp-testimonial__inner">
-          <div className="lp-testimonial__card">
-            <div className="lp-testimonial__media">
-              <Image
-                src="/branding/guys.png"
-                alt="Testimonio"
-                width={920}
-                height={520}
-                className="lp-testimonial__img"
-              />
-              <div className="lp-play" aria-hidden="true" />
-              <div className="lp-testimonial__meta">{copy.testimonial.metaLeft}</div>
-            </div>
-            <div className="lp-testimonial__quote">
-              <p className="lp-quote">
-                <span className="lp-quote__mark">“</span>
-                {copy.testimonial.quote}
-              </p>
-              <p className="lp-quote__sub">{copy.testimonial.subquote}</p>
-              <div className="lp-stars" aria-hidden="true">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <span key={i} className="lp-star" />
-                ))}
-              </div>
-              <p className="lp-quote__author">– {copy.testimonial.author}</p>
-            </div>
           </div>
         </div>
       </section>
 
-      <section className="lp-final">
-        <div className="lp-final__inner">
-          <h2 className="lp-final__title">
-            <span>{copy.finalCta.titleA} </span>
-            <span className="lp-accent-green">{copy.finalCta.titleB} </span>
-            <span>{copy.finalCta.titleC}</span>
-          </h2>
-          <p className="lp-final__subtitle">{copy.finalCta.subtitle}</p>
+      {/* Pricing */}
+      <section id="precios" className="lp-pricing-v2">
+        <div className="lp-pricing-v2__inner">
+          <div className="lp-pricing-v2__header">
+            <h2 className="lp-pricing-v2__title">{copy.pricing.title}</h2>
+            <p className="lp-pricing-v2__subtitle">{copy.pricing.subtitle}</p>
+          </div>
+          <div className="lp-pricing-v2__grid">
+            {copy.pricing.tiers.map((tier) => (
+              <div
+                key={tier.name}
+                className={`lp-pricing-card-v2 ${tier.popular ? "lp-pricing-card-v2--popular" : ""}`}
+              >
+                {tier.popular && <span className="lp-pricing-card-v2__badge">Más Popular</span>}
+                <h3 className="lp-pricing-card-v2__name">{tier.name}</h3>
+                <div className="lp-pricing-card-v2__price">
+                  <span className="lp-pricing-card-v2__amount">{tier.price}</span>
+                  <span className="lp-pricing-card-v2__period">{tier.period}</span>
+                </div>
+                <p className="lp-pricing-card-v2__description">{tier.description}</p>
+                <ul className="lp-pricing-card-v2__features">
+                  {tier.features.map((feature) => (
+                    <li key={feature} className="lp-pricing-card-v2__feature">
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="lp-pricing-card-v2__check">
+                        <path d="M13.5 4.5L6 12L2.5 8.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                      {feature}
+                    </li>
+                  ))}
+                </ul>
+                <Link
+                  href="/register"
+                  className={`lp-pricing-card-v2__cta ${tier.popular ? "lp-btn-v2--primary" : "lp-btn-v2--secondary"}`}
+                >
+                  {tier.cta}
+                </Link>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
-          <form className="lp-final__form" action="/register" method="get">
-            <input className="lp-input" type="email" name="email" placeholder={copy.finalCta.placeholder} suppressHydrationWarning />
-            <button className="lp-btn lp-btn--green lp-btn--cta" type="submit">
+      {/* Testimonials */}
+      <section id="testimonios" className="lp-testimonials-v2">
+        <div className="lp-testimonials-v2__inner">
+          <div className="lp-testimonials-v2__header">
+            <h2 className="lp-testimonials-v2__title">Lo que dicen nuestros usuarios</h2>
+          </div>
+          <div className="lp-testimonials-v2__grid">
+            {copy.testimonials.items.map((testimonial) => (
+              <div key={testimonial.author} className="lp-testimonial-card-v2">
+                <div className="lp-testimonial-card-v2__image">
+                  <Image
+                    src={testimonial.image}
+                    alt={testimonial.author}
+                    width={120}
+                    height={120}
+                    className="lp-testimonial-card-v2__img"
+                  />
+                </div>
+                <div className="lp-testimonial-card-v2__content">
+                  <div className="lp-stars-v2">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <span key={star} className="lp-star-v2">★</span>
+                    ))}
+                  </div>
+                  <p className="lp-testimonial-card-v2__quote">"{testimonial.quote}"</p>
+                  <p className="lp-testimonial-card-v2__author">
+                    {testimonial.author}
+                    <span className="lp-testimonial-card-v2__role">{testimonial.role}</span>
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Final CTA */}
+      <section className="lp-cta-v2">
+        <div className="lp-cta-v2__inner">
+          <h2 className="lp-cta-v2__title">{copy.finalCta.title}</h2>
+          <p className="lp-cta-v2__subtitle">{copy.finalCta.subtitle}</p>
+          <form className="lp-cta-v2__form" action="/register" method="get">
+            <input
+              className="lp-input-v2"
+              type="email"
+              name="email"
+              placeholder={copy.finalCta.placeholder}
+              suppressHydrationWarning
+            />
+            <button className="lp-btn-v2 lp-btn-v2--primary" type="submit">
               {copy.finalCta.button}
             </button>
           </form>
-
-          <div className="lp-stores" aria-label="Stores">
-            <span className="lp-store"> APPLE STORE</span>
-            <span className="lp-store">▶ GOOGLE PLAY</span>
+          <div className="lp-cta-v2__badges">
+            <a href="#" className="lp-store-badge-v2">
+              <span className="lp-store-badge-v2__icon"></span>
+              <span>App Store</span>
+            </a>
+            <a href="#" className="lp-store-badge-v2">
+              <span className="lp-store-badge-v2__icon">▶</span>
+              <span>Google Play</span>
+            </a>
           </div>
         </div>
       </section>
+
+      {/* Footer */}
+      <footer className="lp-footer-v2">
+        <div className="lp-footer-v2__inner">
+          <p className="lp-footer-v2__text">© 2026 FitSculpt. Todos los derechos reservados.</p>
+          <div className="lp-footer-v2__links">
+            <Link href="/privacidad">Privacidad</Link>
+            <Link href="/terminos">Términos</Link>
+            <Link href="/contacto">Contacto</Link>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
