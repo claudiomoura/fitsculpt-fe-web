@@ -325,6 +325,56 @@
 
 .landing-header__actions { display: flex; align-items: center; gap: 10px; }
 
+.landing-header__lang { display: flex; align-items: center; }
+.landing-header__lang-mobile { display: none; }
+
+/* Desktop language switcher */
+.landing-lang-desktop {
+  display: flex;
+  gap: 2px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 8px;
+  padding: 2px;
+}
+
+.landing-lang-btn {
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  border: none;
+  background: transparent;
+  color: rgba(255,255,255,0.6);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.landing-lang-btn:hover { color: #fff; background: rgba(255,255,255,0.1); }
+.landing-lang-btn.is-active { background: #00f5c3; color: #0b0e13; }
+
+/* Mobile language buttons */
+.landing-lang-btn-mobile {
+  padding: 4px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  border: none;
+  background: transparent;
+  color: rgba(255,255,255,0.5);
+  cursor: pointer;
+}
+
+.landing-lang-btn-mobile.is-active { color: #00f5c3; }
+
+@media (min-width: 900px) {
+  .landing-header__lang-mobile { display: none; }
+  .landing-header__lang { display: flex; }
+}
+
+@media (max-width: 899px) {
+  .landing-header__lang { display: none; }
+  .landing-header__lang-mobile { display: flex; align-items: center; gap: 4px; }
+}
+
 .landing-header__button {
   height: 40px;
   padding: 0 16px;

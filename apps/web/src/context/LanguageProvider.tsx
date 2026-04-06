@@ -25,7 +25,25 @@ export function LanguageProvider({
   children: ReactNode;
   initialLocale?: string | null;
 }) {
-  const [locale, setLocaleState] = useState<Locale>(() => resolveLocale(initialLocale));
+  // Detect browser language if no initialLocale provided
+  const detectBrowserLocale = (): Locale => {
+    if (initialLocale) return resolveLocale(initialLocale);
+    
+    // Check localStorage first
+    const stored = typeof window !== "undefined" ? window.localStorage.getItem("fs-locale") : null;
+    if (stored === "es" || stored === "en" || stored === "pt") return stored;
+    
+    // Detect from browser
+    if (typeof window !== "undefined" && typeof navigator !== "undefined") {
+      const browserLang = navigator.language?.toLowerCase() || "";
+      if (browserLang.startsWith("en")) return "en";
+      if (browserLang.startsWith("pt")) return "pt";
+    }
+    
+    return "es"; // Default to Spanish
+  };
+
+  const [locale, setLocaleState] = useState<Locale>(() => detectBrowserLocale());
 
   useEffect(() => {
     document.documentElement.lang = locale;

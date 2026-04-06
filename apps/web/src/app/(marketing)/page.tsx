@@ -1,153 +1,167 @@
-import { LandingHomePage, type LandingCopy } from "@/components/landing/LandingHomePage";
+"use client";
 
-const HOME_COPY: LandingCopy = {
-  hero: {
-    title: "Tu Entrenador IA",
-    subtitle: "Transforma tu cuerpo con planes de entrenamiento y nutrición personalizados generados por inteligencia artificial. Logra tus objetivos más rápido con la ayuda de nuestra IA avanzada.",
-    primaryCta: "Empezar Gratis",
-    secondaryCta: "Ver Demo",
-    heroImage: "/branding/girl_front.png",
-  },
-  socialProof: {
-    label: "Más de 10,000 usuarios confían en FitSculpt",
-    logos: ["FORBES", "WIRED", "TECHCRUNCH", "MEN'S HEALTH"],
-  },
-  features: {
-    items: [
-      {
-        title: "IA Personalizada",
-        description: "Algoritmos que adaptan tu plan a tu progreso real y preferencias.",
-        iconAlt: "AI",
-        iconEmoji: "🤖",
+import { useLanguage } from "@/context/LanguageProvider";
+import { LandingHomePage, type LandingCopy } from "@/components/landing/LandingHomePage";
+import { useMemo } from "react";
+
+function useHomeCopy(): LandingCopy {
+  const { t, locale } = useLanguage();
+
+  return useMemo(() => {
+    const isEn = locale === "en";
+    const isPt = locale === "pt";
+
+    return {
+      hero: {
+        title: t(isEn ? "landing.home.hero.title" : isPt ? "landing.home.hero.titlePt" : "landing.home.hero.title"),
+        subtitle: t(isEn ? "landing.home.hero.subtitle" : isPt ? "landing.home.hero.subtitlePt" : "landing.home.hero.subtitle"),
+        primaryCta: t("landing.home.hero.primaryCta"),
+        secondaryCta: t("landing.home.hero.secondaryCta"),
+        heroImage: "/branding/girl_front.png",
       },
-      {
-        title: "Nutrición Inteligente",
-        description: "Planes de comida personalizados basados en tus objetivos y gustos.",
-        iconAlt: "Nutrition",
-        iconEmoji: "🍎",
+      socialProof: {
+        label: t("landing.home.socialProof.label"),
+        logos: ["FORBES", "WIRED", "TECHCRUNCH", "MEN'S HEALTH"],
       },
-      {
-        title: "Seguimiento Real",
-        description: "Métricas detalladas y analytics para entender tu evolución.",
-        iconAlt: "Analytics",
-        iconEmoji: "📊",
-      },
-      {
-        title: "Comunidad Activa",
-        description: "Retos mensuales, leaderboards y soporte de otros atletas.",
-        iconAlt: "Community",
-        iconEmoji: "👥",
-      },
-    ],
-  },
-  howItWorks: {
-    steps: [
-      {
-        title: "Crea tu perfil",
-        description: "Cuéntanos sobre tus objetivos, nivel de experiencia y preferencias alimentarias.",
-        image: "/branding/girl_front.png",
-      },
-      {
-        title: "Recibe tu plan",
-        description: "La IA genera rutinas de entrenamiento y nutrición 100% personalizadas para ti.",
-        image: "/branding/girl_back.png",
-      },
-      {
-        title: "Entrena y evoluciona",
-        description: "Seguimiento en tiempo real con ajustes automáticos según tu progreso.",
-        image: "/branding/girl_front.png",
-      },
-    ],
-  },
-  pricing: {
-    title: "Elige tu plan",
-    subtitle: "Comienza gratis o level up cuando quieras",
-    tiers: [
-      {
-        name: "TrainingAI",
-        price: "5,99€",
-        period: "/mes",
-        description: "Solo entrenamiento con IA",
-        features: [
-          "Planes de entrenamiento ilimitados IA",
-          "Seguimiento avanzado",
-          "Estadísticas detalladas",
-          "Sin anuncios",
+      features: {
+        items: [
+          {
+            title: t("landing.home.features.ai.title"),
+            description: t("landing.home.features.ai.description"),
+            iconAlt: "AI",
+            iconEmoji: "🤖",
+          },
+          {
+            title: t("landing.home.features.nutrition.title"),
+            description: t("landing.home.features.nutrition.description"),
+            iconAlt: "Nutrition",
+            iconEmoji: "🍎",
+          },
+          {
+            title: t("landing.home.features.tracking.title"),
+            description: t("landing.home.features.tracking.description"),
+            iconAlt: "Analytics",
+            iconEmoji: "📊",
+          },
+          {
+            title: t("landing.home.features.community.title"),
+            description: t("landing.home.features.community.description"),
+            iconAlt: "Community",
+            iconEmoji: "👥",
+          },
         ],
-        cta: "Empezar Prueba",
       },
-      {
-        name: "Pro",
-        price: "9,99€",
-        period: "/mes",
-        description: "Todo incluido: Training + Nutri",
-        features: [
-          "TrainingAI + NutriAI",
-          "Coach IA 24/7",
-          "Análisis completos",
-          "Soporte prioritario",
+      howItWorks: {
+        steps: [
+          {
+            title: t("landing.home.howItWorks.step1.title"),
+            description: t("landing.home.howItWorks.step1.description"),
+            image: "/branding/girl_front.png",
+          },
+          {
+            title: t("landing.home.howItWorks.step2.title"),
+            description: t("landing.home.howItWorks.step2.description"),
+            image: "/branding/girl_back.png",
+          },
+          {
+            title: t("landing.home.howItWorks.step3.title"),
+            description: t("landing.home.howItWorks.step3.description"),
+            image: "/branding/girl_front.png",
+          },
         ],
-        cta: "Elegir Pro",
-        popular: true,
       },
-      {
-        name: "NutriAI",
-        price: "5,99€",
-        period: "/mes",
-        description: "Solo nutrición con IA",
-        features: [
-          "Planes de nutrición IA",
-          "Recetas personalizadas",
-          "Seguimiento de macros",
-          "Sin anuncios",
+      pricing: {
+        title: t("landing.home.pricing.title"),
+        subtitle: t("landing.home.pricing.subtitle"),
+        tiers: [
+          {
+            name: t("landing.home.pricing.trainingAI.name"),
+            price: "5,99€",
+            period: t("landing.home.pricing.period"),
+            description: t("landing.home.pricing.trainingAI.description"),
+            features: [
+              t("landing.home.pricing.trainingAI.feature1"),
+              t("landing.home.pricing.trainingAI.feature2"),
+              t("landing.home.pricing.trainingAI.feature3"),
+              t("landing.home.pricing.trainingAI.feature4"),
+            ],
+            cta: t("landing.home.pricing.trainingAI.cta"),
+          },
+          {
+            name: t("landing.home.pricing.pro.name"),
+            price: "9,99€",
+            period: t("landing.home.pricing.period"),
+            description: t("landing.home.pricing.pro.description"),
+            features: [
+              t("landing.home.pricing.pro.feature1"),
+              t("landing.home.pricing.pro.feature2"),
+              t("landing.home.pricing.pro.feature3"),
+              t("landing.home.pricing.pro.feature4"),
+            ],
+            cta: t("landing.home.pricing.pro.cta"),
+            popular: true,
+          },
+          {
+            name: t("landing.home.pricing.nutriAI.name"),
+            price: "5,99€",
+            period: t("landing.home.pricing.period"),
+            description: t("landing.home.pricing.nutriAI.description"),
+            features: [
+              t("landing.home.pricing.nutriAI.feature1"),
+              t("landing.home.pricing.nutriAI.feature2"),
+              t("landing.home.pricing.nutriAI.feature3"),
+              t("landing.home.pricing.nutriAI.feature4"),
+            ],
+            cta: t("landing.home.pricing.nutriAI.cta"),
+          },
+          {
+            name: t("landing.home.pricing.free.name"),
+            price: "0€",
+            period: t("landing.home.pricing.period"),
+            description: t("landing.home.pricing.free.description"),
+            features: [
+              t("landing.home.pricing.free.feature1"),
+              t("landing.home.pricing.free.feature2"),
+              t("landing.home.pricing.free.feature3"),
+              t("landing.home.pricing.free.feature4"),
+            ],
+            cta: t("landing.home.pricing.free.cta"),
+          },
         ],
-        cta: "Empezar Prueba",
       },
-      {
-        name: "Gratis",
-        price: "0€",
-        period: "/mes",
-        description: "Perfecto para empezar",
-        features: [
-          "3 planes de entrenamiento",
-          "Seguimiento básico",
-          "Biblioteca de ejercicios +200",
-          "Comunidad de usuarios",
+      testimonials: {
+        items: [
+          {
+            quote: t("landing.home.testimonials.quote1"),
+            author: t("landing.home.testimonials.author1"),
+            role: t("landing.home.testimonials.role1"),
+            image: "/branding/guys.png",
+          },
+          {
+            quote: t("landing.home.testimonials.quote2"),
+            author: t("landing.home.testimonials.author2"),
+            role: t("landing.home.testimonials.role2"),
+            image: "/branding/girl_front.png",
+          },
+          {
+            quote: t("landing.home.testimonials.quote3"),
+            author: t("landing.home.testimonials.author3"),
+            role: t("landing.home.testimonials.role3"),
+            image: "/branding/girl_back.png",
+          },
         ],
-        cta: "Empezar Gratis",
       },
-    ],
-  },
-  testimonials: {
-    items: [
-      {
-        quote: "FitSculpt cambió completamente mi forma de entrenar. En 3 meses logré resultados que no había conseguido en 1 año.",
-        author: "Carlos M.",
-        role: "Usuario Pro",
-        image: "/branding/guys.png",
+      finalCta: {
+        title: t("landing.home.finalCta.title"),
+        subtitle: t("landing.home.finalCta.subtitle"),
+        placeholder: t("landing.home.finalCta.placeholder"),
+        button: t("landing.home.finalCta.button"),
       },
-      {
-        quote: "La nutrición personalizada fue clave. He perdido 8kg en 4 meses sin pasar hambre.",
-        author: "Laura K.",
-        role: "Usuario NutriAI",
-        image: "/branding/girl_front.png",
-      },
-      {
-        quote: "El mejor investimento que he hecho. La IA realmente entiende mi cuerpo y mis objetivos.",
-        author: "Miguel R.",
-        role: "Usuario TrainingAI",
-        image: "/branding/girl_back.png",
-      },
-    ],
-  },
-  finalCta: {
-    title: "¿Listo para transformar tu cuerpo?",
-    subtitle: "Únete hoy y obtén tu primer mes gratis",
-    placeholder: "tu@email.com",
-    button: "Empezar",
-  },
-};
+    };
+  }, [t, locale]);
+}
 
 export default function HomePage() {
-  return <LandingHomePage copy={HOME_COPY} />;
+  const copy = useHomeCopy();
+  return <LandingHomePage copy={copy} />;
 }
