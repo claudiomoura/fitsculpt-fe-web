@@ -56,14 +56,31 @@ jobs:
       - name: Prepare Capacitor Android project
         run: npm run mobile:android:prepare
 
+      - name: Ensure Gradle wrapper is executable
+        working-directory: apps/web/android
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f ./gradlew ]; then
+            echo "::error::Gradle wrapper not found at apps/web/android/gradlew"
+            exit 1
+          fi
+          chmod +x ./gradlew
+
       - name: Build debug APK (unsigned)
         working-directory: apps/web/android
-        run: ./gradlew --no-daemon assembleDebug
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew --no-daemon assembleDebug
 
       - name: Build release AAB (unsigned)
         if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.include_aab != 'false' }}
         working-directory: apps/web/android
-        run: ./gradlew --no-daemon bundleRelease
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew --no-daemon bundleRelease
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
