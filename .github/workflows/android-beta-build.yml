@@ -38,7 +38,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # Capacitor CLI requires Node.js >=22
+          node-version: 22.x
           cache: npm
           cache-dependency-path: apps/web/package-lock.json
 
