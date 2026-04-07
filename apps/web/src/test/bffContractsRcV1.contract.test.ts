@@ -165,6 +165,50 @@ describe("BFF contract drift gate (Contracts RC v1 critical endpoints)", () => {
     await expect(invalidPayloadResponse.json()).resolves.toEqual({ error: "INVALID_REQUEST", kind: "validation", status: 400 });
   });
 
+  it("maps malformed tracking upstream payloads to contract drift", async () => {
+    cookiesMock.mockResolvedValue({ get: () => ({ value: "token_123" }) });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        jsonResponse(200, {
+          checkins: [{ id: "c_1", date: "2026-01-01", weightKg: "80" }],
+          foodLog: [],
+          workoutLog: [],
+          mealLog: [],
+        }),
+      ),
+    );
+
+    const { GET } = await import("@/app/api/tracking/route");
+    const response = await GET();
+
+    expect(response.status).toBe(502);
+    await expect(response.json()).resolves.toEqual(
+      expect.objectContaining({
+        error: "CONTRACT_DRIFT",
+        endpoint: "/tracking",
+      }),
+    );
+  });
+
+  it("maps tracking 5xx upstream failures into normalized BFF envelope", async () => {
+    cookiesMock.mockResolvedValue({ get: () => ({ value: "token_123" }) });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        jsonResponse(503, {
+          error: "INTERNAL_ERROR",
+        }),
+      ),
+    );
+
+    const { GET } = await import("@/app/api/tracking/route");
+    const response = await GET();
+
+    expect(response.status).toBe(502);
+    await expect(response.json()).resolves.toEqual({ error: "UPSTREAM_ERROR", kind: "upstream", status: 502 });
+  });
+
   it("validates GET /api/exercises list minimal response shape", async () => {
     cookiesMock.mockResolvedValue({
       get: () => ({ value: "token_123" }),

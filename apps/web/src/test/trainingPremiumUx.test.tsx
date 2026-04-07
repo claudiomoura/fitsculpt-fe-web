@@ -453,7 +453,7 @@ describe("Training premium UX from plan", () => {
 
     renderWithProviders(<TrainingPlanClient />);
 
-    expect(await screen.findByRole("button", { name: /Detalles/i })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /ver detalles del pr[oó]ximo entrenamiento/i })).toBeInTheDocument();
   });
 
   it("logs a single exercise from the daily exercise list", async () => {

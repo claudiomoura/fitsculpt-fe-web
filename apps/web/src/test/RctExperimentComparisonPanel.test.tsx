@@ -172,7 +172,7 @@ describe("RctExperimentComparisonPanel", () => {
     renderPanel();
 
     expect(await screen.findByText(/rct comparativo control vs treatment/i)).toBeInTheDocument();
-    expect(screen.getByText(/retencion proxy/i)).toBeInTheDocument();
+    expect(await screen.findByText(/retencion proxy/i)).toBeInTheDocument();
     expect(screen.getByText(/n control=11/i)).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText(/ventana personalizada en dias/i), { target: { value: "40" } });

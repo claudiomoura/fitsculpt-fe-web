@@ -40,6 +40,15 @@ type TrackingPayload = {
   checkins?: CheckinEntry[];
 };
 
+type SummaryEntry = {
+  ok?: boolean;
+  data?: unknown;
+};
+
+type TodaySummaryPayload = {
+  tracking?: SummaryEntry;
+};
+
 type ActiveTrainingPlanPayload = {
   source?: "assigned" | "own";
   plan?: TrainingPlanDetail | null;
@@ -301,9 +310,22 @@ export default function TodaySummaryClient() {
     setNotesState({ status: "loading" });
 
     try {
-      const response = await fetch("/api/tracking", { cache: "no-store", credentials: "include" });
-      if (!response.ok) throw new Error("TRACKING_ERROR");
-      const data = (await response.json()) as TrackingPayload;
+      let data: TrackingPayload | null = null;
+      const summaryResponse = await fetch("/api/hoy/summary", { cache: "no-store", credentials: "include" });
+
+      if (summaryResponse.ok) {
+        const summaryPayload = (await summaryResponse.json()) as TodaySummaryPayload;
+        if (summaryPayload.tracking?.ok && summaryPayload.tracking.data && typeof summaryPayload.tracking.data === "object") {
+          data = summaryPayload.tracking.data as TrackingPayload;
+        }
+      }
+
+      if (!data) {
+        const response = await fetch("/api/tracking", { cache: "no-store", credentials: "include" });
+        if (!response.ok) throw new Error("TRACKING_ERROR");
+        data = (await response.json()) as TrackingPayload;
+      }
+
       if (!mountedRef.current) return;
       const checkins = data.checkins ?? [];
       const latestWeight = getLatestWeight(checkins);

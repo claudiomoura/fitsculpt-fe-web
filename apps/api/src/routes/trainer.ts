@@ -28,6 +28,17 @@ export function registerTrainerRoutes(
     return membership;
   };
 
+  const trainerGymScopeFilter = (gymId: string) => ({
+    user: {
+      gymMemberships: {
+        some: {
+          gymId,
+          status: "ACTIVE" as const,
+        },
+      },
+    },
+  });
+
   // GET /trainer/nutrition-plans
   app.get("/trainer/nutrition-plans", async (request: FastifyRequest, reply: FastifyReply) => {
     try {
@@ -86,7 +97,7 @@ export function registerTrainerRoutes(
       const { id } = request.params;
       
       const plan = await prisma.nutritionPlan.findFirst({
-        where: { id },
+        where: { id, ...trainerGymScopeFilter(membership.gymId) },
         include: { days: { include: { meals: true } } },
       });
       
@@ -106,7 +117,7 @@ export function registerTrainerRoutes(
       const body = request.body as Record<string, unknown>;
       
       const plan = await prisma.nutritionPlan.findFirst({
-        where: { id },
+        where: { id, ...trainerGymScopeFilter(membership.gymId) },
       });
       
       if (!plan) return reply.status(404).send({ error: "NOT_FOUND" });
@@ -126,7 +137,7 @@ export function registerTrainerRoutes(
   app.get("/trainer/plans", async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const user = await requireUser(request);
-      const membership = await requireTrainer(user);
+      await requireTrainer(user);
       const query = request.query as { take?: string; skip?: string };
       const take = Math.min(parseInt(query.take ?? "50", 10) || 50, 100);
       const skip = parseInt(query.skip ?? "0", 10) || 0;
@@ -181,7 +192,7 @@ export function registerTrainerRoutes(
       const { planId } = request.params;
       
       const plan = await prisma.trainingPlan.findFirst({
-        where: { id: planId },
+        where: { id: planId, ...trainerGymScopeFilter(membership.gymId) },
         include: { days: { include: { exercises: true } } },
       });
       
@@ -198,6 +209,13 @@ export function registerTrainerRoutes(
       const user = await requireUser(request);
       const membership = await requireTrainer(user);
       const { planId } = request.params;
+
+      const plan = await prisma.trainingPlan.findFirst({
+        where: { id: planId, ...trainerGymScopeFilter(membership.gymId) },
+        select: { id: true },
+      });
+
+      if (!plan) return reply.status(404).send({ error: "NOT_FOUND" });
       
       await prisma.trainingPlan.delete({
         where: { id: planId },
@@ -224,6 +242,17 @@ export function registerTrainerRoutes(
       });
       const data = schema.parse(request.body);
       
+      const day = await prisma.trainingDay.findFirst({
+        where: {
+          id: request.params.dayId,
+          planId: request.params.planId,
+          plan: { is: trainerGymScopeFilter(membership.gymId) },
+        },
+        select: { id: true },
+      });
+
+      if (!day) return reply.status(404).send({ error: "NOT_FOUND" });
+
       const exercise = await prisma.trainingExercise.create({
         data: {
           dayId: request.params.dayId,
@@ -246,7 +275,21 @@ export function registerTrainerRoutes(
   app.delete("/trainer/plans/:planId/days/:dayId/exercises/:exerciseId", async (request: FastifyRequest<{ Params: { planId: string; dayId: string; exerciseId: string } }>, reply: FastifyReply) => {
     try {
       const currentUser = await requireUser(request);
-      await requireTrainer(currentUser);
+      const membership = await requireTrainer(currentUser);
+
+      const exercise = await prisma.trainingExercise.findFirst({
+        where: {
+          id: request.params.exerciseId,
+          dayId: request.params.dayId,
+          day: {
+            planId: request.params.planId,
+            plan: { is: trainerGymScopeFilter(membership.gymId) },
+          },
+        },
+        select: { id: true },
+      });
+
+      if (!exercise) return reply.status(404).send({ error: "NOT_FOUND" });
       
       await prisma.trainingExercise.delete({
         where: { id: request.params.exerciseId },
@@ -338,7 +381,7 @@ export function registerTrainerRoutes(
   app.get("/trainer/recipes", async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const user = await requireUser(request);
-      const membership = await requireTrainer(user);
+      await requireTrainer(user);
       const query = request.query as { take?: string; skip?: string };
       const take = Math.min(parseInt(query.take ?? "100", 10) || 100, 200);
       const skip = parseInt(query.skip ?? "0", 10) || 0;
@@ -359,7 +402,7 @@ export function registerTrainerRoutes(
   app.post("/trainer/recipes", async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const user = await requireUser(request);
-      const membership = await requireTrainer(user);
+      await requireTrainer(user);
       
       const schema = z.object({
         name: z.string().min(1),
@@ -399,10 +442,10 @@ export function registerTrainerRoutes(
   app.get("/trainer/recipes/:id", async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
     try {
       const user = await requireUser(request);
-      const membership = await requireTrainer(user);
+      await requireTrainer(user);
       
       const recipe = await prisma.recipe.findFirst({
-        where: { id: request.params.id },
+        where: { id: request.params.id, trainerId: user.id },
       });
       
       if (!recipe) return reply.status(404).send({ error: "NOT_FOUND" });
@@ -416,7 +459,14 @@ export function registerTrainerRoutes(
   app.delete("/trainer/recipes/:id", async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
     try {
       const user = await requireUser(request);
-      const membership = await requireTrainer(user);
+      await requireTrainer(user);
+
+      const recipe = await prisma.recipe.findFirst({
+        where: { id: request.params.id, trainerId: user.id },
+        select: { id: true },
+      });
+
+      if (!recipe) return reply.status(404).send({ error: "NOT_FOUND" });
       
       await prisma.recipe.delete({
         where: { id: request.params.id },

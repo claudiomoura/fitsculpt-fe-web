@@ -11,6 +11,13 @@ type CheckinEntry = {
   weightKg?: number;
 };
 
+type TodaySummaryPayload = {
+  tracking?: {
+    ok?: boolean;
+    data?: { checkins?: CheckinEntry[] };
+  };
+};
+
 export default function TodayWeightSummary() {
   const { t, locale } = useLanguage();
   const [loading, setLoading] = useState(true);
@@ -37,15 +44,28 @@ export default function TodayWeightSummary() {
     setError(null);
 
     try {
-      const response = await fetch("/api/tracking", { cache: "no-store", credentials: "include" });
-      if (!response.ok) {
-        if (mountedRef.current) {
-          setError(t("today.lastWeightError"));
-          setLatest(null);
+      let trackingData: { checkins?: CheckinEntry[] } | null = null;
+      const summaryResponse = await fetch("/api/hoy/summary", { cache: "no-store", credentials: "include" });
+      if (summaryResponse.ok) {
+        const summaryPayload = (await summaryResponse.json()) as TodaySummaryPayload;
+        if (summaryPayload.tracking?.ok && summaryPayload.tracking.data) {
+          trackingData = summaryPayload.tracking.data;
         }
-        return;
       }
-      const data = (await response.json()) as { checkins?: CheckinEntry[] };
+
+      if (!trackingData) {
+        const response = await fetch("/api/tracking", { cache: "no-store", credentials: "include" });
+        if (!response.ok) {
+          if (mountedRef.current) {
+            setError(t("today.lastWeightError"));
+            setLatest(null);
+          }
+          return;
+        }
+        trackingData = (await response.json()) as { checkins?: CheckinEntry[] };
+      }
+
+      const data = trackingData;
       const latestEntry = data.checkins?.length
         ? [...data.checkins].sort((a, b) => String(b.date).localeCompare(String(a.date)))[0]
         : null;

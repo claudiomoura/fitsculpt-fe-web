@@ -85,12 +85,14 @@ export const mainTabsMobile: MobileTab[] = [
     href: "/app/entrenamiento",
     label: "Entreno",
     icon: "tab-workout",
+    feature: "strength",
   },
   {
     id: "nutrition",
     href: "/app/nutricion",
     label: "Nutrición",
     icon: "tab-nutrition",
+    feature: "nutrition",
   },
   { id: "tracking", href: "/app/seguimiento", label: "Progreso", icon: "tab-progress" },
   { id: "profile", href: "/app/profile", label: "Perfil", icon: "tab-profile" },
@@ -142,14 +144,14 @@ export const sidebarUser: NavSectionGroup[] = [
     labelKey: "navSections.fitness",
     items: [
       { id: "today", href: "/app/hoy", labelKey: "nav.today" },
-      { id: "training", href: "/app/entrenamiento", labelKey: "nav.trainingCalendar" },
+      { id: "training", href: "/app/entrenamiento", labelKey: "nav.trainingCalendar", feature: "strength" },
     ],
   },
   {
     id: "nutrition",
     labelKey: "navSections.nutrition",
     items: [
-      { id: "nutrition-calendar", href: "/app/nutricion", labelKey: "nav.nutritionCalendar" },
+      { id: "nutrition-calendar", href: "/app/nutricion", labelKey: "nav.nutritionCalendar", feature: "nutrition" },
     ],
   },
   {
@@ -167,10 +169,10 @@ export const sidebarUser: NavSectionGroup[] = [
     items: [
       { id: "dashboard", href: "/app", labelKey: "nav.progress" },
       { id: "exercise-library", href: "/app/biblioteca", labelKey: "nav.exerciseLibrary" },
-      { id: "training-plans", href: "/app/biblioteca/planes-entrenamiento", labelKey: "nav.trainingPlans" },
-      { id: "recipe-library", href: "/app/biblioteca/recetas", labelKey: "nav.recipeLibrary" },
-      { id: "diet-plans", href: "/app/biblioteca/planes-nutricion", labelKey: "nav.nutritionPlans" },
-      { id: "macros", href: "/app/macros", labelKey: "nav.macros" },
+      { id: "training-plans", href: "/app/biblioteca/planes-entrenamiento", labelKey: "nav.trainingPlans", feature: "strength" },
+      { id: "recipe-library", href: "/app/biblioteca/recetas", labelKey: "nav.recipeLibrary", feature: "nutrition" },
+      { id: "diet-plans", href: "/app/biblioteca/planes-nutricion", labelKey: "nav.nutritionPlans", feature: "nutrition" },
+      { id: "macros", href: "/app/macros", labelKey: "nav.macros", feature: "nutrition" },
       { id: "weekly-review", href: "/app/weekly-review", labelKey: "nav.weeklyReview" },
       { id: "feed", href: "/app/feed", labelKey: "nav.feed" },
       { id: "gym", href: "/app/gym", labelKey: "nav.gym" },
@@ -263,6 +265,10 @@ export function buildNavigationSections(input: RoleAccessInput): NavSectionGroup
 }
 
 export function applyEntitlementGating(sections: NavSectionGroup[], entitlements: UiEntitlements): NavSectionGroup[] {
+  if (entitlements.status !== "known") {
+    return sections;
+  }
+
   return sections
     .map((section) => ({
       ...section,
@@ -282,5 +288,9 @@ export function applyEntitlementGating(sections: NavSectionGroup[], entitlements
 }
 
 export function applyTabEntitlementGating(tabs: MobileTab[], entitlements: UiEntitlements): MobileTab[] {
+  if (entitlements.status !== "known") {
+    return tabs;
+  }
+
   return tabs.filter((tab) => !tab.feature || canAccessFeature(entitlements, tab.feature));
 }

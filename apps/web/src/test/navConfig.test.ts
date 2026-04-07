@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyEntitlementGating, getMostSpecificActiveHref, isPathActive, mainTabsMobile, sidebarUser } from "@/components/layout/navConfig";
+import { applyEntitlementGating, applyTabEntitlementGating, getMostSpecificActiveHref, isPathActive, mainTabsMobile, sidebarUser } from "@/components/layout/navConfig";
 
 describe("navConfig", () => {
   it("marks only exact and nested matches as active", () => {
@@ -15,7 +15,7 @@ describe("navConfig", () => {
     expect(activeHref).toBe("/app/biblioteca/planes-entrenamiento");
   });
 
-  it("keeps nutrition navigation visible even when nutrition entitlements are unavailable", () => {
+  it("disables nutrition and strength navigation when entitlements are unavailable", () => {
     const gated = applyEntitlementGating(sidebarUser, {
       status: "known",
       features: {
@@ -29,16 +29,39 @@ describe("navConfig", () => {
     const nutritionSection = gated.find((section) => section.id === "nutrition");
     const moreSection = gated.find((section) => section.id === "more");
     const accountSection = gated.find((section) => section.id === "account");
+    const trainingItem = gated.find((section) => section.id === "fitness")?.items.find((item) => item.id === "training");
+    const nutritionCalendarItem = nutritionSection?.items.find((item) => item.id === "nutrition-calendar");
     const recipeLibraryItem = moreSection?.items.find((item) => item.id === "recipe-library");
     const dietPlansItem = moreSection?.items.find((item) => item.id === "diet-plans");
     const macrosItem = moreSection?.items.find((item) => item.id === "macros");
     const gymItem = accountSection?.items.find((item) => item.id === "gym");
 
-    expect(nutritionSection?.items.every((item) => item.disabled !== true)).toBe(true);
-    expect(recipeLibraryItem?.disabled).not.toBe(true);
-    expect(dietPlansItem?.disabled).not.toBe(true);
-    expect(macrosItem?.disabled).not.toBe(true);
+    expect(trainingItem?.disabled).toBe(true);
+    expect(nutritionCalendarItem?.disabled).toBe(true);
+    expect(recipeLibraryItem?.disabled).toBe(true);
+    expect(dietPlansItem?.disabled).toBe(true);
+    expect(macrosItem?.disabled).toBe(true);
     expect(gymItem?.disabled).not.toBe(true);
+  });
+
+  it("filters only gated USER tabs while keeping the tab model stable", () => {
+    const gatedTabs = applyTabEntitlementGating(mainTabsMobile, {
+      status: "known",
+      features: {
+        canUseAI: false,
+        canUseNutrition: false,
+        canUseStrength: true,
+        canUseBilling: true,
+      },
+    });
+
+    expect(mainTabsMobile).toHaveLength(5);
+    expect(gatedTabs.map((tab) => tab.href)).toEqual([
+      "/app/hoy",
+      "/app/entrenamiento",
+      "/app/seguimiento",
+      "/app/profile",
+    ]);
   });
 
   it("groups sidebar items into fitness, nutrition, and account sections", () => {
