@@ -38,6 +38,10 @@ export type OpenAiOptions = {
   responseFormat?: OpenAiResponseFormat;
   model?: string;
   retryOnParseError?: boolean;
+  userContent?: Array<
+    | { type: "text"; text: string }
+    | { type: "image_url"; image_url: { url: string; detail?: "low" | "high" | "auto" } }
+  >;
 };
 
 type Logger = {
@@ -107,6 +111,10 @@ export function createOpenAiClient(config: OpenAiClientConfig) {
     const maxTokens = options?.maxTokens ?? 250;
     const model = options?.model ?? "gpt-3.5-turbo";
     const normalizedPrompt = compactPrompt(prompt);
+    const userContent =
+      Array.isArray(options?.userContent) && options.userContent.length > 0
+        ? options.userContent
+        : normalizedPrompt;
 
     let response: Response;
     try {
@@ -121,7 +129,7 @@ export function createOpenAiClient(config: OpenAiClientConfig) {
           response_format: responseFormat,
           messages: [
             { role: "system", content: systemMessage },
-            { role: "user", content: normalizedPrompt },
+            { role: "user", content: userContent },
           ],
           max_tokens: maxTokens,
           temperature: attempt === 0 ? 0.4 : 0.2,

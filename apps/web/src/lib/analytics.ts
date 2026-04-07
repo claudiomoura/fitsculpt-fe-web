@@ -18,6 +18,9 @@ export type AnalyticsEventName =
   | "meal_logged"
   | "quick_log_opened"
   | "quick_log_saved"
+  | "quick_log_photo_analysis_started"
+  | "quick_log_photo_analysis_success"
+  | "quick_log_photo_analysis_error"
   | "voice_log_used"
   | "barcode_lookup_used"
   | "weekly_review_opened"
@@ -44,6 +47,9 @@ export type AnalyticsEventProps = {
   horizonMonths?: number;
   scenarioId?: string;
   windowDays?: number;
+  confidence?: number;
+  itemsCount?: number;
+  code?: string;
 };
 
 declare global {

@@ -9,6 +9,7 @@ export const mealItemSchema = z.object({
   name: z.string().optional(),
   quantity: z.number().optional(),
   unit: z.string().optional(),
+  photoUrl: z.string().optional(),
   calories: z.number().optional(),
   protein: z.number().optional(),
   carbs: z.number().optional(),
@@ -110,3 +111,80 @@ export function mealLogToResponse(mealLog: {
     updatedAt: mealLog.updatedAt,
   };
 }
+
+export const analyzeMealPhotoRequestSchema = z.object({
+  photoDataUrl: z
+    .string()
+    .min(40)
+    .max(2_000_000)
+    .regex(/^data:image\/(png|jpe?g|webp);base64,/i, "Invalid image data URL"),
+  locale: z.enum(["es", "en", "pt"]).optional().default("es"),
+});
+export type AnalyzeMealPhotoRequest = z.infer<typeof analyzeMealPhotoRequestSchema>;
+
+export const mealPhotoAnalysisItemSchema = z.object({
+  name: z.string().min(1),
+  quantity: z.number().positive().optional(),
+  unit: z.string().min(1).optional(),
+  calories: z.number().nonnegative(),
+  protein: z.number().nonnegative(),
+  carbs: z.number().nonnegative(),
+  fats: z.number().nonnegative(),
+});
+
+export const mealPhotoAnalysisResponseSchema = z.object({
+  title: z.string().min(1),
+  items: z.array(mealPhotoAnalysisItemSchema).min(1).max(12),
+  totals: z.object({
+    calories: z.number().nonnegative(),
+    protein: z.number().nonnegative(),
+    carbs: z.number().nonnegative(),
+    fats: z.number().nonnegative(),
+  }),
+  confidence: z.number().min(0).max(1),
+  confidenceLabel: z.enum(["low", "medium", "high"]),
+  notes: z.string().max(280).optional(),
+});
+export type MealPhotoAnalysisResponse = z.infer<typeof mealPhotoAnalysisResponseSchema>;
+
+export const mealPhotoAnalysisJsonSchema = {
+  type: "object",
+  properties: {
+    title: { type: "string" },
+    items: {
+      type: "array",
+      minItems: 1,
+      maxItems: 12,
+      items: {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          quantity: { type: "number" },
+          unit: { type: "string" },
+          calories: { type: "number" },
+          protein: { type: "number" },
+          carbs: { type: "number" },
+          fats: { type: "number" },
+        },
+        required: ["name", "calories", "protein", "carbs", "fats"],
+        additionalProperties: false,
+      },
+    },
+    totals: {
+      type: "object",
+      properties: {
+        calories: { type: "number" },
+        protein: { type: "number" },
+        carbs: { type: "number" },
+        fats: { type: "number" },
+      },
+      required: ["calories", "protein", "carbs", "fats"],
+      additionalProperties: false,
+    },
+    confidence: { type: "number" },
+    confidenceLabel: { type: "string", enum: ["low", "medium", "high"] },
+    notes: { type: "string" },
+  },
+  required: ["title", "items", "totals", "confidence", "confidenceLabel"],
+  additionalProperties: false,
+} as const;

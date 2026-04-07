@@ -225,6 +225,69 @@
   gap: 12px;
 }
 
+.photoUploadSection {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 70%, transparent);
+  background: color-mix(in srgb, var(--surface-inset-bg) 82%, transparent);
+}
+
+.photoUploadGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.photoUploadField {
+  display: grid;
+  gap: 6px;
+  font-size: 0.86rem;
+}
+
+.photoUploadField input {
+  border-radius: 12px;
+  border: 1px dashed var(--surface-border-default);
+  padding: 10px;
+  background: var(--surface-inset-bg);
+}
+
+.photoPreviewGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+}
+
+.photoPreview {
+  width: 100%;
+  max-width: 180px;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 70%, transparent);
+}
+
+.photoComparisonCard {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 70%, transparent);
+  background: color-mix(in srgb, var(--surface-inset-bg) 84%, transparent);
+}
+
+.photoCompareGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.photoCompareColumn {
+  display: grid;
+  gap: 8px;
+}
+
 @media (max-width: 640px) {
   .checkinModeGrid {
     grid-template-columns: 1fr;

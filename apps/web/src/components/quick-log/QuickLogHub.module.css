@@ -46,6 +46,20 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.uploadField {
+  display: grid;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.uploadField input {
+  border-radius: 12px;
+  border: 1px dashed var(--surface-border-default);
+  padding: 10px;
+  background: var(--surface-inset-bg);
+}
+
 .smallText {
   font-size: 0.82rem;
   color: var(--text-muted);
@@ -87,6 +101,30 @@
   padding: 10px;
   display: grid;
   gap: 4px;
+}
+
+.photoPreviewCard {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 82%, transparent);
+  background: color-mix(in srgb, var(--surface-inset-bg) 86%, transparent);
+  padding: 10px;
+}
+
+.photoPreview {
+  width: 84px;
+  height: 84px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 75%, transparent);
+}
+
+.photoPreviewMeta {
+  display: grid;
+  gap: 6px;
 }
 
 .saveButton {

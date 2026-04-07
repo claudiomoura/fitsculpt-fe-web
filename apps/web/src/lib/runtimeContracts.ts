@@ -219,6 +219,50 @@ export function validateAiNutritionGeneratePayload(payload: unknown): ContractVa
   return { ok: true };
 }
 
+export function validateMealPhotoAnalyzePayload(payload: unknown): ContractValidationResult {
+  if (!isRecord(payload)) return { ok: false, reason: "MEAL_PHOTO_ANALYZE_NOT_OBJECT" };
+  if (!isString(payload.title)) return { ok: false, reason: "MEAL_PHOTO_ANALYZE_INVALID_TITLE" };
+  if (!Array.isArray(payload.items) || payload.items.length < 1) {
+    return { ok: false, reason: "MEAL_PHOTO_ANALYZE_INVALID_ITEMS" };
+  }
+  for (const item of payload.items) {
+    if (!isRecord(item)) return { ok: false, reason: "MEAL_PHOTO_ANALYZE_INVALID_ITEM" };
+    if (!isString(item.name)) return { ok: false, reason: "MEAL_PHOTO_ANALYZE_INVALID_ITEM_NAME" };
+    if (!isNumber(item.calories) || !isNumber(item.protein) || !isNumber(item.carbs) || !isNumber(item.fats)) {
+      return { ok: false, reason: "MEAL_PHOTO_ANALYZE_INVALID_ITEM_MACROS" };
+    }
+    if (item.quantity !== undefined && !isNumber(item.quantity)) {
+      return { ok: false, reason: "MEAL_PHOTO_ANALYZE_INVALID_ITEM_QUANTITY" };
+    }
+    if (item.unit !== undefined && !isString(item.unit)) {
+      return { ok: false, reason: "MEAL_PHOTO_ANALYZE_INVALID_ITEM_UNIT" };
+    }
+  }
+
+  if (!isRecord(payload.totals)) return { ok: false, reason: "MEAL_PHOTO_ANALYZE_INVALID_TOTALS" };
+  if (!isNumber(payload.totals.calories) || !isNumber(payload.totals.protein) || !isNumber(payload.totals.carbs) || !isNumber(payload.totals.fats)) {
+    return { ok: false, reason: "MEAL_PHOTO_ANALYZE_INVALID_TOTAL_MACROS" };
+  }
+
+  if (!isNumber(payload.confidence) || payload.confidence < 0 || payload.confidence > 1) {
+    return { ok: false, reason: "MEAL_PHOTO_ANALYZE_INVALID_CONFIDENCE" };
+  }
+
+  if (!isString(payload.confidenceLabel)) {
+    return { ok: false, reason: "MEAL_PHOTO_ANALYZE_INVALID_CONFIDENCE_LABEL" };
+  }
+
+  if (!["low", "medium", "high"].includes(payload.confidenceLabel)) {
+    return { ok: false, reason: "MEAL_PHOTO_ANALYZE_INVALID_CONFIDENCE_LABEL_VALUE" };
+  }
+
+  if (payload.notes !== undefined && payload.notes !== null && !isString(payload.notes)) {
+    return { ok: false, reason: "MEAL_PHOTO_ANALYZE_INVALID_NOTES" };
+  }
+
+  return { ok: true };
+}
+
 export function contractDriftResponse(endpoint: string, reason: string) {
   return {
     error: "CONTRACT_DRIFT",

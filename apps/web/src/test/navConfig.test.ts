@@ -55,15 +55,14 @@ describe("navConfig", () => {
       },
     });
 
-    // With feature gating removed from mainTabsMobile, all 6 tabs always show
-    // This is intentional - Entrenamiento, Nutricion and Gimnasios should be visible to all users
-    expect(mainTabsMobile).toHaveLength(6);
+    // With feature gating removed from mainTabsMobile, all 5 tabs always show
+    // This is intentional - Entrenamiento and Nutricion should be visible to all users
+    expect(mainTabsMobile).toHaveLength(5);
     expect(gatedTabs.map((tab) => tab.href)).toEqual([
       "/app/hoy",
       "/app/entrenamiento",
       "/app/nutricion",
       "/app/seguimiento",
-      "/app/gym",
       "/app/profile",
     ]);
   });
@@ -95,13 +94,12 @@ describe("navConfig", () => {
     ]);
   });
 
-  it("defines USER mobile tabs with the current six core routes", () => {
+  it("defines USER mobile tabs with the current five core routes", () => {
     expect(mainTabsMobile.map((tab) => tab.href)).toEqual([
       "/app/hoy",
       "/app/entrenamiento",
       "/app/nutricion",
       "/app/seguimiento",
-      "/app/gym",
       "/app/profile",
     ]);
   });
@@ -112,7 +110,6 @@ describe("navConfig", () => {
       "Entreno",
       "Nutrición",
       "Progreso",
-      "Gimnasios",
       "Perfil",
     ]);
   });

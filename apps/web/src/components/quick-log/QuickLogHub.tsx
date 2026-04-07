@@ -1,14 +1,16 @@
 "use client";
 
-import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { forwardRef, useImperativeHandle, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { Button } from "@/design-system/components/Button";
 import { Input } from "@/design-system/components/Input";
 import { Modal } from "@/design-system/components/Modal";
+import { useLanguage } from "@/context/LanguageProvider";
 import { trackEvent } from "@/lib/analytics";
+import { compressAvatarToDataUrl } from "@/lib/avatarUpload";
 import { findQuickLogFoodByBarcode, searchQuickLogFoods, type QuickLogFoodItem } from "@/lib/quickLogFoodCatalog";
 import { parseQuickVoiceMeal } from "@/lib/quickLogVoiceParser";
 import { createTrackingEntry, type CheckinEntry, type MealLogEntry } from "@/services/tracking";
-import { createMealLog, type CreateMealParams } from "@/services/mealApi";
+import { analyzeMealPhoto, createMealLog, MealPhotoAnalysisError, type CreateMealParams } from "@/services/mealApi";
 import { sendRctEvent } from "@/services/futureProjection";
 import styles from "./QuickLogHub.module.css";
 
@@ -21,7 +23,7 @@ type SpeechRecognitionCtor = new () => {
   start: () => void;
   stop: () => void;
   onresult: ((event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
-  onerror: (() => void) | null;
+  onerror: ((event: { error?: string }) => void) | null;
   onend: (() => void) | null;
 };
 
@@ -55,7 +57,7 @@ function mealEntryFromDraft(args: {
     date: args.date,
     mealKey: `quick:${args.date}:${Date.now()}`,
     mealType: args.mealType || "meal",
-    title: args.title.trim() || "Comida rápida",
+    title: args.title.trim() || "Quick meal",
     calories: Math.max(0, Math.round(args.calories)),
     protein: Math.max(0, Math.round(args.protein)),
     carbs: Math.max(0, Math.round(args.carbs)),
@@ -90,6 +92,7 @@ const QuickLogHub = forwardRef<QuickLogHubHandle, QuickLogHubProps>(function Qui
   { origin, latestCheckin, currentWeightKg = null, onSaved },
   ref,
 ) {
+  const { t, locale } = useLanguage();
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<Mode>("meal");
   const [status, setStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
@@ -102,6 +105,16 @@ const QuickLogHub = forwardRef<QuickLogHubHandle, QuickLogHubProps>(function Qui
   const [mealProtein, setMealProtein] = useState(28);
   const [mealCarbs, setMealCarbs] = useState(45);
   const [mealFats, setMealFats] = useState(12);
+  const [mealQuantity, setMealQuantity] = useState(1);
+  const [mealPhotoUrl, setMealPhotoUrl] = useState<string | null>(null);
+  const [mealPhotoName, setMealPhotoName] = useState<string | null>(null);
+  const [mealPhotoError, setMealPhotoError] = useState<string | null>(null);
+  const [isMealPhotoProcessing, setIsMealPhotoProcessing] = useState(false);
+  const [isMealPhotoAnalyzing, setIsMealPhotoAnalyzing] = useState(false);
+  const [mealDetectedItems, setMealDetectedItems] = useState<
+    Array<{ name: string; quantity?: number; unit?: string; calories: number; protein: number; carbs: number; fats: number }>
+  >([]);
+  const [mealAnalysisNotes, setMealAnalysisNotes] = useState<string | null>(null);
 
   const [waterDate, setWaterDate] = useState(toTodayKey());
   const [waterMl, setWaterMl] = useState(250);
@@ -111,6 +124,9 @@ const QuickLogHub = forwardRef<QuickLogHubHandle, QuickLogHubProps>(function Qui
 
   const [voiceText, setVoiceText] = useState("");
   const [isListening, setIsListening] = useState(false);
+  const [voiceDraftNeedsConfirmation, setVoiceDraftNeedsConfirmation] =
+    useState(false);
+  const hasCapturedTranscriptRef = useRef(false);
 
   const [lookupQuery, setLookupQuery] = useState("");
   const [lookupResult, setLookupResult] = useState<QuickLogFoodItem | null>(null);
@@ -142,6 +158,21 @@ const QuickLogHub = forwardRef<QuickLogHubHandle, QuickLogHubProps>(function Qui
     setOpen(false);
     setIsListening(false);
     recognitionRef.current?.stop();
+    setVoiceDraftNeedsConfirmation(false);
+    hasCapturedTranscriptRef.current = false;
+  };
+
+  const resolveVoiceErrorMessage = (errorCode?: string) => {
+    if (errorCode === "not-allowed" || errorCode === "service-not-allowed") {
+      return t("quickLog.voicePermissionDenied");
+    }
+    if (errorCode === "no-speech" || errorCode === "audio-capture") {
+      return t("quickLog.voiceNoSpeech");
+    }
+    if (errorCode === "network") {
+      return t("quickLog.voiceNetworkError");
+    }
+    return t("quickLog.voiceGenericError");
   };
 
   const handleVoiceStart = () => {
@@ -151,7 +182,7 @@ const QuickLogHub = forwardRef<QuickLogHubHandle, QuickLogHubProps>(function Qui
       ?? (window as Window & { webkitSpeechRecognition?: SpeechRecognitionCtor }).webkitSpeechRecognition;
 
     if (!Ctor) {
-      setStatus({ type: "error", message: "Tu navegador no soporta voz. Puedes pegar texto manualmente." });
+      setStatus({ type: "error", message: t("quickLog.voiceUnsupported") });
       return;
     }
 
@@ -159,18 +190,28 @@ const QuickLogHub = forwardRef<QuickLogHubHandle, QuickLogHubProps>(function Qui
     recognition.lang = "es-ES";
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
+    hasCapturedTranscriptRef.current = false;
     recognition.onresult = (event) => {
-      const transcript = event.results?.[0]?.[0]?.transcript ?? "";
-      if (transcript.trim()) {
-        setVoiceText(transcript.trim());
+      const transcript = Array.from(event.results ?? [])
+        .flatMap((result) => Array.from(result ?? []))
+        .map((alternative) => alternative.transcript ?? "")
+        .join(" ")
+        .trim();
+      if (transcript) {
+        hasCapturedTranscriptRef.current = true;
+        setVoiceText(transcript);
+        setStatus({ type: "success", message: t("quickLog.voiceCaptured") });
       }
     };
-    recognition.onerror = () => {
-      setStatus({ type: "error", message: "No pudimos capturar la voz. Prueba pegar el texto." });
+    recognition.onerror = (event) => {
+      setStatus({ type: "error", message: resolveVoiceErrorMessage(event.error) });
       setIsListening(false);
     };
     recognition.onend = () => {
       setIsListening(false);
+      if (!hasCapturedTranscriptRef.current) {
+        setStatus({ type: "error", message: t("quickLog.voiceTranscriptEmpty") });
+      }
     };
 
     recognitionRef.current = recognition;
@@ -179,6 +220,10 @@ const QuickLogHub = forwardRef<QuickLogHubHandle, QuickLogHubProps>(function Qui
   };
 
   const applyVoiceDraft = () => {
+    if (!voiceText.trim()) {
+      setStatus({ type: "error", message: t("quickLog.voiceTranscriptEmpty") });
+      return;
+    }
     const parsed = parseQuickVoiceMeal(voiceText);
     setMealTitle(parsed.title);
     setMealType(parsed.mealType);
@@ -187,7 +232,92 @@ const QuickLogHub = forwardRef<QuickLogHubHandle, QuickLogHubProps>(function Qui
     setMealCarbs(parsed.carbs);
     setMealFats(parsed.fats);
     trackEvent("voice_log_used", { target: "nutrition", origin });
-    setStatus({ type: "success", message: "Propuesta creada desde voz. Puedes editarla antes de guardar." });
+    setVoiceDraftNeedsConfirmation(true);
+    setStatus({ type: "success", message: t("quickLog.voiceDraftReady") });
+  };
+
+  const confirmVoiceDraft = () => {
+    setVoiceDraftNeedsConfirmation(false);
+    setStatus({ type: "success", message: t("quickLog.voiceDraftConfirmed") });
+  };
+
+  const handleMealPhotoChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setMealPhotoError(null);
+    setIsMealPhotoProcessing(true);
+    try {
+      const compressed = await compressAvatarToDataUrl(file);
+      setMealPhotoUrl(compressed);
+      setMealPhotoName(file.name);
+      setMealDetectedItems([]);
+      setMealAnalysisNotes(null);
+      setStatus({ type: "success", message: t("quickLog.mealPhotoReady") });
+    } catch {
+      setMealPhotoUrl(null);
+      setMealPhotoName(null);
+      setMealPhotoError(t("quickLog.mealPhotoError"));
+    } finally {
+      setIsMealPhotoProcessing(false);
+      event.target.value = "";
+    }
+  };
+
+  const clearMealPhoto = () => {
+    setMealPhotoUrl(null);
+    setMealPhotoName(null);
+    setMealPhotoError(null);
+    setMealDetectedItems([]);
+    setMealAnalysisNotes(null);
+  };
+
+  const resolveMealPhotoAnalyzeError = (error: unknown) => {
+    if (error instanceof MealPhotoAnalysisError) {
+      if (error.code === "LOW_CONFIDENCE") return t("quickLog.mealPhotoAnalyzeLowConfidence");
+      if (error.code === "INVALID_IMAGE" || error.code === "INVALID_INPUT") return t("quickLog.mealPhotoAnalyzeInvalidImage");
+      if (error.code === "AI_TIMEOUT") return t("quickLog.mealPhotoAnalyzeTimeout");
+      if (error.code === "AI_NOT_CONFIGURED" || error.code === "AI_SERVICE_UNAVAILABLE") return t("quickLog.mealPhotoAnalyzeUnavailable");
+    }
+    return t("quickLog.mealPhotoAnalyzeError");
+  };
+
+  const handleMealPhotoAnalyze = async () => {
+    if (!mealPhotoUrl) {
+      setStatus({ type: "error", message: t("quickLog.mealPhotoAnalyzeMissing") });
+      return;
+    }
+
+    setIsMealPhotoAnalyzing(true);
+    setStatus(null);
+    trackEvent("quick_log_photo_analysis_started", { origin, target: "nutrition" });
+
+    try {
+      const result = await analyzeMealPhoto({ photoDataUrl: mealPhotoUrl, locale });
+      setMealTitle(result.title);
+      setMealCalories(result.totals.calories);
+      setMealProtein(result.totals.protein);
+      setMealCarbs(result.totals.carbs);
+      setMealFats(result.totals.fats);
+      setMealDetectedItems(result.items);
+      setMealAnalysisNotes(result.notes ?? null);
+      setStatus({ type: "success", message: t("quickLog.mealPhotoAnalyzeSuccess") });
+      trackEvent("quick_log_photo_analysis_success", {
+        origin,
+        target: "nutrition",
+        confidence: result.confidence,
+        itemsCount: result.items.length,
+      });
+    } catch (error) {
+      const message = resolveMealPhotoAnalyzeError(error);
+      setStatus({ type: "error", message });
+      trackEvent("quick_log_photo_analysis_error", {
+        origin,
+        target: "nutrition",
+        code: error instanceof MealPhotoAnalysisError ? error.code : "UNKNOWN",
+      });
+    } finally {
+      setIsMealPhotoAnalyzing(false);
+    }
   };
 
   const applyLookup = () => {
@@ -199,7 +329,7 @@ const QuickLogHub = forwardRef<QuickLogHubHandle, QuickLogHubProps>(function Qui
     trackEvent("barcode_lookup_used", { target: "nutrition", origin });
 
     if (!match) {
-      setStatus({ type: "error", message: "Sin coincidencias. Prueba otro codigo o nombre." });
+      setStatus({ type: "error", message: t("quickLog.lookupNoMatch") });
       return;
     }
 
@@ -208,7 +338,7 @@ const QuickLogHub = forwardRef<QuickLogHubHandle, QuickLogHubProps>(function Qui
     setMealProtein(match.per100.protein);
     setMealCarbs(match.per100.carbs);
     setMealFats(match.per100.fats);
-    setStatus({ type: "success", message: "Macros prellenadas desde lookup." });
+    setStatus({ type: "success", message: t("quickLog.lookupApplied") });
   };
 
   const notifySaved = async () => {
@@ -230,21 +360,49 @@ const QuickLogHub = forwardRef<QuickLogHubHandle, QuickLogHubProps>(function Qui
       const mealParams: CreateMealParams = {
         date: mealDate,
         mealType: mapMealType(mealType),
-        title: mealTitle.trim() || "Comida rápida",
+        title: mealTitle.trim() || t("quickLog.defaultMealTitle"),
         calories: Math.max(0, Math.round(mealCalories)),
         protein: Math.max(0, Math.round(mealProtein)),
         carbs: Math.max(0, Math.round(mealCarbs)),
         fats: Math.max(0, Math.round(mealFats)),
-        items: [],
+        items:
+          mealDetectedItems.length > 0
+            ? mealDetectedItems.map((item) => ({
+                name: item.name,
+                quantity: item.quantity,
+                unit: item.unit,
+                calories: Math.max(0, Math.round(item.calories)),
+                protein: Math.max(0, Math.round(item.protein)),
+                carbs: Math.max(0, Math.round(item.carbs)),
+                fats: Math.max(0, Math.round(item.fats)),
+                photoUrl: mealPhotoUrl ?? undefined,
+              }))
+            : [
+                {
+                  name: mealTitle.trim() || t("quickLog.defaultMealItemName"),
+                  quantity: Math.max(0.25, Number(mealQuantity) || 1),
+                  unit: "serving",
+                  calories: Math.max(0, Math.round(mealCalories)),
+                  protein: Math.max(0, Math.round(mealProtein)),
+                  carbs: Math.max(0, Math.round(mealCarbs)),
+                  fats: Math.max(0, Math.round(mealFats)),
+                  photoUrl: mealPhotoUrl ?? undefined,
+                },
+              ],
       };
       
       await createMealLog(mealParams);
       await notifySaved();
-      setStatus({ type: "success", message: "Comida guardada." });
+      setStatus({ type: "success", message: t("quickLog.mealSaved") });
       setMealTitle("");
+      setMealQuantity(1);
+      setMealDetectedItems([]);
+      setMealAnalysisNotes(null);
+      clearMealPhoto();
+      setVoiceDraftNeedsConfirmation(false);
     } catch (err) {
       console.error("Failed to save meal to backend:", err);
-      setStatus({ type: "error", message: "No pudimos guardar la comida en el servidor. Creando copia local..." });
+      setStatus({ type: "error", message: t("quickLog.mealSaveFallback") });
       // Fallback: save locally anyway so user doesn't lose data
       try {
         const entry = mealEntryFromDraft({
@@ -258,10 +416,15 @@ const QuickLogHub = forwardRef<QuickLogHubHandle, QuickLogHubProps>(function Qui
         });
         await createTrackingEntry("mealLog", entry);
         await notifySaved();
-        setStatus({ type: "success", message: "Comida guardada localmente (sin conexión)." });
+        setStatus({ type: "success", message: t("quickLog.mealSavedOffline") });
         setMealTitle("");
+        setMealQuantity(1);
+        setMealDetectedItems([]);
+        setMealAnalysisNotes(null);
+        clearMealPhoto();
+        setVoiceDraftNeedsConfirmation(false);
       } catch {
-        setStatus({ type: "error", message: "No pudimos guardar la comida." });
+        setStatus({ type: "error", message: t("quickLog.mealSaveError") });
       }
     } finally {
       setIsSaving(false);
@@ -271,9 +434,9 @@ const QuickLogHub = forwardRef<QuickLogHubHandle, QuickLogHubProps>(function Qui
   // Helper to map meal type string to API enum
   function mapMealType(type: string): "BREAKFAST" | "LUNCH" | "DINNER" | "SNACK" {
     const normalized = type.toLowerCase();
-    if (normalized.includes("breakfast") || normalized.includes("desayuno")) return "BREAKFAST";
-    if (normalized.includes("lunch") || normalized.includes("almuerzo")) return "LUNCH";
-    if (normalized.includes("dinner") || normalized.includes("cena")) return "DINNER";
+    if (normalized.includes("breakfast") || normalized.includes("desayuno") || normalized.includes("pequeno-almoco")) return "BREAKFAST";
+    if (normalized.includes("lunch") || normalized.includes("almuerzo") || normalized.includes("almoco")) return "LUNCH";
+    if (normalized.includes("dinner") || normalized.includes("cena") || normalized.includes("jantar")) return "DINNER";
     return "SNACK";
   }
 
@@ -289,10 +452,10 @@ const QuickLogHub = forwardRef<QuickLogHubHandle, QuickLogHubProps>(function Qui
         grams: safeMl,
       });
       await notifySaved();
-      setStatus({ type: "success", message: `${safeMl} ml de agua guardados.` });
+      setStatus({ type: "success", message: t("quickLog.waterSaved", { amount: safeMl }) });
       setWaterMl(250);
     } catch {
-      setStatus({ type: "error", message: "No pudimos guardar el agua." });
+      setStatus({ type: "error", message: t("quickLog.waterSaveError") });
     } finally {
       setIsSaving(false);
     }
@@ -301,7 +464,7 @@ const QuickLogHub = forwardRef<QuickLogHubHandle, QuickLogHubProps>(function Qui
   const saveWeight = async () => {
     const safeWeight = Number(weightKg);
     if (!Number.isFinite(safeWeight) || safeWeight < 30 || safeWeight > 260) {
-      setStatus({ type: "error", message: "El peso debe estar entre 30 y 260 kg." });
+      setStatus({ type: "error", message: t("quickLog.weightRangeError") });
       return;
     }
     setIsSaving(true);
@@ -309,9 +472,9 @@ const QuickLogHub = forwardRef<QuickLogHubHandle, QuickLogHubProps>(function Qui
     try {
       await createTrackingEntry("checkins", checkinFromWeight(weightDate, safeWeight, latestCheckin));
       await notifySaved();
-      setStatus({ type: "success", message: "Peso guardado correctamente." });
+      setStatus({ type: "success", message: t("quickLog.weightSaved") });
     } catch {
-      setStatus({ type: "error", message: "No pudimos guardar el peso." });
+      setStatus({ type: "error", message: t("quickLog.weightSaveError") });
     } finally {
       setIsSaving(false);
     }
@@ -320,47 +483,85 @@ const QuickLogHub = forwardRef<QuickLogHubHandle, QuickLogHubProps>(function Qui
   return (
     <div className={styles.launcher}>
       <Button className={styles.launcherButton} variant="secondary" onClick={() => openHub()}>
-        Quick log
+        {t("quickLog.launcher")}
       </Button>
 
       <Modal
         open={open}
         onClose={closeHub}
-        title="Quick logging"
-        description="Registra comida, agua o peso en segundos."
+        title={t("quickLog.modalTitle")}
+        description={t("quickLog.modalDescription")}
         className={`${styles.sheet} today-premium-modal`}
       >
         <div className={styles.modeRow}>
           <button type="button" className={`${styles.modeButton} ${mode === "meal" ? styles.modeButtonActive : ""}`} onClick={() => setMode("meal")}>
-            Comida
+            {t("quickLog.modeMeal")}
           </button>
           <button type="button" className={`${styles.modeButton} ${mode === "water" ? styles.modeButtonActive : ""}`} onClick={() => setMode("water")}>
-            Agua
+            {t("quickLog.modeWater")}
           </button>
           <button type="button" className={`${styles.modeButton} ${mode === "weight" ? styles.modeButtonActive : ""}`} onClick={() => setMode("weight")}>
-            Peso
+            {t("quickLog.modeWeight")}
           </button>
         </div>
 
         {mode === "meal" ? (
           <div className={styles.grid}>
-            <Input label="Fecha" type="date" value={mealDate} onChange={(event) => setMealDate(event.target.value)} />
-            <Input label="Comida" placeholder="Ej: pollo y arroz" value={mealTitle} onChange={(event) => setMealTitle(event.target.value)} />
+            <Input label={t("quickLog.fieldDate")} type="date" value={mealDate} onChange={(event) => setMealDate(event.target.value)} />
+            <Input label={t("quickLog.fieldMealTitle")} placeholder={t("quickLog.fieldMealPlaceholder")} value={mealTitle} onChange={(event) => setMealTitle(event.target.value)} />
 
             <div className={styles.fieldRow}>
-              <Input label="Tipo" value={mealType} onChange={(event) => setMealType(event.target.value)} />
-              <Input label="Lookup" placeholder="Codigo o alimento" value={lookupQuery} onChange={(event) => setLookupQuery(event.target.value)} />
+              <Input label={t("quickLog.fieldMealType")} value={mealType} onChange={(event) => setMealType(event.target.value)} />
+              <Input label={t("quickLog.fieldLookup")} placeholder={t("quickLog.lookupPlaceholder")} value={lookupQuery} onChange={(event) => setLookupQuery(event.target.value)} />
             </div>
+
+            <div className={styles.fieldRow}>
+              <Input label={t("quickLog.fieldQuantity")} type="number" min={0.25} step={0.25} value={mealQuantity} onChange={(event) => setMealQuantity(Number(event.target.value))} />
+              <label className={styles.uploadField}>
+                <span>{t("quickLog.mealPhotoLabel")}</span>
+                <input type="file" accept="image/*" capture="environment" onChange={(event) => void handleMealPhotoChange(event)} />
+              </label>
+            </div>
+
+            {mealPhotoError ? <p className={`${styles.status} ${styles.statusError}`}>{mealPhotoError}</p> : null}
+            {isMealPhotoProcessing ? <p className={styles.smallText}>{t("quickLog.mealPhotoProcessing")}</p> : null}
+            {mealPhotoUrl ? (
+              <div className={styles.photoPreviewCard}>
+                <img src={mealPhotoUrl} alt={t("quickLog.mealPhotoAlt")} className={styles.photoPreview} />
+                <div className={styles.photoPreviewMeta}>
+                  <p className={styles.smallText}>{mealPhotoName ?? t("quickLog.mealPhotoReady")}</p>
+                  <Button type="button" variant="secondary" onClick={() => void handleMealPhotoAnalyze()} loading={isMealPhotoAnalyzing}>
+                    {t("quickLog.mealPhotoAnalyze")}
+                  </Button>
+                  <Button type="button" variant="ghost" onClick={clearMealPhoto}>{t("quickLog.removePhoto")}</Button>
+                </div>
+              </div>
+            ) : null}
+
+            {mealDetectedItems.length > 0 ? (
+              <div className={styles.lookupResult}>
+                <strong>{t("quickLog.mealPhotoDetectedItems")}</strong>
+                {mealDetectedItems.map((item, index) => (
+                  <p key={`${item.name}-${index}`} className={styles.smallText}>
+                    {item.name} - {item.calories} kcal, P {item.protein}g, C {item.carbs}g, G {item.fats}g
+                  </p>
+                ))}
+                {mealAnalysisNotes ? <p className={styles.smallText}>{mealAnalysisNotes}</p> : null}
+              </div>
+            ) : null}
 
             <div className={styles.voiceActions}>
               <Button variant="ghost" onClick={handleVoiceStart} disabled={isListening || !supportsSpeech}>
-                {isListening ? "Escuchando..." : "Usar voz"}
+                {isListening ? t("quickLog.voiceListening") : t("quickLog.voiceStart")}
               </Button>
               <Button variant="ghost" onClick={applyVoiceDraft} disabled={!voiceText.trim()}>
-                Aplicar texto
+                {t("quickLog.voiceApply")}
+              </Button>
+              <Button variant="ghost" onClick={confirmVoiceDraft} disabled={!voiceDraftNeedsConfirmation}>
+                {t("quickLog.voiceConfirm")}
               </Button>
               <Button variant="ghost" onClick={applyLookup} disabled={!lookupQuery.trim()}>
-                Buscar
+                {t("quickLog.lookupApply")}
               </Button>
             </div>
 
@@ -368,8 +569,10 @@ const QuickLogHub = forwardRef<QuickLogHubHandle, QuickLogHubProps>(function Qui
               className={styles.transcript}
               value={voiceText}
               onChange={(event) => setVoiceText(event.target.value)}
-              placeholder='Ej: "Comi 200g pollo y arroz"'
+              placeholder={t("quickLog.voicePlaceholder")}
             />
+
+            {voiceDraftNeedsConfirmation ? <p className={styles.smallText}>{t("quickLog.voiceNeedsConfirmation")}</p> : null}
 
             {lookupResult ? (
               <div className={styles.lookupResult}>
@@ -380,39 +583,39 @@ const QuickLogHub = forwardRef<QuickLogHubHandle, QuickLogHubProps>(function Qui
 
             <div className={styles.fieldRow}>
               <Input label="kcal" type="number" value={mealCalories} onChange={(event) => setMealCalories(Number(event.target.value))} />
-              <Input label="Proteina" type="number" value={mealProtein} onChange={(event) => setMealProtein(Number(event.target.value))} />
+              <Input label={t("quickLog.fieldProtein")} type="number" value={mealProtein} onChange={(event) => setMealProtein(Number(event.target.value))} />
             </div>
             <div className={styles.fieldRow}>
-              <Input label="Carbohidratos" type="number" value={mealCarbs} onChange={(event) => setMealCarbs(Number(event.target.value))} />
-              <Input label="Grasas" type="number" value={mealFats} onChange={(event) => setMealFats(Number(event.target.value))} />
+              <Input label={t("quickLog.fieldCarbs")} type="number" value={mealCarbs} onChange={(event) => setMealCarbs(Number(event.target.value))} />
+              <Input label={t("quickLog.fieldFats")} type="number" value={mealFats} onChange={(event) => setMealFats(Number(event.target.value))} />
             </div>
 
-            <Button className={styles.saveButton} onClick={() => void saveMeal()} loading={isSaving}>
-              Guardar comida
+            <Button className={styles.saveButton} onClick={() => void saveMeal()} loading={isSaving} disabled={voiceDraftNeedsConfirmation}>
+              {t("quickLog.saveMeal")}
             </Button>
           </div>
         ) : null}
 
         {mode === "water" ? (
           <div className={styles.grid}>
-            <Input label="Fecha" type="date" value={waterDate} onChange={(event) => setWaterDate(event.target.value)} />
-            <Input label="Mililitros" type="number" value={waterMl} onChange={(event) => setWaterMl(Number(event.target.value))} helperText="Tip: usa 250ml para registrar con 1 toque." />
+            <Input label={t("quickLog.fieldDate")} type="date" value={waterDate} onChange={(event) => setWaterDate(event.target.value)} />
+            <Input label={t("quickLog.fieldWaterMl")} type="number" value={waterMl} onChange={(event) => setWaterMl(Number(event.target.value))} helperText={t("quickLog.waterTip")} />
             <div className={styles.voiceActions}>
               <Button variant="secondary" onClick={() => setWaterMl(250)}>+250 ml</Button>
               <Button variant="secondary" onClick={() => setWaterMl(500)}>+500 ml</Button>
             </div>
             <Button className={styles.saveButton} onClick={() => void saveWater()} loading={isSaving}>
-              Guardar agua
+              {t("quickLog.saveWater")}
             </Button>
           </div>
         ) : null}
 
         {mode === "weight" ? (
           <div className={styles.grid}>
-            <Input label="Fecha" type="date" value={weightDate} onChange={(event) => setWeightDate(event.target.value)} />
-            <Input label="Peso (kg)" type="number" step="0.1" value={weightKg} onChange={(event) => setWeightKg(Number(event.target.value))} />
+            <Input label={t("quickLog.fieldDate")} type="date" value={weightDate} onChange={(event) => setWeightDate(event.target.value)} />
+            <Input label={t("quickLog.fieldWeightKg")} type="number" step="0.1" value={weightKg} onChange={(event) => setWeightKg(Number(event.target.value))} />
             <Button className={styles.saveButton} onClick={() => void saveWeight()} loading={isSaving}>
-              Guardar peso
+              {t("quickLog.saveWeight")}
             </Button>
           </div>
         ) : null}

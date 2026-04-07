@@ -2,23 +2,93 @@ import type { User } from "@prisma/client";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { MealType } from "@prisma/client";
 import {
+  analyzeMealPhotoRequestSchema,
+  mealPhotoAnalysisJsonSchema,
+  mealPhotoAnalysisResponseSchema,
   createMealLogSchema,
   getMealsQuerySchema,
   mealLogToResponse,
 } from "../meals/schemas.js";
 import { mealLogService } from "../meals/service.js";
+import { sendAiEndpointError } from "../domains/ai/mapAiEndpointError.js";
+import type { OpenAiResponse } from "../ai/provider/openaiClient.js";
 
 interface MealLogParams {
   id: string;
 }
 
 type RequireUserFn = (request: FastifyRequest) => Promise<User>;
+type CallOpenAiFn = (
+  prompt: string,
+  attempt?: number,
+  parser?: (content: string) => Record<string, unknown>,
+  options?: {
+    parser?: (content: string) => Record<string, unknown>;
+    maxTokens?: number;
+    responseFormat?: {
+      type: "json_object";
+    } | {
+      type: "json_schema";
+      json_schema: {
+        name: string;
+        schema: Record<string, unknown>;
+        strict?: boolean;
+      };
+    };
+    model?: string;
+    retryOnParseError?: boolean;
+    userContent?: Array<
+      | { type: "text"; text: string }
+      | { type: "image_url"; image_url: { url: string; detail?: "low" | "high" | "auto" } }
+    >;
+  },
+) => Promise<OpenAiResponse>;
+type CreateHttpErrorFn = (statusCode: number, code: string, debug?: Record<string, unknown>) => Error;
 
 export function registerMealRoutes(
   app: FastifyInstance,
-  deps: { requireUser: RequireUserFn }
+  deps: { requireUser: RequireUserFn; callOpenAi: CallOpenAiFn; createHttpError: CreateHttpErrorFn }
 ): void {
-  const { requireUser } = deps;
+  const { requireUser, callOpenAi, createHttpError } = deps;
+
+  const foodPhotoSystemPrompt = [
+    "Analiza una foto de comida en un plato.",
+    "Devuelve SOLO JSON estricto.",
+    "Estima titulo de comida, items y macros por item (calories, protein, carbs, fats).",
+    "Si no estas seguro, baja confidence y confidenceLabel.",
+    "No inventes ingredientes no visibles.",
+    "Usa valores realistas para una porcion normal.",
+  ].join(" ");
+
+  function roundMacro(value: number): number {
+    return Math.max(0, Math.round(value * 10) / 10);
+  }
+
+  function normalizeAnalysis(payload: unknown) {
+    const parsed = mealPhotoAnalysisResponseSchema.parse(payload);
+    const normalizedItems = parsed.items.map((item) => ({
+      ...item,
+      calories: roundMacro(item.calories),
+      protein: roundMacro(item.protein),
+      carbs: roundMacro(item.carbs),
+      fats: roundMacro(item.fats),
+      ...(item.quantity === undefined ? {} : { quantity: roundMacro(item.quantity) }),
+    }));
+
+    const totals = {
+      calories: roundMacro(normalizedItems.reduce((acc, item) => acc + item.calories, 0)),
+      protein: roundMacro(normalizedItems.reduce((acc, item) => acc + item.protein, 0)),
+      carbs: roundMacro(normalizedItems.reduce((acc, item) => acc + item.carbs, 0)),
+      fats: roundMacro(normalizedItems.reduce((acc, item) => acc + item.fats, 0)),
+    };
+
+    return {
+      ...parsed,
+      items: normalizedItems,
+      totals,
+      confidence: roundMacro(parsed.confidence),
+    };
+  }
 
   // GET /meals - List meal logs
   app.get(
@@ -189,6 +259,76 @@ export function registerMealRoutes(
       }
 
       return reply.status(204).send();
+    }
+  );
+
+  app.post(
+    "/meals/analyze-photo",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      await requireUser(request);
+
+      try {
+        const input = analyzeMealPhotoRequestSchema.parse(request.body);
+        const localeHint =
+          input.locale === "en"
+            ? "Write title and notes in English."
+            : input.locale === "pt"
+              ? "Escreve titulo e notas em portugues."
+              : "Escribe titulo y notas en espanol.";
+
+        const result = await callOpenAi(foodPhotoSystemPrompt, 0, JSON.parse, {
+          responseFormat: {
+            type: "json_schema",
+            json_schema: {
+              name: "meal_photo_analysis",
+              schema: mealPhotoAnalysisJsonSchema as unknown as Record<string, unknown>,
+              strict: true,
+            },
+          },
+          model: "gpt-4o-mini",
+          maxTokens: 700,
+          retryOnParseError: false,
+          userContent: [
+            {
+              type: "text",
+              text: `${localeHint} Prioriza alimentos visibles y evita sobreestimar porciones.`,
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: input.photoDataUrl,
+                detail: "low",
+              },
+            },
+          ],
+        });
+
+        const normalized = normalizeAnalysis(result.payload);
+
+        if (normalized.confidenceLabel === "low" || normalized.confidence < 0.45) {
+          app.log.warn({ confidence: normalized.confidence }, "meal photo analysis low confidence");
+          return reply.status(422).send({
+            error: "LOW_CONFIDENCE",
+            kind: "validation",
+            confidence: normalized.confidence,
+            message: "Could not estimate meal with enough confidence",
+          });
+        }
+
+        return reply.status(200).send(normalized);
+      } catch (error) {
+        const typed = error as { code?: string; message?: string };
+        if (typed.code === "AI_REQUEST_FAILED") {
+          return sendAiEndpointError(reply, createHttpError(502, "AI_REQUEST_FAILED", { kind: "upstream" }));
+        }
+        if (typed.code === "AI_NOT_CONFIGURED") {
+          return sendAiEndpointError(reply, createHttpError(503, "AI_NOT_CONFIGURED", { kind: "internal" }));
+        }
+        if (typed.message?.includes("Invalid image data URL")) {
+          return reply.status(400).send({ error: "INVALID_IMAGE", kind: "validation" });
+        }
+        return sendAiEndpointError(reply, error);
+      }
     }
   );
 }

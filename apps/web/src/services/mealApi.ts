@@ -5,6 +5,7 @@ export type MealItem = {
   name?: string;
   quantity?: number;
   unit?: string;
+  photoUrl?: string;
   calories?: number;
   protein?: number;
   carbs?: number;
@@ -62,6 +63,42 @@ export interface TodaySummary {
   totalFats: number;
   mealCount: number;
   date: string;
+}
+
+export type MealPhotoAnalysisItem = {
+  name: string;
+  quantity?: number;
+  unit?: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fats: number;
+};
+
+export type MealPhotoAnalysisResponse = {
+  title: string;
+  items: MealPhotoAnalysisItem[];
+  totals: {
+    calories: number;
+    protein: number;
+    carbs: number;
+    fats: number;
+  };
+  confidence: number;
+  confidenceLabel: "low" | "medium" | "high";
+  notes?: string;
+};
+
+export class MealPhotoAnalysisError extends Error {
+  code: string;
+  status: number;
+
+  constructor(code: string, status: number, message?: string) {
+    super(message ?? code);
+    this.name = "MealPhotoAnalysisError";
+    this.code = code;
+    this.status = status;
+  }
 }
 
 /**
@@ -210,4 +247,34 @@ export async function deleteMealLog(id: string): Promise<void> {
   if (!response.ok) {
     throw new Error(`Failed to delete meal: ${response.status}`);
   }
+}
+
+export async function analyzeMealPhoto(params: {
+  photoDataUrl: string;
+  locale?: "es" | "en" | "pt";
+}): Promise<MealPhotoAnalysisResponse> {
+  const response = await fetch(`${API_BASE}/analyze-photo`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(params),
+  });
+
+  const payload = (await response.json().catch(() => null)) as { error?: string; message?: string } | MealPhotoAnalysisResponse | null;
+
+  if (!response.ok) {
+    const code = payload && typeof payload === "object" && "error" in payload && typeof payload.error === "string"
+      ? payload.error
+      : "AI_REQUEST_FAILED";
+    const message = payload && typeof payload === "object" && "message" in payload && typeof payload.message === "string"
+      ? payload.message
+      : undefined;
+    throw new MealPhotoAnalysisError(code, response.status, message);
+  }
+
+  if (!payload || typeof payload !== "object" || !("title" in payload) || !("items" in payload) || !("totals" in payload)) {
+    throw new MealPhotoAnalysisError("CONTRACT_DRIFT", 502);
+  }
+
+  return payload as MealPhotoAnalysisResponse;
 }

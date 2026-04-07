@@ -18,6 +18,7 @@ import { useLanguage } from "@/context/LanguageProvider";
 import { trackEvent } from "@/lib/analytics";
 import { addDays, parseDate, startOfWeek, toDateKey } from "@/lib/calendar";
 import { defaultProfile, type ProfileData } from "@/lib/profile";
+import { compressAvatarToDataUrl } from "@/lib/avatarUpload";
 import {
   getUserProfile,
   saveCheckinAndSyncProfileMetrics,
@@ -356,6 +357,10 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
   const [checkinEnergy, setCheckinEnergy] = useState(3);
   const [checkinHunger, setCheckinHunger] = useState(3);
   const [checkinNotes, setCheckinNotes] = useState("");
+  const [checkinFrontPhotoUrl, setCheckinFrontPhotoUrl] = useState<string | null>(null);
+  const [checkinSidePhotoUrl, setCheckinSidePhotoUrl] = useState<string | null>(null);
+  const [checkinPhotoError, setCheckinPhotoError] = useState<string | null>(null);
+  const [isCheckinPhotoProcessing, setIsCheckinPhotoProcessing] = useState(false);
   const [energyDate, setEnergyDate] = useState(() =>
     new Date().toISOString().slice(0, 10),
   );
@@ -450,7 +455,7 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
     waist: null,
     measurements: null,
   });
-  const supportsCheckinPhotos = false;
+  const supportsCheckinPhotos = true;
   const isMountedRef = useRef(true);
 
   const isWeightValid =
@@ -482,6 +487,7 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
     !isBodyFatValid ||
     !isWaistValid ||
     isSubmitting;
+
   const adjustmentInput = canApplyTrainingAdjustment(profile)
     ? getTrainingAdjustmentInput(profile)
     : null;
@@ -739,6 +745,29 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
     return t("profile.checkinKeep");
   }
 
+  async function handleCheckinPhotoUpload(
+    side: "front" | "side",
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setCheckinPhotoError(null);
+    setIsCheckinPhotoProcessing(true);
+    try {
+      const compressed = await compressAvatarToDataUrl(file);
+      if (side === "front") {
+        setCheckinFrontPhotoUrl(compressed);
+      } else {
+        setCheckinSidePhotoUrl(compressed);
+      }
+    } catch {
+      setCheckinPhotoError(t("tracking.checkinPhotoUploadError"));
+    } finally {
+      setIsCheckinPhotoProcessing(false);
+      event.target.value = "";
+    }
+  }
+
   async function addCheckin(e: React.FormEvent) {
     e.preventDefault();
     if (isCheckinSubmitDisabled) return;
@@ -793,8 +822,14 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
       hunger: resolvedHunger,
       notes: resolvedNotes,
       recommendation,
-      frontPhotoUrl: null,
-      sidePhotoUrl: null,
+      frontPhotoUrl:
+        checkinMode === "full" && supportsCheckinPhotos
+          ? checkinFrontPhotoUrl
+          : null,
+      sidePhotoUrl:
+        checkinMode === "full" && supportsCheckinPhotos
+          ? checkinSidePhotoUrl
+          : null,
     };
 
     const nextCheckins = [entry, ...checkins].sort((a, b) =>
@@ -813,6 +848,9 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
     });
     if (saved) {
       setCheckinNotes("");
+      setCheckinFrontPhotoUrl(null);
+      setCheckinSidePhotoUrl(null);
+      setCheckinPhotoError(null);
     }
   }
 
@@ -1151,6 +1189,18 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
           : [];
     return [...source].sort((a, b) => b.date.localeCompare(a.date));
   }, [checkins, fallbackProfileCheckin]);
+  const checkinPhotosAvailable = useMemo(
+    () =>
+      sortedCheckins.filter(
+        (entry) => Boolean(entry.frontPhotoUrl) || Boolean(entry.sidePhotoUrl),
+      ),
+    [sortedCheckins],
+  );
+  const currentCheckinPhoto = checkinPhotosAvailable[0] ?? null;
+  const baselineCheckinPhoto =
+    checkinPhotosAvailable.length > 1
+      ? checkinPhotosAvailable[checkinPhotosAvailable.length - 1]
+      : null;
   const professionalInsights = useMemo(
     () =>
       buildProfessionalTrackingInsights({
@@ -2409,6 +2459,60 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
                 />
               </label>
             ) : null}
+            {checkinMode === "full" && supportsCheckinPhotos ? (
+              <div className={styles.photoUploadSection}>
+                <h3 className="section-title section-title-sm">
+                  {t("tracking.checkinPhotoUploadTitle")}
+                </h3>
+                <p className="muted">{t("tracking.checkinPhotoConsent")}</p>
+                <div className={styles.photoUploadGrid}>
+                  <label className={styles.photoUploadField}>
+                    <span>{t("tracking.checkinFrontPhotoLabel")}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={(event) =>
+                        void handleCheckinPhotoUpload("front", event)
+                      }
+                    />
+                  </label>
+                  <label className={styles.photoUploadField}>
+                    <span>{t("tracking.checkinSidePhotoLabel")}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={(event) =>
+                        void handleCheckinPhotoUpload("side", event)
+                      }
+                    />
+                  </label>
+                </div>
+                {isCheckinPhotoProcessing ? (
+                  <p className="muted">{t("tracking.checkinPhotoProcessing")}</p>
+                ) : null}
+                {checkinPhotoError ? (
+                  <p className="muted">{checkinPhotoError}</p>
+                ) : null}
+                <div className={styles.photoPreviewGrid}>
+                  {checkinFrontPhotoUrl ? (
+                    <img
+                      src={checkinFrontPhotoUrl}
+                      alt={t("tracking.checkinFrontPhotoLabel")}
+                      className={styles.photoPreview}
+                    />
+                  ) : null}
+                  {checkinSidePhotoUrl ? (
+                    <img
+                      src={checkinSidePhotoUrl}
+                      alt={t("tracking.checkinSidePhotoLabel")}
+                      className={styles.photoPreview}
+                    />
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
             {submitError ? (
               <div className="status-card status-card--warning" role="alert">
                 <p className="muted m-0">{submitError}</p>
@@ -2453,6 +2557,62 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
           </form>
 
           <div style={{ marginTop: 16, display: "grid", gap: 10 }}>
+            {currentCheckinPhoto && baselineCheckinPhoto ? (
+              <div className={styles.photoComparisonCard}>
+                <h3 className="section-title section-title-sm">
+                  {t("tracking.checkinPhotoCompareTitle")}
+                </h3>
+                <p className="muted">{t("tracking.checkinPhotoCompareSubtitle")}</p>
+                <div className={styles.photoCompareGrid}>
+                  <div className={styles.photoCompareColumn}>
+                    <strong>
+                      {t("tracking.checkinPhotoCompareBaseline", {
+                        date: baselineCheckinPhoto.date,
+                      })}
+                    </strong>
+                    <div className={styles.photoPreviewGrid}>
+                      {baselineCheckinPhoto.frontPhotoUrl ? (
+                        <img
+                          src={baselineCheckinPhoto.frontPhotoUrl}
+                          alt={t("tracking.checkinFrontPhotoLabel")}
+                          className={styles.photoPreview}
+                        />
+                      ) : null}
+                      {baselineCheckinPhoto.sidePhotoUrl ? (
+                        <img
+                          src={baselineCheckinPhoto.sidePhotoUrl}
+                          alt={t("tracking.checkinSidePhotoLabel")}
+                          className={styles.photoPreview}
+                        />
+                      ) : null}
+                    </div>
+                  </div>
+                  <div className={styles.photoCompareColumn}>
+                    <strong>
+                      {t("tracking.checkinPhotoCompareCurrent", {
+                        date: currentCheckinPhoto.date,
+                      })}
+                    </strong>
+                    <div className={styles.photoPreviewGrid}>
+                      {currentCheckinPhoto.frontPhotoUrl ? (
+                        <img
+                          src={currentCheckinPhoto.frontPhotoUrl}
+                          alt={t("tracking.checkinFrontPhotoLabel")}
+                          className={styles.photoPreview}
+                        />
+                      ) : null}
+                      {currentCheckinPhoto.sidePhotoUrl ? (
+                        <img
+                          src={currentCheckinPhoto.sidePhotoUrl}
+                          alt={t("tracking.checkinSidePhotoLabel")}
+                          className={styles.photoPreview}
+                        />
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : null}
             {sortedCheckins.length === 0 ? (
               <div className="empty-state">
                 <p className="muted">{t("profile.checkinEmpty")}</p>

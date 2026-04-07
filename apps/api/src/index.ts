@@ -8040,6 +8040,8 @@ registerAdminAssignGymRoleRoutes(app, {
 
 registerMealRoutes(app, {
   requireUser,
+  callOpenAi,
+  createHttpError,
 });
 
 registerProfileRoutes(app, {
