@@ -3052,6 +3052,7 @@
       }
     },
     "join": {
+      "consumerCta": "Join a gym",
       "selectLabel": "Select a gym",
       "requestButton": "Request access",
       "codeLabel": "Gym code",

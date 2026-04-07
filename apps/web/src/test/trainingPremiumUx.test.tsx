@@ -456,6 +456,37 @@ describe("Training premium UX from plan", () => {
     expect(await screen.findByRole("button", { name: /ver detalles del pr[oó]ximo entrenamiento/i })).toBeInTheDocument();
   });
 
+  it("shows join gym CTA on rest day when user has no gym", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "/api/ai/quota") return mockResponse({ tokens: 10 });
+      if (url === "/api/auth/me") {
+        return mockResponse({ gymId: null, gymName: null, entitlements: { modules: { strength: { enabled: true } } }, aiTokenBalance: 10 });
+      }
+      if (url.startsWith("/api/training-plans/active")) {
+        return mockResponse({
+          source: "assigned",
+          plan: {
+            id: "plan-rest",
+            title: "Plan descanso",
+            startDate: today.toISOString(),
+            days: [{ label: "Dia 1", focus: "Recuperacion", duration: 30, date: todayKey, exercises: [] }],
+          },
+        });
+      }
+      if (url === "/api/workouts") return mockResponse([]);
+      return mockResponse({});
+    });
+
+    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+    renderWithProviders(<TrainingPlanClient />);
+
+    const joinGymCta = await screen.findByRole("button", { name: /Unirme a un gimnasio|GYM/i });
+    fireEvent.click(joinGymCta);
+
+    expect(getMockNavigation().push).toHaveBeenCalledWith("/app/gym");
+  });
+
   it("logs a single exercise from the daily exercise list", async () => {
     let loggedEntries = 0;
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {

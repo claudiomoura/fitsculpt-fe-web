@@ -55,11 +55,15 @@ describe("navConfig", () => {
       },
     });
 
-    expect(mainTabsMobile).toHaveLength(5);
+    // With feature gating removed from mainTabsMobile, all 6 tabs always show
+    // This is intentional - Entrenamiento, Nutricion and Gimnasios should be visible to all users
+    expect(mainTabsMobile).toHaveLength(6);
     expect(gatedTabs.map((tab) => tab.href)).toEqual([
       "/app/hoy",
       "/app/entrenamiento",
+      "/app/nutricion",
       "/app/seguimiento",
+      "/app/gym",
       "/app/profile",
     ]);
   });

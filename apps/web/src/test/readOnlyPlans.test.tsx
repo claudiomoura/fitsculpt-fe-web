@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { defaultProfile } from "@/lib/profile";
-import { renderWithProviders, resetMockNavigation } from "@/test/utils/renderWithProviders";
+import { getMockNavigation, renderWithProviders, resetMockNavigation } from "@/test/utils/renderWithProviders";
 
 const completeProfile = {
   ...defaultProfile,
@@ -47,7 +47,7 @@ function mockResponse(payload: unknown, status = 200): Response {
 function setupBaseMocks() {
   vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
     const url = String(input);
-    if (url === "/api/auth/me") return mockResponse({ role: "user", aiEntitlements: { nutrition: true, strength: true } });
+    if (url === "/api/auth/me") return mockResponse({ role: "user", gymId: null, gymName: null, aiEntitlements: { nutrition: true, strength: true } });
     if (url === "/api/billing/status") return mockResponse({ plan: "FREE", status: "active" });
     if (url === "/api/ai/quota") return mockResponse({ tokens: 10 });
     if (url.startsWith("/api/recipes")) return mockResponse({ items: [] });
@@ -82,6 +82,12 @@ describe("Read-only plan pages", () => {
     // Allow buttons and links, but no data-entry form fields
     const formFields = container.querySelectorAll("input[type=text], input[type=number], input[type=date], select, textarea");
     expect(formFields.length).toBe(0);
+
+    const joinGymCta = await screen.findByRole("button", { name: /Unirme a un gimnasio|GYM/i });
+    const manualPlanCta = await screen.findByRole("link", { name: /Crear (plan )?manual|Generar con IA/i });
+    expect(manualPlanCta).toHaveAttribute("href", "/app/entrenamiento/editar");
+    fireEvent.click(joinGymCta);
+    expect(getMockNavigation().push).toHaveBeenCalledWith("/app/gym");
   });
 
   it("renders nutrition plan without editable form fields", async () => {
@@ -114,6 +120,12 @@ describe("Read-only plan pages", () => {
     // Allow buttons and links, but no data-entry form fields
     const formFields = container.querySelectorAll("input[type=text], input[type=number], input[type=date], select, textarea");
     expect(formFields.length).toBe(0);
+
+    const joinGymCta = await screen.findByRole("button", { name: /Unirme a un gimnasio|GYM/i });
+    const manualPlanCta = await screen.findByRole("link", { name: /Crear (plan )?manual|Generar con IA/i });
+    expect(manualPlanCta).toHaveAttribute("href", "/app/nutricion/editar");
+    fireEvent.click(joinGymCta);
+    expect(getMockNavigation().push).toHaveBeenCalledWith("/app/gym");
   });
 
   it("renders macros without editable form fields", async () => {

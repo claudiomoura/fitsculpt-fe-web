@@ -1,7 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/design-system/components/Button";
+import { ButtonLink } from "@/design-system/components/Button";
+import { useLanguage } from "@/context/LanguageProvider";
 
 type TodayPriorityHeroProps = {
   trainingState: "workout" | "rest" | "no-plan";
@@ -13,6 +16,9 @@ type TodayPriorityHeroProps = {
   primaryActionLabel?: string;
   onPrimaryAction?: () => void;
   primaryActionDisabled?: boolean;
+  hasPlan?: boolean;
+  hasAiEntitlement?: boolean;
+  gymMembershipState?: "in_gym" | "not_in_gym" | "unknown";
   className?: string;
 };
 
@@ -38,9 +44,16 @@ export function TodayPriorityHero({
   primaryActionLabel,
   onPrimaryAction,
   primaryActionDisabled = false,
+  hasPlan = false,
+  hasAiEntitlement = false,
+  gymMembershipState = "unknown",
   className,
 }: TodayPriorityHeroProps) {
   const router = useRouter();
+  const { t } = useLanguage();
+
+  const currentPath = typeof window !== "undefined" ? window.location.pathname : "/app/hoy";
+  const billingHref = `/app/settings/billing?returnTo=${encodeURIComponent(currentPath)}`;
 
   const handlePrimaryAction = () => {
     if (onPrimaryAction) {
@@ -209,38 +222,128 @@ export function TodayPriorityHero({
         </div>
       )}
 
-      {/* Action button - single dominant CTA */}
-      <div
-        style={{
-          display: "flex",
-          gap: "clamp(8px, 2vw, 16px)",
-          alignItems: "center",
-        }}
-      >
-        <Button
-          onClick={handlePrimaryAction}
-          disabled={primaryActionDisabled}
+      {/* Action buttons - 3 CTAs when no plan, consistent with Nutrition */}
+      {trainingState === "no-plan" ? (
+        <div
           style={{
-            flex: "clamp(120px, 30vw, 360px)",
-            minWidth: "120px",
-            height: "clamp(44px, 8vw, 56px)",
-            fontSize: "clamp(14px, 2vw, 18px)",
-            fontWeight: 600,
-            background: !primaryActionDisabled
-              ? "linear-gradient(135deg, #00B4A0 0%, #2378FF 100%)"
-              : "rgba(255,255,255,0.1)",
-            border: "none",
-            borderRadius: "28px",
-            cursor: primaryActionDisabled ? "not-allowed" : "pointer",
-            color: "#fff",
-            boxShadow: !primaryActionDisabled
-              ? "0 4px 20px rgba(0, 180, 160, 0.3)"
-              : "none",
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "clamp(8px, 2vw, 16px)",
+            alignItems: "center",
           }}
         >
-          {ctaLabel}
-        </Button>
-      </div>
+          {/* Primary (AZUL): Crear con IA - goes to billing if FREE */}
+          {hasAiEntitlement ? (
+            <ButtonLink
+              as={Link}
+              href="/app/entrenamiento?ai=1"
+              style={{
+                flex: "clamp(120px, 30vw, 360px)",
+                minWidth: "120px",
+                height: "clamp(44px, 8vw, 56px)",
+                fontSize: "clamp(14px, 2vw, 18px)",
+                fontWeight: 600,
+                background: "linear-gradient(135deg, #00B4A0 0%, #2378FF 100%)",
+                border: "none",
+                borderRadius: "28px",
+                color: "#fff",
+                boxShadow: "0 4px 20px rgba(0, 180, 160, 0.3)",
+              }}
+            >
+              {t("today.trainingAiCta")}
+            </ButtonLink>
+          ) : (
+            <ButtonLink
+              as={Link}
+              href={billingHref}
+              style={{
+                flex: "clamp(120px, 30vw, 360px)",
+                minWidth: "120px",
+                height: "clamp(44px, 8vw, 56px)",
+                fontSize: "clamp(14px, 2vw, 18px)",
+                fontWeight: 600,
+                background: "linear-gradient(135deg, #00B4A0 0%, #2378FF 100%)",
+                border: "none",
+                borderRadius: "28px",
+                color: "#fff",
+                boxShadow: "0 4px 20px rgba(0, 180, 160, 0.3)",
+              }}
+            >
+              {t("today.trainingAiCta")}
+            </ButtonLink>
+          )}
+
+          {/* Secondary: Unirse a un gimnasio */}
+          <ButtonLink
+            as={Link}
+            href="/app/gym"
+            style={{
+              flex: "clamp(80px, 20vw, 270px)",
+              minWidth: "80px",
+              height: "clamp(44px, 8vw, 56px)",
+              fontSize: "clamp(14px, 2vw, 18px)",
+              fontWeight: 500,
+              background: "transparent",
+              border: "2px solid rgba(255, 255, 255, 0.3)",
+              borderRadius: "28px",
+              color: "rgba(255, 255, 255, 0.9)",
+            }}
+          >
+            {t("gym.join.consumerCta")}
+          </ButtonLink>
+
+          {/* Tertiary: Crear plan manual */}
+          <ButtonLink
+            as={Link}
+            href="/app/entrenamiento/editar"
+            style={{
+              flex: "clamp(60px, 15vw, 170px)",
+              minWidth: "60px",
+              height: "clamp(44px, 8vw, 56px)",
+              fontSize: "clamp(14px, 2vw, 18px)",
+              fontWeight: 500,
+              background: "rgba(255,255,255,0.1)",
+              border: "none",
+              borderRadius: "28px",
+              color: "rgba(255, 255, 255, 0.7)",
+            }}
+          >
+            {t("today.trainingManualCta")}
+          </ButtonLink>
+        </div>
+      ) : (
+        <div
+          style={{
+            display: "flex",
+            gap: "clamp(8px, 2vw, 16px)",
+            alignItems: "center",
+          }}
+        >
+          <Button
+            onClick={handlePrimaryAction}
+            disabled={primaryActionDisabled}
+            style={{
+              flex: "clamp(120px, 30vw, 360px)",
+              minWidth: "120px",
+              height: "clamp(44px, 8vw, 56px)",
+              fontSize: "clamp(14px, 2vw, 18px)",
+              fontWeight: 600,
+              background: !primaryActionDisabled
+                ? "linear-gradient(135deg, #00B4A0 0%, #2378FF 100%)"
+                : "rgba(255,255,255,0.1)",
+              border: "none",
+              borderRadius: "28px",
+              cursor: primaryActionDisabled ? "not-allowed" : "pointer",
+              color: "#fff",
+              boxShadow: !primaryActionDisabled
+                ? "0 4px 20px rgba(0, 180, 160, 0.3)"
+                : "none",
+            }}
+          >
+            {ctaLabel}
+          </Button>
+        </div>
+      )}
     </article>
   );
 }

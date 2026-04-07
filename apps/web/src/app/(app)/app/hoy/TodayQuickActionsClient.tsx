@@ -64,6 +64,8 @@ type TodaySignals = {
   userName: string;
   subscriptionPlan: string;
   aiTokenBalance: number;
+  hasAiEntitlement: boolean;
+  gymMembershipState: "in_gym" | "not_in_gym" | "unknown";
   trainingName: string;
   trainingDuration: number | null;
   trainingExerciseCount: number;

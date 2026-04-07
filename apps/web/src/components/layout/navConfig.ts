@@ -67,7 +67,7 @@ export type MobileTab = {
   href?: string;
   label?: string;
   labelKey?: string;
-  icon: "tab-home" | "tab-workout" | "tab-nutrition" | "tab-progress" | "tab-profile" | "sparkles" | "dumbbell" | "book" | "info" | "check";
+  icon: "tab-home" | "tab-workout" | "tab-nutrition" | "tab-progress" | "tab-profile" | "tab-gym" | "sparkles" | "dumbbell" | "book" | "info" | "check";
   badgeCount?: number;
   feature?: EntitlementFeature;
   upgradeHref?: string;
@@ -85,16 +85,15 @@ export const mainTabsMobile: MobileTab[] = [
     href: "/app/entrenamiento",
     label: "Entreno",
     icon: "tab-workout",
-    feature: "strength",
   },
   {
     id: "nutrition",
     href: "/app/nutricion",
     label: "Nutrición",
     icon: "tab-nutrition",
-    feature: "nutrition",
   },
   { id: "tracking", href: "/app/seguimiento", label: "Progreso", icon: "tab-progress" },
+  { id: "gym", href: "/app/gym", label: "Gimnasios", icon: "tab-gym" },
   { id: "profile", href: "/app/profile", label: "Perfil", icon: "tab-profile" },
 ];
 

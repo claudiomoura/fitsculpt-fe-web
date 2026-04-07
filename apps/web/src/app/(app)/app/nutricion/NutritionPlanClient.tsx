@@ -60,6 +60,7 @@ import {
   normalizeToUtcStartOfDay,
 } from "../entrenamiento/hooks/useTrainingCalendar";
 import { trackEvent } from "@/lib/analytics";
+import { extractGymMembership, type GymMembershipState } from "@/lib/gymMembership";
 import {
   type NutritionQuickFavorite,
   useNutritionQuickFavorites,
@@ -1167,6 +1168,7 @@ export default function NutritionPlanClient({
   const [error, setError] = useState<string | null>(null);
   const [aiTokenBalance, setAiTokenBalance] = useState<number | null>(null);
   const [aiTokenRenewalAt, setAiTokenRenewalAt] = useState<string | null>(null);
+  const [gymMembershipState, setGymMembershipState] = useState<GymMembershipState>("unknown");
   const [aiEntitled, setAiEntitled] = useState(false);
   const [aiEntitlementResolved, setAiEntitlementResolved] = useState(false);
   const [shoppingList, setShoppingList] = useState<ShoppingItem[]>([]);
@@ -1474,6 +1476,7 @@ export default function NutritionPlanClient({
     setAiTokenBalance(result.aiTokenBalance);
     setAiTokenRenewalAt(result.aiTokenRenewalAt);
     setAiEntitled(hasNutritionAiEntitlement(result.rawData as AiEntitlementProfile));
+    setGymMembershipState(extractGymMembership(result.rawData).state);
     window.dispatchEvent(new Event("auth:refresh"));
     setAiEntitlementResolved(true);
   };
@@ -1995,6 +1998,7 @@ export default function NutritionPlanClient({
       const updated = await updateUserProfile({ nutritionPlan: planToSave });
       setSavedPlan(updated.nutritionPlan ?? planToSave);
       setSaveMessage(t("nutrition.manualSaveSuccess"));
+      router.push("/app/nutricion");
     } catch (_err) {
       setSaveMessage(t("nutrition.savePlanError"));
     } finally {
@@ -2896,23 +2900,27 @@ export default function NutritionPlanClient({
       scroll: false,
     });
 
-    if (!aiEntitled) return;
+    if (!aiEntitled) {
+      trackEvent("upgrade_started", {
+        target: "nutrition",
+        origin: "nutrition_ai_query",
+        returnTo: currentRoute,
+      });
+      router.push(billingHref);
+      return;
+    }
     void handleAiPlan();
-  }, [aiEntitled, aiEntitlementResolved, profile, router, searchParams]);
+  }, [aiEntitled, aiEntitlementResolved, billingHref, currentRoute, profile, router, searchParams]);
 
   const handleGenerateClick = () => {
     if (aiGenerationInFlight.current || aiLoading || !profile) return;
     if (!aiEntitled) {
-      setAiQuotaExceededError(false);
-      setAiError({
-        title: t("nutrition.aiErrorState.title"),
-        description: aiLockDescription,
-        actionableHint: null,
-        details: null,
-        canRetry: false,
-        ctaHref: null,
-        ctaLabel: null,
+      trackEvent("upgrade_started", {
+        target: "nutrition",
+        origin: "nutrition_ai_generate",
+        returnTo: currentRoute,
       });
+      router.push(billingHref);
       return;
     }
     if (aiTokenBalance !== null && aiTokenBalance <= 0) {
@@ -2943,7 +2951,8 @@ export default function NutritionPlanClient({
 
   const isAiLocked = !aiEntitled;
   const isOutOfTokens = aiTokenBalance !== null && aiTokenBalance <= 0;
-  const isAiDisabled = aiLoading || isAiLocked || isOutOfTokens;
+  const shouldShowJoinGymCta = gymMembershipState === "not_in_gym";
+  const isAiDisabled = aiLoading || isOutOfTokens;
   const aiLockDescription = safeT(
     "nutrition.aiModuleRequired",
     "Requiere NutriAI o PRO",
@@ -2956,6 +2965,36 @@ export default function NutritionPlanClient({
     tone === "warning"
       ? "status-card status-card--warning"
       : "status-card status-card--success";
+
+  const handleJoinGymCtaClick = () => {
+    trackEvent("gym_join_cta_clicked", { target: "nutrition", origin: "nutrition_empty" });
+    router.push("/app/gym");
+  };
+
+  const nutritionNoPlanActions = shouldShowJoinGymCta
+    ? [
+      {
+        label: t("nutrition.assignedPlanCta"),
+        href: "/app/nutricion/editar",
+      },
+      {
+        label: safeT("gym.join.consumerCta", "Unirme a un gimnasio"),
+        onClick: handleJoinGymCtaClick,
+        variant: "secondary" as const,
+      },
+    ]
+    : [
+      {
+        label: t("nutrition.assignedPlanCta"),
+        href: "/app/nutricion/editar",
+      },
+      ...(!isAiLocked
+        ? [{ label: aiLoading ? t("nutrition.aiGenerating") : t("nutrition.aiGenerate"), onClick: handleGenerateClick, disabled: isAiDisabled || aiLoading, variant: "secondary" as const }]
+        : []),
+      ...((isAiLocked || isOutOfTokens)
+        ? [{ label: t("billing.manageBilling"), href: billingHref, variant: "ghost" as const }]
+        : []),
+    ];
 
   const generatedPlanPreviewDay = useMemo(() => {
     if (!lastGeneratedAiPlan?.days?.length) return null;
@@ -3366,16 +3405,10 @@ export default function NutritionPlanClient({
               <EmptyState
                 icon="info"
                 title={t("nutrition.emptyTitle")}
-                description={t("nutrition.emptySubtitle")}
-                actions={[
-                  ...(!isAiLocked
-                    ? [{ label: aiLoading ? t("nutrition.aiGenerating") : t("nutrition.aiGenerate"), onClick: handleGenerateClick, disabled: isAiDisabled || aiLoading }]
-                    : []),
-                  { label: t("nutrition.assignedPlanCta"), href: "/app/nutricion/editar", variant: isAiLocked ? "primary" : "secondary" },
-                  ...((isAiLocked || isOutOfTokens)
-                    ? [{ label: t("billing.manageBilling"), href: billingHref, variant: "ghost" as const }]
-                    : []),
-                ]}
+                description={shouldShowJoinGymCta
+                  ? safeT("nutrition.noGymPlanSubtitle", "Únete a un gimnasio para recibir un plan asignado y empezar con seguimiento nutricional guiado.")
+                  : t("nutrition.emptySubtitle")}
+                actions={nutritionNoPlanActions}
                 data-testid="member-nutrition-empty-state"
               >
                 {isOutOfTokens ? <p className="muted mt-8">{t("ai.insufficientTokens")}</p> : null}
@@ -4251,7 +4284,12 @@ export default function NutritionPlanClient({
               <button
                 type="button"
                 className="btn secondary"
-                onClick={() => visiblePlan && setManualPlan(visiblePlan)}
+                onClick={() => {
+                  if (visiblePlan) {
+                    setManualPlan(visiblePlan);
+                    router.push("/app/nutricion");
+                  }
+                }}
               >
                 {t("nutrition.manualPlanReset")}
               </button>

@@ -13,6 +13,7 @@ type TodayNutritionCardProps = {
   mealsLogged?: number;
   mealsTotal?: number;
   hasPlan?: boolean;
+  hasAiEntitlement?: boolean;
   nutritionHref?: string;
   detailsHref?: string;
   editHref?: string;
@@ -37,6 +38,7 @@ export function TodayNutritionCard({
   mealsLogged = 0,
   mealsTotal = 3,
   hasPlan = true,
+  hasAiEntitlement = false,
   nutritionHref = "/app/nutricion",
   detailsHref = "/app/nutricion",
   editHref = "/app/nutricion/editar",
@@ -44,6 +46,9 @@ export function TodayNutritionCard({
   className,
 }: TodayNutritionCardProps) {
   const { t } = useLanguage();
+  
+  const currentPath = typeof window !== "undefined" ? window.location.pathname : "/app/hoy";
+  const billingHref = `/app/settings/billing?returnTo=${encodeURIComponent(currentPath)}`;
   // Calculate percentage
   const percent = targetCalories ? Math.min(Math.round((consumedCalories / targetCalories) * 100), 100) : 0;
   const remainingCalories = typeof targetCalories === "number" && Number.isFinite(targetCalories)
@@ -194,29 +199,76 @@ export function TodayNutritionCard({
       </div>
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: "clamp(8px, 2vw, 16px)", alignItems: "center" }}>
+        {/* Primary (AZUL): Crear con IA - goes to billing if FREE */}
+        {hasPlan ? (
+          <ButtonLink
+            as={Link}
+            href={nutritionHref}
+            variant="primary"
+            className="fit-content"
+            style={{
+              flex: "clamp(120px, 30vw, 360px)",
+              minWidth: "120px",
+              height: "clamp(44px, 8vw, 56px)",
+              fontSize: "clamp(14px, 2vw, 18px)",
+              fontWeight: 600,
+              background: "linear-gradient(135deg, #00B4A0 0%, #2378FF 100%)",
+              border: "none",
+              borderRadius: "28px",
+              color: "#fff",
+              boxShadow: "0 4px 20px rgba(0, 180, 160, 0.3)",
+            }}
+          >
+            {t("today.nutritionPrimaryCta")}
+          </ButtonLink>
+        ) : hasAiEntitlement ? (
+          <ButtonLink
+            as={Link}
+            href={aiCreateHref}
+            variant="primary"
+            className="fit-content"
+            style={{
+              flex: "clamp(120px, 30vw, 360px)",
+              minWidth: "120px",
+              height: "clamp(44px, 8vw, 56px)",
+              fontSize: "clamp(14px, 2vw, 18px)",
+              fontWeight: 600,
+              background: "linear-gradient(135deg, #00B4A0 0%, #2378FF 100%)",
+              border: "none",
+              borderRadius: "28px",
+              color: "#fff",
+              boxShadow: "0 4px 20px rgba(0, 180, 160, 0.3)",
+            }}
+          >
+            {t("today.nutritionCreateAiCta")}
+          </ButtonLink>
+        ) : (
+          <ButtonLink
+            as={Link}
+            href={billingHref}
+            variant="primary"
+            className="fit-content"
+            style={{
+              flex: "clamp(120px, 30vw, 360px)",
+              minWidth: "120px",
+              height: "clamp(44px, 8vw, 56px)",
+              fontSize: "clamp(14px, 2vw, 18px)",
+              fontWeight: 600,
+              background: "linear-gradient(135deg, #00B4A0 0%, #2378FF 100%)",
+              border: "none",
+              borderRadius: "28px",
+              color: "#fff",
+              boxShadow: "0 4px 20px rgba(0, 180, 160, 0.3)",
+            }}
+          >
+            {t("today.nutritionCreateAiCta")}
+          </ButtonLink>
+        )}
+
+        {/* Secondary: Unirse a un gimnasio */}
         <ButtonLink
           as={Link}
-          href={hasPlan ? nutritionHref : aiCreateHref}
-          variant="primary"
-          className="fit-content"
-          style={{
-            flex: "clamp(120px, 30vw, 360px)",
-            minWidth: "120px",
-            height: "clamp(44px, 8vw, 56px)",
-            fontSize: "clamp(14px, 2vw, 18px)",
-            fontWeight: 600,
-            background: "linear-gradient(135deg, #00B4A0 0%, #2378FF 100%)",
-            border: "none",
-            borderRadius: "28px",
-            color: "#fff",
-            boxShadow: "0 4px 20px rgba(0, 180, 160, 0.3)",
-          }}
-        >
-          {hasPlan ? t("today.nutritionPrimaryCta") : t("today.nutritionCreateAiCta")}
-        </ButtonLink>
-        <ButtonLink
-          as={Link}
-          href={detailsHref}
+          href="/app/gym"
           variant="secondary"
           className="fit-content"
           style={{
@@ -231,8 +283,10 @@ export function TodayNutritionCard({
             color: "rgba(255, 255, 255, 0.9)",
           }}
         >
-          {t("today.nutritionDetailsCta")}
+          {t("gym.join.consumerCta")}
         </ButtonLink>
+
+        {/* Tertiary: Crear manual */}
         <ButtonLink
           as={Link}
           href={editHref}

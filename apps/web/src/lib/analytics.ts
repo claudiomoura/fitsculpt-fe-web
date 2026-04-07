@@ -27,7 +27,8 @@ export type AnalyticsEventName =
   | "future_projection_viewed"
   | "future_projection_scenario_selected"
   | "rct_status_viewed"
-  | "rct_summary_viewed";
+  | "rct_summary_viewed"
+  | "gym_join_cta_clicked";
 
 export type AnalyticsEventProps = {
   target?: "training" | "nutrition" | "checkin" | "billing";

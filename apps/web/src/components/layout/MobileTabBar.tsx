@@ -15,13 +15,14 @@ import { applyTabEntitlementGating, mainTabsMobile, trainerTabsMobile } from "./
 import { useAuthEntitlements } from "@/hooks/useAuthEntitlements";
 import { useAccess } from "@/lib/useAccess";
 
-const premiumTabIcons = {
+const premiumTabIcons: Record<string, React.ComponentType<{ width?: number; height?: number }>> = {
   "tab-home": PremiumHomeIcon,
   "tab-workout": PremiumWorkoutIcon,
   "tab-nutrition": PremiumNutritionIcon,
   "tab-progress": PremiumProgressIcon,
   "tab-profile": PremiumProfileIcon,
-} as const;
+  "tab-gym": PremiumWorkoutIcon,
+};
 
 export default function MobileTabBar() {
   const { t } = useLanguage();

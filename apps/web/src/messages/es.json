@@ -333,7 +333,7 @@
     "paywallSecondaryCta": "Ahora no",
     "trainingStateRest": "Descanso",
     "trainingStateNoPlan": "No tienes plan activo",
-    "trainingManualCta": "Crear plan manual",
+    "trainingManualCta": "Crear manual",
     "trainingAiCta": "Crear con IA"
   },
   "foods": {
@@ -457,29 +457,17 @@
       {
         "title": "Entrenamiento inteligente",
         "description": "Sesiones balanceadas con foco y progresión.",
-        "badges": [
-          "Plan semanal",
-          "Técnica guiada",
-          "Calendario"
-        ]
+        "badges": ["Plan semanal", "Técnica guiada", "Calendario"]
       },
       {
         "title": "Nutrición práctica",
         "description": "Macros, comidas y listas listas para usar.",
-        "badges": [
-          "Macros claros",
-          "Recetas",
-          "Lista de compras"
-        ]
+        "badges": ["Macros claros", "Recetas", "Lista de compras"]
       },
       {
         "title": "Biblioteca premium",
         "description": "Contenido curado para entrenar mejor.",
-        "badges": [
-          "Ejercicios",
-          "Recetas",
-          "Filtros rápidos"
-        ]
+        "badges": ["Ejercicios", "Recetas", "Filtros rápidos"]
       }
     ],
     "plansTitle": "Planes",
@@ -3055,6 +3043,7 @@
       }
     },
     "join": {
+      "consumerCta": "GYM",
       "selectLabel": "Selecciona un gimnasio",
       "requestButton": "Solicitar acceso",
       "codeLabel": "Código del gimnasio",
