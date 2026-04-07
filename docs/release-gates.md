@@ -34,6 +34,7 @@ Si cualquiera falla (lint/typecheck/build/test), el PR **no** cumple los release
 
 ## Recommended beta gates
 - `pnpm --dir apps/web run e2e:smoke:beta`
+- `npm run rc:gate:bundle`
 - Verificación manual de `returnTo` en billing
 - Verificación manual de Today 3 acciones
 - Verificación manual de focus mode en workout logger
