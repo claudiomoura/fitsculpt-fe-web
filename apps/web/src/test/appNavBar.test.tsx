@@ -4,8 +4,10 @@ import { AccessProvider } from "@/context/AccessProvider";
 import { LanguageProvider } from "@/context/LanguageProvider";
 import { ThemeProvider } from "@/context/ThemeProvider";
 
+let mockPathname = "/app/entrenamiento";
+
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/app/training",
+  usePathname: () => mockPathname,
 }));
 
 vi.mock("@/app/(app)/app/LogoutButton", () => ({
@@ -32,6 +34,7 @@ import AppNavBar from "@/components/layout/AppNavBar";
 
 describe("AppNavBar", () => {
   it("marks the active nav item based on pathname", () => {
+    mockPathname = "/app/entrenamiento";
     vi.stubGlobal(
       "fetch",
       vi.fn(() =>
@@ -43,7 +46,7 @@ describe("AppNavBar", () => {
 
     const { container, getByRole } = render(
       <ThemeProvider>
-        <LanguageProvider>
+        <LanguageProvider initialLocale="es">
           <AccessProvider>
             <AppNavBar />
           </AccessProvider>
@@ -55,6 +58,33 @@ describe("AppNavBar", () => {
 
     const activeLink = container.querySelector('a[aria-current="page"]');
     expect(activeLink).not.toBeNull();
+    expect(activeLink).toHaveAttribute("href", "/app/entrenamiento");
+  });
+
+  it("keeps canonical training nav active for legacy aliases", () => {
+    mockPathname = "/app/training";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve({
+          ok: false,
+        })
+      ) as unknown as typeof fetch
+    );
+
+    const { container } = render(
+      <ThemeProvider>
+        <LanguageProvider initialLocale="es">
+          <AccessProvider>
+            <AppNavBar />
+          </AccessProvider>
+        </LanguageProvider>
+      </ThemeProvider>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /abrir menú/i }));
+
+    const activeLink = container.querySelector('a[aria-current="page"]');
     expect(activeLink).toHaveAttribute("href", "/app/entrenamiento");
   });
 
@@ -71,7 +101,7 @@ describe("AppNavBar", () => {
 
     render(
       <ThemeProvider>
-        <LanguageProvider>
+        <LanguageProvider initialLocale="es">
           <AccessProvider>
             <AppNavBar />
           </AccessProvider>
@@ -105,7 +135,7 @@ describe("AppNavBar", () => {
 
     render(
       <ThemeProvider>
-        <LanguageProvider>
+        <LanguageProvider initialLocale="es">
           <AccessProvider>
             <AppNavBar />
           </AccessProvider>
@@ -136,7 +166,7 @@ describe("AppNavBar", () => {
 
     render(
       <ThemeProvider>
-        <LanguageProvider>
+        <LanguageProvider initialLocale="es">
           <AccessProvider>
             <AppNavBar />
           </AccessProvider>
@@ -159,7 +189,7 @@ describe("AppNavBar", () => {
 
     render(
       <ThemeProvider>
-        <LanguageProvider>
+        <LanguageProvider initialLocale="es">
           <AccessProvider>
             <AppNavBar />
           </AccessProvider>

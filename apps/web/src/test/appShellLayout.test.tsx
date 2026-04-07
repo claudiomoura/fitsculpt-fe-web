@@ -5,7 +5,7 @@ import AppShellLayout from "@/components/layout/AppShellLayout";
 
 describe("AppShellLayout focus routes", () => {
   it("hides app chrome on workout start focus route", () => {
-    setMockPathname("/app/training/workout-1/start");
+    setMockPathname("/app/entrenamiento/workout-1/start");
 
     renderWithProviders(
       <AppShellLayout shell="app">
@@ -33,7 +33,7 @@ describe("AppShellLayout focus routes", () => {
   });
 
   it("hides app chrome on nutrition editor focus route", () => {
-    setMockPathname("/app/nutrition/editar");
+    setMockPathname("/app/nutricion/editar");
 
     renderWithProviders(
       <AppShellLayout shell="app">

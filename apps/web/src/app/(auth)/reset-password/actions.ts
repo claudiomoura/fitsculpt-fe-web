@@ -16,6 +16,8 @@ export async function resetPasswordAction(formData: FormData) {
     redirect("/reset-password?error=1");
   }
 
+  let redirectTarget = "/reset-password?success=1";
+
   try {
     const response = await fetch(`${getBackendUrl()}/auth/reset-password`, {
       method: "POST",
@@ -26,16 +28,16 @@ export async function resetPasswordAction(formData: FormData) {
     if (response.status === 400) {
       const data = (await response.json().catch(() => null)) as { error?: string } | null;
       if (data?.error === "TOKEN_EXPIRED" || data?.error === "INVALID_TOKEN") {
-        redirect("/reset-password?error=expired");
+        redirectTarget = "/reset-password?error=expired";
       }
     }
 
-    if (!response.ok) {
-      redirect("/reset-password?error=1");
+    if (!response.ok && redirectTarget === "/reset-password?success=1") {
+      redirectTarget = "/reset-password?error=1";
     }
   } catch {
-    redirect("/reset-password?error=1");
+    redirectTarget = "/reset-password?error=1";
   }
 
-  redirect("/reset-password?success=1");
+  redirect(redirectTarget);
 }

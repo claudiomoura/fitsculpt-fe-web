@@ -29,6 +29,7 @@ import { getUserProfile, updateUserProfile, updateUserProfilePreferences } from 
 import { compressAvatarToDataUrl } from "@/lib/avatarUpload";
 import { normalizeGoalWeightForGoal } from "@/lib/profileGoal";
 import { fetchAuthMe } from "@/lib/authDedup";
+import { fetchTrackingSnapshotDeduped } from "@/lib/trackingDedup";
 import BodyFatSelector from "@/components/profile/BodyFatSelector";
 import styles from "./profileEdit.module.css";
 
@@ -128,9 +129,7 @@ export default function ProfileClient() {
     let active = true;
     const loadTracking = async () => {
       try {
-        const response = await fetch("/api/tracking", { cache: "no-store", credentials: "include" });
-        if (!response.ok) return;
-        const data = (await response.json()) as { checkins?: Array<{ date?: string }> };
+        const data = (await fetchTrackingSnapshotDeduped()) as { checkins?: Array<{ date?: string }> };
         if (!active) return;
         if (data.checkins && data.checkins.length > 0) {
           const latest = [...data.checkins].sort((a, b) => String(b.date).localeCompare(String(a.date)))[0];

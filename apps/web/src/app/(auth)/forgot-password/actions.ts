@@ -10,6 +10,8 @@ export async function forgotPasswordAction(formData: FormData) {
     redirect("/forgot-password?error=1");
   }
 
+  let redirectTarget = "/forgot-password?success=1";
+
   try {
     const response = await fetch(`${getBackendUrl()}/auth/forgot-password`, {
       method: "POST",
@@ -18,16 +20,14 @@ export async function forgotPasswordAction(formData: FormData) {
     });
 
     if (response.status === 429) {
-      redirect("/forgot-password?error=rate_limited");
-    }
-
-    if (!response.ok) {
-      redirect("/forgot-password?error=1");
+      redirectTarget = "/forgot-password?error=rate_limited";
+    } else if (!response.ok) {
+      redirectTarget = "/forgot-password?error=1";
     }
   } catch {
-    redirect("/forgot-password?error=1");
+    redirectTarget = "/forgot-password?error=1";
   }
 
-  // Always redirect to success to prevent email enumeration
-  redirect("/forgot-password?success=1");
+  // Always default to success to prevent email enumeration
+  redirect(redirectTarget);
 }

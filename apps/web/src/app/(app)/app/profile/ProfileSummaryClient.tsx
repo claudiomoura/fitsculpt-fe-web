@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
 import { type Locale } from "@/lib/i18n";
 import {
@@ -13,8 +13,10 @@ import {
   type TrainingLevel,
 } from "@/lib/profile";
 import { getUserProfile, updateUserProfilePreferences } from "@/lib/profileService";
+import { fetchAuthMe } from "@/lib/authDedup";
 import { isTrainer as isTrainerRole } from "@/lib/roles";
 import { extractGymMembership, type GymMembership } from "@/lib/gymMembership";
+import { ErrorState, LoadingState } from "@/components/states";
 import TrainerProfileSummary from "@/components/trainer/profile/TrainerProfileSummary";
 import { ButtonLink } from "@/design-system/components/Button";
 import { getMeasurementSystemLabel, getStoredMeasurementSystem, type MeasurementSystem } from "@/lib/measurementUnits";
@@ -72,6 +74,9 @@ export default function ProfileSummaryClient() {
   const [draftMealsPerDay, setDraftMealsPerDay] = useState(3);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savingField, setSavingField] = useState<EditableField | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadCount, setReloadCount] = useState(0);
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -115,24 +120,19 @@ export default function ProfileSummaryClient() {
     let active = true;
 
     const load = async () => {
+      setLoading(true);
+      setLoadError(null);
       try {
-        const [profileData, authResponse] = await Promise.all([
+        const [profileData, authData] = await Promise.all([
           getUserProfile(),
-          fetch("/api/auth/me", { cache: "no-store", credentials: "include" }),
+          fetchAuthMe().catch(() => null),
         ]);
 
         if (!active) return;
 
         setProfile(profileData);
 
-        if (authResponse.ok) {
-          const authData = (await authResponse.json()) as {
-            name?: string | null;
-            email?: string | null;
-            subscriptionPlan?: string | null;
-            plan?: string | null;
-            entitlements?: { plan?: { effective?: string | null } | null } | null;
-          };
+        if (authData) {
           setAuth({
             name: authData.name ?? null,
             email: authData.email ?? null,
@@ -140,10 +140,22 @@ export default function ProfileSummaryClient() {
           });
           setIsTrainer(isTrainerRole(authData));
           setGymMembership(extractGymMembership(authData));
+        } else {
+          setAuth({ name: null, email: null, plan: null });
+          setIsTrainer(false);
+          setGymMembership(UNKNOWN_MEMBERSHIP);
         }
       } catch (_error) {
         if (!active) return;
         setProfile(defaultProfile);
+        setAuth({ name: null, email: null, plan: null });
+        setIsTrainer(false);
+        setGymMembership(UNKNOWN_MEMBERSHIP);
+        setLoadError(t("profile.loadError"));
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
       }
     };
 
@@ -152,7 +164,23 @@ export default function ProfileSummaryClient() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [reloadCount, t]);
+
+  if (loading) {
+    return <LoadingState title={t("app.profileTitle")} ariaLabel={t("ui.loading")} lines={4} />;
+  }
+
+  if (loadError) {
+    return (
+      <ErrorState
+        title={t("profile.errorTitle")}
+        description={loadError}
+        retryLabel={t("common.retry")}
+        onRetry={() => setReloadCount((current) => current + 1)}
+        wrapInCard
+      />
+    );
+  }
 
   function startEditing(field: EditableField) {
     setSaveError(null);
@@ -270,41 +298,41 @@ export default function ProfileSummaryClient() {
     });
   }
 
-  const goalLabel = useMemo(() => {
+  const goalLabel = (() => {
     if (!profile.goal) return t("profile.noData");
     if (profile.goal === "cut") return t("profile.goalCut");
     if (profile.goal === "bulk") return t("profile.goalBulk");
     return t("profile.goalMaintain");
-  }, [profile.goal, t]);
+  })();
 
-  const levelLabel = useMemo(() => {
+  const levelLabel = (() => {
     if (!profile.trainingPreferences.level) return t("profile.noData");
     if (profile.trainingPreferences.level === "beginner") return t("profile.trainingLevelBeginner");
     if (profile.trainingPreferences.level === "intermediate") return t("profile.trainingLevelIntermediate");
     return t("profile.trainingLevelAdvanced");
-  }, [profile.trainingPreferences.level, t]);
+  })();
 
-  const trainingDaysLabel = useMemo(() => {
-    if (profile.trainingPreferences.daysPerWeek === null) return t("profile.noData");
-    return String(profile.trainingPreferences.daysPerWeek);
-  }, [profile.trainingPreferences.daysPerWeek, t]);
+  const trainingDaysLabel =
+    profile.trainingPreferences.daysPerWeek === null
+      ? t("profile.noData")
+      : String(profile.trainingPreferences.daysPerWeek);
 
-  const sessionTimeLabel = useMemo(() => {
+  const sessionTimeLabel = (() => {
     if (!profile.trainingPreferences.sessionTime) return t("profile.noData");
     if (profile.trainingPreferences.sessionTime === "short") return t("profile.trainingSessionShort");
     if (profile.trainingPreferences.sessionTime === "long") return t("profile.trainingSessionLong");
     return t("profile.trainingSessionMedium");
-  }, [profile.trainingPreferences.sessionTime, t]);
+  })();
 
-  const dietTypeLabel = useMemo(() => {
-    if (!profile.nutritionPreferences.dietType) return t("profile.noData");
-    return t(`profile.dietType.${profile.nutritionPreferences.dietType}`);
-  }, [profile.nutritionPreferences.dietType, t]);
+  const dietTypeLabel =
+    !profile.nutritionPreferences.dietType
+      ? t("profile.noData")
+      : t(`profile.dietType.${profile.nutritionPreferences.dietType}`);
 
-  const mealsPerDayLabel = useMemo(() => {
-    if (profile.nutritionPreferences.mealsPerDay === null) return t("profile.noData");
-    return String(profile.nutritionPreferences.mealsPerDay);
-  }, [profile.nutritionPreferences.mealsPerDay, t]);
+  const mealsPerDayLabel =
+    profile.nutritionPreferences.mealsPerDay === null
+      ? t("profile.noData")
+      : String(profile.nutritionPreferences.mealsPerDay);
 
   if (isTrainer) {
     return <TrainerProfileSummary profile={profile} loading={false} t={t} gymMembership={gymMembership} />;

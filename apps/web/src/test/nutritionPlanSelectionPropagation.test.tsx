@@ -34,6 +34,10 @@ vi.mock("@/lib/profileService", () => ({
   updateUserProfile: vi.fn(),
 }));
 
+vi.mock("@/lib/profileCompletion", () => ({
+  isProfileComplete: () => true,
+}));
+
 function createPlanPayload(title: string) {
   return {
     title,

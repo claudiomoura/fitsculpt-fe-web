@@ -1851,18 +1851,12 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
         <>
           {!loading && !error && profile && !isProfileComplete(profile) ? (
             <section className="card">
-              <div className="empty-state">
-                <div className="empty-state-icon">
-                  <Icon name="info" />
-                </div>
-                <div>
-                  <h3 className="m-0">{t("training.profileIncompleteTitle")}</h3>
-                  <p className="muted">{t("training.profileIncompleteSubtitle")}</p>
-                </div>
-                <ButtonLink href="/app/onboarding?next=/app/entrenamiento">
-                  {t("profile.openOnboarding")}
-                </ButtonLink>
-              </div>
+              <EmptyState
+                icon="info"
+                title={t("training.profileIncompleteTitle")}
+                description={t("training.profileIncompleteSubtitle")}
+                actions={[{ label: t("profile.openOnboarding"), href: "/app/onboarding?next=/app/entrenamiento" }]}
+              />
             </section>
           ) : !loading && !error && !hasPlan ? (
             <section className="card">

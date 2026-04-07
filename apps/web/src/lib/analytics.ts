@@ -57,6 +57,12 @@ let analyticsInitialized = false;
 export function initAnalytics() {
   if (typeof window === "undefined" || analyticsInitialized) return;
 
+  if (window.navigator.webdriver) {
+    analyticsInitialized = true;
+    analyticsEnabled = false;
+    return;
+  }
+
   const apiKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;
   if (!apiKey) {
     analyticsInitialized = true;

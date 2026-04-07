@@ -28,6 +28,33 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:4000
 
 Use o ficheiro `.env.example` na raiz do repositório como referência e mantenha os valores reais apenas no seu ambiente local. Nunca comite `.env`, `.env.local` ou credenciais.
 
+Para observabilidade (local/dev), configure tambem:
+
+```bash
+NEXT_PUBLIC_SENTRY_DSN=
+NEXT_PUBLIC_POSTHOG_KEY=
+NEXT_PUBLIC_POSTHOG_HOST=https://app.posthog.com
+NEXT_PUBLIC_APP_ENV=development
+```
+
+### Produção (Vercel)
+
+Configure no projeto Vercel:
+
+- `BACKEND_URL` e `NEXT_PUBLIC_BACKEND_URL` (Render API URL)
+- `NEXT_PUBLIC_SENTRY_DSN`
+- `NEXT_PUBLIC_POSTHOG_KEY`
+- `NEXT_PUBLIC_POSTHOG_HOST` (default: `https://app.posthog.com`)
+- `NEXT_PUBLIC_APP_ENV=production`
+
+### Smoke gate (beta)
+
+Com API e web locais no ar, execute o gate principal:
+
+```bash
+npm run e2e:smoke:beta
+```
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

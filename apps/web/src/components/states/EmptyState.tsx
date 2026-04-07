@@ -27,6 +27,7 @@ type EmptyStateProps = {
   children?: ReactNode;
   ariaLabel?: string;
   variant?: EmptyStateVariant;
+  "data-testid"?: string;
 };
 
 function renderActions(actions?: StateAction[]) {
@@ -83,6 +84,7 @@ export function EmptyState({
   children,
   ariaLabel,
   variant = "default",
+  "data-testid": dataTestId,
 }: EmptyStateProps) {
   const isPremium = variant === "premium";
   const isMinimal = variant === "minimal";
@@ -98,6 +100,7 @@ export function EmptyState({
       role="status"
       aria-live="polite"
       aria-label={ariaLabel}
+      data-testid={dataTestId}
     >
       {!isMinimal && (
         <div className={cn("empty-state-icon", isPremium && "empty-state-icon--premium")}>

@@ -30,7 +30,7 @@ export default function TrainerMemberNutritionPlanAssignmentCard({ memberId }: {
 
   const assign = async () => {
     if (!selected) return;
-    await fetch(`/api/trainer/members/${memberId}/nutrition-plan-assignment`, {
+    await fetch(`/api/trainer/clients/${memberId}/assigned-nutrition-plan`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },

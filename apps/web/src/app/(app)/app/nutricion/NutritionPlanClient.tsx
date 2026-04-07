@@ -51,6 +51,7 @@ import AppLayout from "@/components/layout/AppLayout";
 import NutritionStats from "@/components/nutrition/NutritionStats";
 import { WeeklyCalendar } from "@/components/nutrition/WeeklyCalendar";
 import { Accordion, SegmentedControl } from "@/design-system/components";
+import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import { useNutritionAdherence, useNutritionAdherenceWeek } from "@/lib/nutritionAdherence";
 import { getNutritionMealKey } from "@/lib/nutritionMealKey";
 import {
@@ -1587,13 +1588,6 @@ export default function NutritionPlanClient({
           Boolean(entry),
         ),
     [planDays, planStartDate],
-  );
-  const calendarMealSkeletons = useMemo(
-    () =>
-      Array.from({ length: 4 }, (_, index) => (
-        <MealCardSkeleton key={`meal-skeleton-${index}`} />
-      )),
-    [],
   );
   const clampedSelectedDate = useMemo(
     () => clampDateNotBefore(selectedDate, normalizedPlanStartDate),
@@ -3342,99 +3336,48 @@ export default function NutritionPlanClient({
       {!isManualView ? (
         <>
           {loading || assignedLoading ? (
-            <section className="card">
-              <div className="section-head">
-                <div>
-                  <h2 className="section-title section-title-sm">
-                    {t("nutrition.calendarTitle")}
-                  </h2>
-                  <p className="section-subtitle">
-                    {t("nutrition.calendarSubtitle")}
-                  </p>
-                </div>
-              </div>
-              <div className="list-grid">{calendarMealSkeletons}</div>
-            </section>
+            <LoadingState
+              title={t("nutrition.calendarTitle")}
+              ariaLabel={t("ui.loading")}
+              lines={4}
+              className="mt-0"
+            />
           ) : !error && profile && !isProfileComplete(profile) ? (
             <section className="card">
-              <div className="empty-state">
-                <div className="empty-state-icon">
-                  <Icon name="info" />
-                </div>
-                <div>
-                  <h3 className="m-0">
-                    {t("nutrition.profileIncompleteTitle")}
-                  </h3>
-                  <p className="muted">
-                    {t("nutrition.profileIncompleteSubtitle")}
-                  </p>
-                </div>
-                <ButtonLink href="/app/onboarding?next=/app/nutricion">
-                  {t("profile.openOnboarding")}
-                </ButtonLink>
-              </div>
+              <EmptyState
+                icon="info"
+                title={t("nutrition.profileIncompleteTitle")}
+                description={t("nutrition.profileIncompleteSubtitle")}
+                actions={[{ label: t("profile.openOnboarding"), href: "/app/onboarding?next=/app/nutricion" }]}
+              />
             </section>
           ) : assignedError ? (
-            <section className="card">
-              <div
-                className="status-card status-card--warning"
-                role="alert"
-                aria-live="polite"
-                data-testid="member-nutrition-assigned-error"
-              >
-                <div className="inline-actions-sm">
-                  <Icon name="warning" />
-                  <strong>{t("nutrition.errorTitle")}</strong>
-                </div>
-                <p className="muted">{assignedError}</p>
-              </div>
-            </section>
+            <ErrorState
+              title={t("nutrition.errorTitle")}
+              description={assignedError}
+              wrapInCard
+              className="mt-0"
+              ariaLabel={t("nutrition.errorTitle")}
+            />
           ) : !error && !assignedLoading && !hasPlan ? (
             <section className="card">
-              <div
-                className="empty-state"
+              <EmptyState
+                icon="info"
+                title={t("nutrition.emptyTitle")}
+                description={t("nutrition.emptySubtitle")}
+                actions={[
+                  ...(!isAiLocked
+                    ? [{ label: aiLoading ? t("nutrition.aiGenerating") : t("nutrition.aiGenerate"), onClick: handleGenerateClick, disabled: isAiDisabled || aiLoading }]
+                    : []),
+                  { label: t("nutrition.assignedPlanCta"), href: "/app/nutricion/editar", variant: isAiLocked ? "primary" : "secondary" },
+                  ...((isAiLocked || isOutOfTokens)
+                    ? [{ label: t("billing.manageBilling"), href: "/app/settings/billing", variant: "ghost" as const }]
+                    : []),
+                ]}
                 data-testid="member-nutrition-empty-state"
               >
-                <div className="empty-state-icon">
-                  <Icon name="info" />
-                </div>
-                <div>
-                  <h3 className="m-0">{t("nutrition.emptyTitle")}</h3>
-                  <p className="muted">{t("nutrition.emptySubtitle")}</p>
-                </div>
-                <div className="empty-state-actions">
-                  {!isAiLocked ? (
-                    <Button
-                      data-testid="nutrition-generate-ai"
-                      disabled={isAiDisabled}
-                      loading={aiLoading}
-                      onClick={handleGenerateClick}
-                    >
-                      {aiLoading
-                        ? t("nutrition.aiGenerating")
-                        : t("nutrition.aiGenerate")}
-                    </Button>
-                  ) : null}
-                  <ButtonLink
-                    variant={isAiLocked ? "primary" : "secondary"}
-                    href="/app/nutricion/editar"
-                  >
-                    {t("nutrition.assignedPlanCta")}
-                  </ButtonLink>
-                  {isAiLocked ? (
-                    <ButtonLink variant="ghost" href="/app/settings/billing">
-                      {t("billing.manageBilling")}
-                    </ButtonLink>
-                  ) : isOutOfTokens ? (
-                    <ButtonLink variant="ghost" href="/app/settings/billing">
-                      {t("billing.manageBilling")}
-                    </ButtonLink>
-                  ) : null}
-                </div>
-                {isOutOfTokens ? (
-                  <p className="muted mt-8">{t("ai.insufficientTokens")}</p>
-                ) : null}
-              </div>
+                {isOutOfTokens ? <p className="muted mt-8">{t("ai.insufficientTokens")}</p> : null}
+              </EmptyState>
               {isAiLocked ? (
                 <div className="mt-12">
                   <AiModuleUpgradeCTA

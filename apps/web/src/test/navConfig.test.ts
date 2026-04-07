@@ -5,7 +5,8 @@ describe("navConfig", () => {
   it("marks only exact and nested matches as active", () => {
     expect(isPathActive("/app/biblioteca/planes-entrenamiento", "/app/biblioteca")).toBe(true);
     expect(isPathActive("/app/bibliotecario", "/app/biblioteca")).toBe(false);
-    expect(isPathActive("/app/training/workout-1", "/app/training")).toBe(true);
+    expect(isPathActive("/app/training/workout-1", "/app/entrenamiento")).toBe(true);
+    expect(isPathActive("/app/dashboard", "/app/hoy")).toBe(true);
   });
 
   it("prefers the most specific href as active", () => {

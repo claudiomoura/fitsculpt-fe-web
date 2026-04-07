@@ -32,6 +32,10 @@ vi.mock("@/lib/profileService", () => ({
   getUserProfile: () => Promise.resolve(completeProfile),
 }));
 
+vi.mock("@/lib/profileCompletion", () => ({
+  isProfileComplete: () => true,
+}));
+
 function mockResponse(payload: unknown, status = 200): Response {
   return {
     ok: status >= 200 && status < 300,

@@ -12,6 +12,7 @@ import { Button, ButtonLink } from "@/design-system/components/Button";
 import { Icon } from "@/design-system/components/Icon";
 import { Skeleton, SkeletonCard } from "@/design-system/components/Skeleton";
 import { useAuthEntitlements } from "@/hooks/useAuthEntitlements";
+import { fetchTrackingSnapshotDeduped } from "@/lib/trackingDedup";
 
 type UserFood = {
   id: string;
@@ -136,9 +137,8 @@ export default function DashboardClient() {
       try {
         setLoading(true);
         setError(null);
-        const response = await fetch("/api/tracking", { cache: "no-store", credentials: "include" });
-        if (!response.ok) throw new Error("LOAD_ERROR");
-        const data = normalizeTrackingPayload((await response.json()) as TrackingPayload);
+        const trackingPayload = await fetchTrackingSnapshotDeduped();
+        const data = normalizeTrackingPayload(trackingPayload as TrackingPayload);
         if (active) {
           setCheckins(data.checkins);
           setFoodLog(data.foodLog);

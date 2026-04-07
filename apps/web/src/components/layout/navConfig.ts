@@ -21,6 +21,7 @@ export type NavSectionGroup = {
 };
 
 const TOP_LEVEL_ROUTE_ALIASES = [
+  { canonical: "/app/hoy", legacy: "/app/dashboard" },
   { canonical: "/app/hoy", legacy: "/app/today" },
   { canonical: "/app/entrenamiento", legacy: "/app/training" },
   { canonical: "/app/nutricion", legacy: "/app/nutrition" },

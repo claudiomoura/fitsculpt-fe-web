@@ -345,6 +345,7 @@ describe("Training premium UX from plan", () => {
   });
 
   it("creates workout when selected day has no existing workout", async () => {
+    let createdWorkout = false;
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       if (url === "/api/ai/quota") return mockResponse({ tokens: 10 });
@@ -369,9 +370,11 @@ describe("Training premium UX from plan", () => {
         });
       }
       if (url === "/api/workouts") {
-        if (init?.method === "POST") return mockResponse({ id: "workout-new" });
-        const callCount = fetchMock.mock.calls.filter(([call]) => String(call) === "/api/workouts").length;
-        if (callCount <= 1) return mockResponse([]);
+        if (init?.method === "POST") {
+          createdWorkout = true;
+          return mockResponse({ id: "workout-new" });
+        }
+        if (!createdWorkout) return mockResponse([]);
         return mockResponse([{ id: "workout-new", name: "Fuerza", scheduledAt: `${todayKey}T12:00:00.000Z` }]);
       }
       return mockResponse({});

@@ -84,6 +84,7 @@ function checkIsDev(payload: Record<string, unknown> | null): boolean {
 }
 
 const LEGACY_ROUTE_MAP: Record<string, string> = {
+  "/app/dashboard": "/app/hoy",
   "/app/today": "/app/hoy",
   "/app/training": "/app/entrenamiento",
   "/app/nutrition": "/app/nutricion",

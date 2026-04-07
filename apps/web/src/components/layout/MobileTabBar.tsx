@@ -42,6 +42,11 @@ export default function MobileTabBar() {
   }, [authMe]);
 
   useEffect(() => {
+    const authAvatar = authMe?.imageUrl ?? authMe?.avatarUrl ?? authMe?.profilePhotoUrl ?? authMe?.avatarDataUrl ?? null;
+    if (authAvatar) {
+      return;
+    }
+
     let active = true;
 
     const loadProfileAvatar = async () => {
@@ -65,7 +70,7 @@ export default function MobileTabBar() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [authMe]);
 
   const isActive = (href?: string) => {
     if (!href || !pathname) return false;

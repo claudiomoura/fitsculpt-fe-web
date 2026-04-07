@@ -44,7 +44,7 @@ import {
   hasTrainingPlanAdjustmentCapability,
 } from "@/domains/training";
 import { Input } from "@/design-system/components/Input";
-import { Skeleton } from "@/design-system/components/Skeleton";
+import { ErrorState, LoadingState } from "@/components/states";
 import { defaultFoodProfiles } from "@/lib/foodProfiles";
 import TrainingAdjustmentDiffSummary, {
   buildTrainingAdjustmentDiff,
@@ -1229,13 +1229,30 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
         }
         data-testid="tracking-page-loading"
       >
-        <section className="card premium-fade-up">
-          <div className="form-stack">
-            <Skeleton className="h-8 w-40" />
-            <Skeleton className="h-5 w-72" />
-            <Skeleton className="h-28 w-full" />
-          </div>
-        </section>
+        <LoadingState title={t("profile.checkinTitle")} ariaLabel={t("ui.loading")} lines={4} />
+      </div>
+    );
+  }
+
+  if (isTrackingError && !trackingLoaded) {
+    return (
+      <div
+        className={
+          isCheckinOnly
+            ? `${styles.checkinOnlyBody} nutrition-page-shell`
+            : styles.trackingPageContent
+        }
+        data-testid="tracking-page-error"
+      >
+        <ErrorState
+          title={t("tracking.errorTitle")}
+          description={t("dashboard.chartError")}
+          retryLabel={t("common.retry")}
+          onRetry={() => {
+            void refreshTrackingData({ showLoading: true, showError: true });
+          }}
+          wrapInCard
+        />
       </div>
     );
   }

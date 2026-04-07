@@ -28,7 +28,7 @@ vi.mock("@/services/futureProjection", () => ({
 function renderClient() {
   return render(
     <ThemeProvider>
-      <LanguageProvider>
+      <LanguageProvider initialLocale="es">
         <WeeklyReviewClient />
       </LanguageProvider>
     </ThemeProvider>,
