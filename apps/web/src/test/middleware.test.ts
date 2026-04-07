@@ -46,4 +46,16 @@ describe("middleware trainer landing redirects", () => {
 
     expect(response.headers.get("location")).toBe("http://localhost/app/trainer");
   });
+
+  it("lets trainer paths reach server layout guard when token role is USER", () => {
+    const response = middleware(makeRequest("/app/trainer/plans", { role: "USER" }));
+
+    expect(response.headers.get("location")).toBeNull();
+  });
+
+  it("lets /app pass through when token only says USER", () => {
+    const response = middleware(makeRequest("/app", { role: "USER" }));
+
+    expect(response.headers.get("location")).toBeNull();
+  });
 });

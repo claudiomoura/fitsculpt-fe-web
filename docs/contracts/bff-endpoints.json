@@ -117,6 +117,13 @@
       "source": "apps/web/src/app/api/admin/users/[id]/verify-email/route.ts"
     },
     {
+      "path": "/api/ai/chat/contextual",
+      "methods": [
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/ai/chat/contextual/route.ts"
+    },
+    {
       "path": "/api/ai/daily-tip",
       "methods": [
         "POST"
@@ -157,6 +164,13 @@
         "POST"
       ],
       "source": "apps/web/src/app/api/ai/training-plan/generate/route.ts"
+    },
+    {
+      "path": "/api/ai/training-plan/generate-v2",
+      "methods": [
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/ai/training-plan/generate-v2/route.ts"
     },
     {
       "path": "/api/auth/change-password",
@@ -354,6 +368,64 @@
       "source": "apps/web/src/app/api/gyms/membership/route.ts"
     },
     {
+      "path": "/api/hoy/summary",
+      "methods": [
+        "GET"
+      ],
+      "source": "apps/web/src/app/api/hoy/summary/route.ts"
+    },
+    {
+      "path": "/api/meals",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/meals/route.ts"
+    },
+    {
+      "path": "/api/meals/[id]",
+      "methods": [
+        "PATCH",
+        "DELETE"
+      ],
+      "source": "apps/web/src/app/api/meals/[id]/route.ts"
+    },
+    {
+      "path": "/api/meals/[id]/complete",
+      "methods": [
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/meals/[id]/complete/route.ts"
+    },
+    {
+      "path": "/api/meals/[id]/uncomplete",
+      "methods": [
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/meals/[id]/uncomplete/route.ts"
+    },
+    {
+      "path": "/api/meals/analyze-photo",
+      "methods": [
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/meals/analyze-photo/route.ts"
+    },
+    {
+      "path": "/api/meals/date/[date]",
+      "methods": [
+        "GET"
+      ],
+      "source": "apps/web/src/app/api/meals/date/[date]/route.ts"
+    },
+    {
+      "path": "/api/meals/today",
+      "methods": [
+        "GET"
+      ],
+      "source": "apps/web/src/app/api/meals/today/route.ts"
+    },
+    {
       "path": "/api/nutrition-plans",
       "methods": [
         "GET"
@@ -383,6 +455,13 @@
       "source": "apps/web/src/app/api/profile/route.ts"
     },
     {
+      "path": "/api/projection/future-self",
+      "methods": [
+        "GET"
+      ],
+      "source": "apps/web/src/app/api/projection/future-self/route.ts"
+    },
+    {
       "path": "/api/recipes",
       "methods": [
         "GET"
@@ -397,11 +476,46 @@
       "source": "apps/web/src/app/api/recipes/[id]/route.ts"
     },
     {
+      "path": "/api/research/rct/events",
+      "methods": [
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/research/rct/events/route.ts"
+    },
+    {
+      "path": "/api/research/rct/statistical-report",
+      "methods": [
+        "GET"
+      ],
+      "source": "apps/web/src/app/api/research/rct/statistical-report/route.ts"
+    },
+    {
+      "path": "/api/research/rct/status",
+      "methods": [
+        "GET"
+      ],
+      "source": "apps/web/src/app/api/research/rct/status/route.ts"
+    },
+    {
+      "path": "/api/research/rct/summary",
+      "methods": [
+        "GET"
+      ],
+      "source": "apps/web/src/app/api/research/rct/summary/route.ts"
+    },
+    {
       "path": "/api/review/weekly",
       "methods": [
         "GET"
       ],
       "source": "apps/web/src/app/api/review/weekly/route.ts"
+    },
+    {
+      "path": "/api/review/weekly/decision",
+      "methods": [
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/review/weekly/decision/route.ts"
     },
     {
       "path": "/api/tracking",
@@ -418,6 +532,21 @@
         "DELETE"
       ],
       "source": "apps/web/src/app/api/tracking/[collection]/[id]/route.ts"
+    },
+    {
+      "path": "/api/tracking/health",
+      "methods": [
+        "GET",
+        "PUT"
+      ],
+      "source": "apps/web/src/app/api/tracking/health/route.ts"
+    },
+    {
+      "path": "/api/tracking/health/snapshots",
+      "methods": [
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/tracking/health/snapshots/route.ts"
     },
     {
       "path": "/api/trainer/assign-training-plan",
@@ -550,6 +679,7 @@
       "path": "/api/trainer/nutrition-plans/[id]",
       "methods": [
         "GET",
+        "PUT",
         "PATCH",
         "DELETE"
       ],
@@ -644,6 +774,14 @@
         "DELETE"
       ],
       "source": "apps/web/src/app/api/user-foods/[id]/route.ts"
+    },
+    {
+      "path": "/api/waitlist",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/waitlist/route.ts"
     },
     {
       "path": "/api/workout-sessions/[id]",

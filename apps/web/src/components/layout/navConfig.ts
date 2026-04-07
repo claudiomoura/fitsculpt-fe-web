@@ -111,6 +111,12 @@ export const trainerTabsMobile: MobileTab[] = [
     icon: "book",
   },
   {
+    id: "trainer-requests",
+    href: "/app/trainer/requests",
+    labelKey: "nav.trainerRequests",
+    icon: "info",
+  },
+  {
     id: "trainer-plans",
     href: "/app/trainer/plans",
     labelKey: "nav.trainerPlans",
@@ -206,6 +212,7 @@ export const sidebarTrainer: NavSectionGroup[] = [
     items: [
       { id: "trainer-home", href: "/app/trainer", labelKey: "nav.trainer" },
       { id: "trainer-clients", href: "/app/trainer/clients", labelKey: "nav.trainerClients" },
+      { id: "trainer-requests", href: "/app/trainer/requests", labelKey: "nav.trainerRequests" },
       { id: "trainer-plans", href: "/app/trainer/plans", labelKey: "nav.trainerPlans" },
       { id: "trainer-nutrition-plans", href: "/app/trainer/nutrition-plans", labelKey: "nav.trainerNutritionPlans" },
       { id: "trainer-recipes", href: "/app/trainer/recipes", labelKey: "nav.trainerRecipes" },
@@ -219,6 +226,10 @@ export const sidebarTrainer: NavSectionGroup[] = [
 ];
 
 const sidebarAccountOnly: NavSectionGroup[] = sidebarUser.filter((section) => section.id === "account");
+const sidebarTrainerAccountOnly: NavSectionGroup[] = sidebarAccountOnly.map((section) => ({
+  ...section,
+  items: section.items.filter((item) => item.id !== "tracking"),
+}));
 
 export function buildUserSections(input: RoleAccessInput): NavSectionGroup[] {
   const isAdmin = canAccessAdmin(input);
@@ -229,7 +240,7 @@ export function buildUserSections(input: RoleAccessInput): NavSectionGroup[] {
   }
 
   if (isTrainer) {
-    return sidebarAccountOnly;
+    return sidebarTrainerAccountOnly;
   }
 
   return sidebarUser;

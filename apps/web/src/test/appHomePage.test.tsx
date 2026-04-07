@@ -1,16 +1,16 @@
 import { describe, expect, it, beforeEach, vi } from "vitest";
 
-const { cookiesMock, redirectMock } = vi.hoisted(() => ({
-  cookiesMock: vi.fn(),
+const { redirectMock, resolveDefaultAppPathMock } = vi.hoisted(() => ({
   redirectMock: vi.fn(),
-}));
-
-vi.mock("next/headers", () => ({
-  cookies: cookiesMock,
+  resolveDefaultAppPathMock: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({
   redirect: redirectMock,
+}));
+
+vi.mock("@/lib/server/sessionRole", () => ({
+  resolveDefaultAppPath: resolveDefaultAppPathMock,
 }));
 
 vi.mock("@/lib/serverI18n", () => ({
@@ -29,22 +29,14 @@ vi.mock("@/app/(app)/app/DashboardClient", () => ({
 
 import AppHomePage from "@/app/(app)/app/page";
 
-function buildJwt(payload: Record<string, unknown>) {
-  const header = Buffer.from(JSON.stringify({ alg: "none", typ: "JWT" })).toString("base64url");
-  const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
-  return `${header}.${body}.signature`;
-}
-
 describe("AppHomePage", () => {
   beforeEach(() => {
-    cookiesMock.mockReset();
     redirectMock.mockReset();
+    resolveDefaultAppPathMock.mockReset();
   });
 
   it("redirects trainers to the trainer landing", async () => {
-    cookiesMock.mockResolvedValue({
-      get: () => ({ value: buildJwt({ role: "USER", permissions: ["TRAINER_READ"] }) }),
-    });
+    resolveDefaultAppPathMock.mockResolvedValue("/app/trainer");
 
     await AppHomePage();
 
@@ -52,9 +44,7 @@ describe("AppHomePage", () => {
   });
 
   it("redirects users to /app/hoy", async () => {
-    cookiesMock.mockResolvedValue({
-      get: () => ({ value: buildJwt({ role: "USER" }) }),
-    });
+    resolveDefaultAppPathMock.mockResolvedValue("/app/hoy");
 
     await AppHomePage();
 
@@ -62,9 +52,7 @@ describe("AppHomePage", () => {
   });
 
   it("keeps admin landing on /app/admin", async () => {
-    cookiesMock.mockResolvedValue({
-      get: () => ({ value: buildJwt({ role: "ADMIN" }) }),
-    });
+    resolveDefaultAppPathMock.mockResolvedValue("/app/admin");
 
     await AppHomePage();
 

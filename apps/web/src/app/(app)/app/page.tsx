@@ -1,14 +1,11 @@
 import { ButtonLink } from "@/design-system/components/Button";
-import { getDefaultAppPathForSessionRole, readSessionRole } from "@/lib/auth/sessionRole";
 import { getServerT } from "@/lib/serverI18n";
-import { cookies } from "next/headers";
+import { resolveDefaultAppPath } from "@/lib/server/sessionRole";
 import { redirect } from "next/navigation";
 import DashboardClient from "./DashboardClient";
 
 export default async function AppHomePage() {
-  const token = (await cookies()).get("fs_token")?.value;
-  const sessionRole = token ? readSessionRole(token) : "UNKNOWN";
-  const defaultAppPath = getDefaultAppPathForSessionRole(sessionRole);
+  const defaultAppPath = await resolveDefaultAppPath();
 
   if (defaultAppPath !== "/app") {
     redirect(defaultAppPath);

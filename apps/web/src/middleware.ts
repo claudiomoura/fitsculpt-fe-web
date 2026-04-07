@@ -125,17 +125,18 @@ export function middleware(req: NextRequest) {
   const sessionRole = readSessionRole(token);
   const defaultAppPath = getDefaultAppPathForSessionRole(sessionRole);
 
-  if (PRIMARY_APP_SURFACES.has(pathname) && pathname !== defaultAppPath && defaultAppPath !== "/app") {
+  if (
+    PRIMARY_APP_SURFACES.has(pathname) &&
+    pathname !== defaultAppPath &&
+    defaultAppPath !== "/app" &&
+    !(pathname === "/app" && sessionRole === "USER")
+  ) {
     return redirectTo(req, defaultAppPath);
   }
 
   const legacyRedirect = getLegacyRedirect(pathname);
   if (legacyRedirect) {
     return redirectTo(req, legacyRedirect, 301);
-  }
-
-  if (sessionRole === "USER" && isTrainerPath(pathname)) {
-    return redirectTo(req, "/app");
   }
 
   if (sessionRole === "ADMIN" && !isAdminPath(pathname) && !isTrainerPath(pathname)) {

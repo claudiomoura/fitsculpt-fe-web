@@ -1,10 +1,8 @@
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { readSessionRole } from "@/lib/auth/sessionRole";
+import { resolveServerSessionRole } from "@/lib/server/sessionRole";
 
 export default async function TrainerLayout({ children }: { children: React.ReactNode }) {
-  const token = (await cookies()).get("fs_token")?.value;
-  const sessionRole = token ? readSessionRole(token) : "UNKNOWN";
+  const sessionRole = await resolveServerSessionRole();
 
   if (sessionRole !== "TRAINER" && sessionRole !== "ADMIN") {
     redirect("/app");

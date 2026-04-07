@@ -20,12 +20,14 @@ Generated from `apps/web/src/app/api/**/route.ts` via `npm --prefix apps/web run
 | `/api/admin/users/[id]/reset-password` | POST | `apps/web/src/app/api/admin/users/[id]/reset-password/route.ts` |
 | `/api/admin/users/[id]/unblock` | PATCH | `apps/web/src/app/api/admin/users/[id]/unblock/route.ts` |
 | `/api/admin/users/[id]/verify-email` | POST | `apps/web/src/app/api/admin/users/[id]/verify-email/route.ts` |
+| `/api/ai/chat/contextual` | POST | `apps/web/src/app/api/ai/chat/contextual/route.ts` |
 | `/api/ai/daily-tip` | POST | `apps/web/src/app/api/ai/daily-tip/route.ts` |
 | `/api/ai/nutrition-plan` | POST | `apps/web/src/app/api/ai/nutrition-plan/route.ts` |
 | `/api/ai/nutrition-plan/generate` | POST | `apps/web/src/app/api/ai/nutrition-plan/generate/route.ts` |
 | `/api/ai/quota` | GET | `apps/web/src/app/api/ai/quota/route.ts` |
 | `/api/ai/training-plan` | POST | `apps/web/src/app/api/ai/training-plan/route.ts` |
 | `/api/ai/training-plan/generate` | POST | `apps/web/src/app/api/ai/training-plan/generate/route.ts` |
+| `/api/ai/training-plan/generate-v2` | POST | `apps/web/src/app/api/ai/training-plan/generate-v2/route.ts` |
 | `/api/auth/change-password` | POST | `apps/web/src/app/api/auth/change-password/route.ts` |
 | `/api/auth/google/callback` | GET | `apps/web/src/app/api/auth/google/callback/route.ts` |
 | `/api/auth/google/start` | GET | `apps/web/src/app/api/auth/google/start/route.ts` |
@@ -53,21 +55,31 @@ Generated from `apps/web/src/app/api/**/route.ts` via `npm --prefix apps/web run
 | `/api/gyms/join` | POST | `apps/web/src/app/api/gyms/join/route.ts` |
 | `/api/gyms/join-by-code` | POST | `apps/web/src/app/api/gyms/join-by-code/route.ts` |
 | `/api/gyms/membership` | GET, DELETE | `apps/web/src/app/api/gyms/membership/route.ts` |
+| `/api/hoy/summary` | GET | `apps/web/src/app/api/hoy/summary/route.ts` |
+| `/api/meals` | GET, POST | `apps/web/src/app/api/meals/route.ts` |
+| `/api/meals/[id]` | PATCH, DELETE | `apps/web/src/app/api/meals/[id]/route.ts` |
+| `/api/meals/[id]/complete` | POST | `apps/web/src/app/api/meals/[id]/complete/route.ts` |
+| `/api/meals/[id]/uncomplete` | POST | `apps/web/src/app/api/meals/[id]/uncomplete/route.ts` |
+| `/api/meals/analyze-photo` | POST | `apps/web/src/app/api/meals/analyze-photo/route.ts` |
+| `/api/meals/date/[date]` | GET | `apps/web/src/app/api/meals/date/[date]/route.ts` |
+| `/api/meals/today` | GET | `apps/web/src/app/api/meals/today/route.ts` |
 | `/api/nutrition-plans` | GET | `apps/web/src/app/api/nutrition-plans/route.ts` |
 | `/api/nutrition-plans/[id]` | GET | `apps/web/src/app/api/nutrition-plans/[id]/route.ts` |
 | `/api/nutrition-plans/assigned` | GET | `apps/web/src/app/api/nutrition-plans/assigned/route.ts` |
 | `/api/profile` | GET, PUT | `apps/web/src/app/api/profile/route.ts` |
+| `/api/projection/future-self` | GET | `apps/web/src/app/api/projection/future-self/route.ts` |
 | `/api/recipes` | GET | `apps/web/src/app/api/recipes/route.ts` |
 | `/api/recipes/[id]` | GET | `apps/web/src/app/api/recipes/[id]/route.ts` |
+| `/api/research/rct/events` | POST | `apps/web/src/app/api/research/rct/events/route.ts` |
+| `/api/research/rct/statistical-report` | GET | `apps/web/src/app/api/research/rct/statistical-report/route.ts` |
+| `/api/research/rct/status` | GET | `apps/web/src/app/api/research/rct/status/route.ts` |
+| `/api/research/rct/summary` | GET | `apps/web/src/app/api/research/rct/summary/route.ts` |
 | `/api/review/weekly` | GET | `apps/web/src/app/api/review/weekly/route.ts` |
+| `/api/review/weekly/decision` | POST | `apps/web/src/app/api/review/weekly/decision/route.ts` |
 | `/api/tracking` | GET, POST, PUT | `apps/web/src/app/api/tracking/route.ts` |
 | `/api/tracking/[collection]/[id]` | DELETE | `apps/web/src/app/api/tracking/[collection]/[id]/route.ts` |
-| `/api/meals` | GET, POST | `apps/web/src/app/api/meals/route.ts` |
-| `/api/meals/date/[date]` | GET | `apps/web/src/app/api/meals/date/[date]/route.ts` |
-| `/api/meals/today` | GET | `apps/web/src/app/api/meals/today/route.ts` |
-| `/api/meals/[id]` | PATCH, DELETE | `apps/web/src/app/api/meals/[id]/route.ts` |
-| `/api/meals/[id]/complete` | POST | `apps/web/src/app/api/meals/[id]/complete/route.ts` |
-| `/api/meals/[id]/uncomplete` | POST | `apps/web/src/app/api/meals/[id]/uncomplete/route.ts` |
+| `/api/tracking/health` | GET, PUT | `apps/web/src/app/api/tracking/health/route.ts` |
+| `/api/tracking/health/snapshots` | POST | `apps/web/src/app/api/tracking/health/snapshots/route.ts` |
 | `/api/trainer/assign-training-plan` | POST | `apps/web/src/app/api/trainer/assign-training-plan/route.ts` |
 | `/api/trainer/capabilities` | GET | `apps/web/src/app/api/trainer/capabilities/route.ts` |
 | `/api/trainer/clients` | GET | `apps/web/src/app/api/trainer/clients/route.ts` |
@@ -85,7 +97,7 @@ Generated from `apps/web/src/app/api/**/route.ts` via `npm --prefix apps/web run
 | `/api/trainer/members/[id]/nutrition-plan-assignment` | POST, DELETE, OPTIONS | `apps/web/src/app/api/trainer/members/[id]/nutrition-plan-assignment/route.ts` |
 | `/api/trainer/members/[id]/training-plan-assignment` | POST, DELETE, OPTIONS | `apps/web/src/app/api/trainer/members/[id]/training-plan-assignment/route.ts` |
 | `/api/trainer/nutrition-plans` | GET, POST | `apps/web/src/app/api/trainer/nutrition-plans/route.ts` |
-| `/api/trainer/nutrition-plans/[id]` | GET, PATCH, DELETE | `apps/web/src/app/api/trainer/nutrition-plans/[id]/route.ts` |
+| `/api/trainer/nutrition-plans/[id]` | GET, PUT, PATCH, DELETE | `apps/web/src/app/api/trainer/nutrition-plans/[id]/route.ts` |
 | `/api/trainer/plans` | GET, POST | `apps/web/src/app/api/trainer/plans/route.ts` |
 | `/api/trainer/plans/[id]` | GET, PUT, PATCH, DELETE, OPTIONS | `apps/web/src/app/api/trainer/plans/[id]/route.ts` |
 | `/api/trainer/plans/[id]/days/[dayId]` | DELETE, OPTIONS | `apps/web/src/app/api/trainer/plans/[id]/days/[dayId]/route.ts` |
@@ -97,6 +109,7 @@ Generated from `apps/web/src/app/api/**/route.ts` via `npm --prefix apps/web run
 | `/api/training-plans/active` | GET, POST | `apps/web/src/app/api/training-plans/active/route.ts` |
 | `/api/user-foods` | GET, POST | `apps/web/src/app/api/user-foods/route.ts` |
 | `/api/user-foods/[id]` | PUT, DELETE | `apps/web/src/app/api/user-foods/[id]/route.ts` |
+| `/api/waitlist` | GET, POST | `apps/web/src/app/api/waitlist/route.ts` |
 | `/api/workout-sessions/[id]` | PATCH | `apps/web/src/app/api/workout-sessions/[id]/route.ts` |
 | `/api/workout-sessions/[id]/finish` | POST | `apps/web/src/app/api/workout-sessions/[id]/finish/route.ts` |
 | `/api/workouts` | GET, POST | `apps/web/src/app/api/workouts/route.ts` |

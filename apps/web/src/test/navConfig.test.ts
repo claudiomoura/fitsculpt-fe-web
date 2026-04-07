@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyEntitlementGating, applyTabEntitlementGating, getMostSpecificActiveHref, isPathActive, mainTabsMobile, sidebarUser } from "@/components/layout/navConfig";
+import { applyEntitlementGating, applyTabEntitlementGating, getMostSpecificActiveHref, isPathActive, mainTabsMobile, sidebarUser, trainerTabsMobile } from "@/components/layout/navConfig";
 
 describe("navConfig", () => {
   it("marks only exact and nested matches as active", () => {
@@ -111,6 +111,18 @@ describe("navConfig", () => {
       "Nutrición",
       "Progreso",
       "Perfil",
+    ]);
+  });
+
+  it("defines TRAINER mobile tabs including requests", () => {
+    expect(trainerTabsMobile.map((tab) => tab.href)).toEqual([
+      "/app/trainer",
+      "/app/trainer/clients",
+      "/app/trainer/requests",
+      "/app/trainer/plans",
+      "/app/trainer/nutrition-plans",
+      "/app/trainer/recipes",
+      "/app/trainer/exercises",
     ]);
   });
 
