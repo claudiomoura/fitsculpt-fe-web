@@ -415,53 +415,43 @@ curl -i -b /tmp/fs_admin_cookie.txt \
 - Se aparecer `Can't reach database server at \`localhost:5432\``, verifique se o Postgres está rodando e se `DATABASE_URL` aponta para a instância correta.
 
 
-## Password e como acceder
-intern
-postgresql://fitsculpt_db_user:msSBNoxfDrfB1FpoSiZUaUa53X6bEXJj@dpg-d5l5q04mrvns739nfrf0-a/fitsculpt_db
+## Production envs (Render)
 
+Set these values in Render service environment variables (never in git):
 
-Exter
-postgresql://fitsculpt_db_user:msSBNoxfDrfB1FpoSiZUaUa53X6bEXJj@dpg-d5l5q04mrvns739nfrf0-a.virginia-postgres.render.com/fitsculpt_db
+- `DATABASE_URL` and `DIRECT_URL` (Render PostgreSQL URLs)
+- `JWT_SECRET` and `COOKIE_SECRET` (32+ chars)
+- `CORS_ORIGIN` (your Vercel web URL)
+- `APP_BASE_URL` (same Vercel web URL)
+- `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRO_PRICE_ID`
+- `OPENAI_API_KEY`
+- `RESEND_API_KEY` (if `EMAIL_PROVIDER=resend`)
 
+Minimal production bootstrap on Render:
 
-FitSculpt-100%
+```bash
+npm ci
+npm run db:deploy
+npm run db:generate
+npm run build
+npm run start
+```
 
+## Local DB access
 
-claudio.moura@sapo.pt
-Password1234
+From `apps/api`, set a local `DATABASE_URL` and run:
 
-test@gmail.com	
-Password123
-
-
-##  acceder a BD 
-
-Tem de serr onde esta o eschema  em C:\Users\Moura\Documents\Work\FitSculpt\fitsculpt-fe-web\apps\api>
-$env:DATABASE_URL="postgresql://bd2_ukh7_user:pkY5rjnC78bP4CR13yzFTLDqFTb0Kk6O@dpg-d694rj75r7bs73f2vsqg-a.virginia-postgres.render.com/bd2_ukh7"
- 
+```bash
 npx prisma studio
+```
 
+Do not store connection strings, user passwords, or promo codes in docs.
 
-##  crear usuario na BD
-node scripts/create-user.mjs tu@email.com TuPassword123 "Tu Nombre" ADMIN
+## Create user locally
 
-
-$env:ALLOW_SEED='1'
-$env:DEMO_ADMIN_EMAIL='claudio.moura@sapo.pt'
-$env:DEMO_ADMIN_PASSWORD='Password1234'
-$env:DEMO_GYM_NAME='Demo Gym'
-$env:DEMO_GYM_CODE='DEMO123'
-
-npx prisma db seed --schema prisma/schema.prisma
-
-
-$sql = 'UPDATE "User" SET "role" = ''ADMIN'' WHERE "email" = ''claudio.moura@sapo.pt'';'
-$sql | npx prisma db execute --schema prisma/schema.prisma --stdin
-
-
-##  mudar pass de  usuario na BD
-cd apps\api
-node -e "const b=require('cmkh4tvhr0000kxq8os6qhids'); b.hash('Password1234',12).then(h=>console.log(h))"
+```bash
+node scripts/create-user.mjs your@email.com StrongPassword123 "Your Name" ADMIN
+```
 
 ## Importador `free-exercise-db`
 

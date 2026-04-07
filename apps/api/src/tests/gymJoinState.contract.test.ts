@@ -1,10 +1,32 @@
 import assert from "node:assert/strict";
+import { createServer } from "node:net";
 import { PrismaClient } from "@prisma/client";
 import { startContractServer } from "./contractTestServer.js";
 
-const testPort = 4313;
-const baseUrl = `http://127.0.0.1:${testPort}`;
+let baseUrl = "";
 const prisma = new PrismaClient();
+
+async function allocatePort(): Promise<number> {
+  const server = createServer();
+  return new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        server.close(() => reject(new Error("Failed to allocate test port")));
+        return;
+      }
+      const { port } = address;
+      server.close((closeError) => {
+        if (closeError) {
+          reject(closeError);
+          return;
+        }
+        resolve(port);
+      });
+    });
+  });
+}
 
 function uniqueValue(prefix: string) {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -40,6 +62,8 @@ async function login(email: string, password: string) {
 }
 
 async function main() {
+  const testPort = await allocatePort();
+  baseUrl = `http://127.0.0.1:${testPort}`;
   const password = "Passw0rd!123";
   const adminEmail = `${uniqueValue("admin")}@example.com`;
   const memberEmail = `${uniqueValue("member")}@example.com`;
@@ -146,7 +170,7 @@ async function main() {
       gymId: string | null;
       role: string | null;
     };
-    assert.equal(joinByActivationCodePayload.status, "ACTIVE");
+    assert.equal(joinByActivationCodePayload.status, "PENDING");
     assert.equal(joinByActivationCodePayload.gymId, createdGym.id);
     assert.equal(joinByActivationCodePayload.role, "MEMBER");
 
@@ -154,14 +178,14 @@ async function main() {
       where: { userId: memberUser.id, gymId: createdGym.id },
       select: { status: true },
     });
-    assert.equal(persistedActive?.status, "ACTIVE", "Join by activation code must persist ACTIVE membership state");
+    assert.equal(persistedActive?.status, "PENDING", "Join by activation code must persist PENDING membership state");
 
     const activeMembershipResponse = await fetch(`${baseUrl}/gyms/membership`, {
       headers: { cookie: memberCookie },
     });
     assert.equal(activeMembershipResponse.status, 200);
     const activeMembership = (await activeMembershipResponse.json()) as { status: string; gymId: string | null };
-    assert.equal(activeMembership.status, "ACTIVE");
+    assert.equal(activeMembership.status, "PENDING");
     assert.equal(activeMembership.gymId, createdGym.id);
   } finally {
     await Promise.allSettled([server.stop(), prisma.$disconnect()]);

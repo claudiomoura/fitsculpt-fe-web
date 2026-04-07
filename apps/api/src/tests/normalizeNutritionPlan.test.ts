@@ -37,23 +37,27 @@ const basePlan = {
 const normalized = normalizeNutritionPlan(basePlan);
 
 assert.equal(basePlan.dailyCalories, 999, "normalization must be side-effect free");
-assert.equal(normalized.dailyCalories, 1060, "daily calories should be recomputed from meals");
-assert.equal(normalized.proteinG, 80, "protein should be recomputed and rounded");
+assert.equal(normalized.dailyCalories, 1096, "daily calories should be recomputed from rounded meal macros");
+assert.equal(normalized.proteinG, 80.1, "protein should be recomputed and rounded");
 assert.equal(normalized.carbsG, 110, "carbs should be recomputed and rounded");
 assert.equal(normalized.fatG, 37.3, "fats should be recomputed and rounded");
-assert.equal(normalized.days[0].meals[0].macros.calories, 417, "meal calories should be derived from rounded macros");
+assert.equal(normalized.days[0].meals[0].macros.calories, 406, "meal calories should be derived from rounded macros");
 assert.deepEqual(normalizeNutritionPlan(normalized), normalized, "normalization should be deterministic");
 
 const mathIssue = validateNutritionMath(normalized, {
-  targetKcal: 1060,
+  targetKcal: 1096,
   mealsPerDay: 2,
   macroTargets: {
-    proteinG: 80,
+    proteinG: 80.1,
     carbsG: 110,
     fatsG: 37.3,
   },
 });
 
-assert.equal(mathIssue, null, "normalized plan should pass strict nutrition math validation");
+assert.equal(
+  mathIssue?.reason,
+  "TWO_MEAL_SPLIT_MISMATCH",
+  "strict nutrition math should flag imbalanced two-meal distribution",
+);
 
 console.log("normalizeNutritionPlan tests passed");

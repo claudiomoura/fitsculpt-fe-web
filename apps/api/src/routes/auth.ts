@@ -11,6 +11,13 @@ type PrismaClient = any;
 interface AuthDeps {
   prisma: PrismaClient;
   app: FastifyInstance;
+  appBaseUrl: string;
+}
+
+export function buildAuthActionUrl(appBaseUrl: string, path: "/verify-email" | "/reset-password", token: string) {
+  const url = new URL(path, appBaseUrl);
+  url.searchParams.set("token", token);
+  return url.toString();
 }
 
 /**
@@ -24,7 +31,7 @@ export function registerAuthRoutes(
   app: FastifyInstance,
   deps: AuthDeps
 ): void {
-  const { prisma } = deps;
+  const { prisma, appBaseUrl } = deps;
 
   // POST /auth/resend-verification
   const RESEND_COOLDOWN_MS = 60 * 1000; // 1 minute
@@ -59,13 +66,13 @@ export function registerAuthRoutes(
       await prisma.emailVerificationToken.create({
         data: {
           userId: user.id,
-          token: tokenHash,
+          tokenHash,
           expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
         },
       });
 
       // Send verification email with the raw token (not the hash)
-      const verifyUrl = `${process.env.APP_BASE_URL}/verify-email?token=${token}`;
+      const verifyUrl = buildAuthActionUrl(appBaseUrl, "/verify-email", token);
       try {
         const { sendEmail } = await import("../email.js");
         await sendEmail({
@@ -156,7 +163,7 @@ export function registerAuthRoutes(
       });
 
       // Send reset email
-      const resetUrl = `${process.env.APP_BASE_URL}/reset-password?token=${token}`;
+      const resetUrl = buildAuthActionUrl(appBaseUrl, "/reset-password", token);
       try {
         const { sendEmail } = await import("../email.js");
         await sendEmail({

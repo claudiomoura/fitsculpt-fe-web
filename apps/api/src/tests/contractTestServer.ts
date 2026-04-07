@@ -210,7 +210,7 @@ export function startContractServer(options: StartContractServerOptions): Starte
     env: getServerEnv(options.port, options.bootstrapAdminEmails),
     shell: true,
     stdio: ["ignore", "pipe", "pipe"],
-    detached: true,
+    detached: false,
   });
 
   let serverLogs = "";
@@ -272,26 +272,22 @@ export function startContractServer(options: StartContractServerOptions): Starte
     stopped = true;
     clearAllTimers();
 
-    if (server.exitCode !== null || server.signalCode !== null) {
-      return;
-    }
-
-    try {
-      process.kill(-server.pid!, "SIGTERM");
-    } catch {
+    if (server.exitCode === null && server.signalCode === null) {
       server.kill("SIGTERM");
-    }
 
-    try {
-      await waitForProcessExit(server, 5_000);
-    } catch {
       try {
-        process.kill(-server.pid!, "SIGKILL");
+        await waitForProcessExit(server, 5_000);
       } catch {
         server.kill("SIGKILL");
+        await waitForProcessExit(server, 5_000);
       }
-      await waitForProcessExit(server, 5_000);
     }
+
+    server.stdout.removeAllListeners();
+    server.stderr.removeAllListeners();
+    server.removeAllListeners();
+    server.stdout.destroy();
+    server.stderr.destroy();
   }
 
   return {

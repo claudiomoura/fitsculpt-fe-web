@@ -1,10 +1,32 @@
 import assert from "node:assert/strict";
+import { createServer } from "node:net";
 import { PrismaClient } from "@prisma/client";
 import { startContractServer } from "./contractTestServer.js";
 
-const testPort = 4312;
-const baseUrl = `http://127.0.0.1:${testPort}`;
+let baseUrl = "";
 const prisma = new PrismaClient();
+
+async function allocatePort(): Promise<number> {
+  const server = createServer();
+  return new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        server.close(() => reject(new Error("Failed to allocate test port")));
+        return;
+      }
+      const { port } = address;
+      server.close((closeError) => {
+        if (closeError) {
+          reject(closeError);
+          return;
+        }
+        resolve(port);
+      });
+    });
+  });
+}
 
 function uniqueValue(prefix: string) {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -27,6 +49,8 @@ async function registerUser(email: string, password: string) {
 }
 
 async function main() {
+  const testPort = await allocatePort();
+  baseUrl = `http://127.0.0.1:${testPort}`;
   const password = "Passw0rd!123";
   const adminEmail = `${uniqueValue("admin")}@example.com`;
   const memberEmail = `${uniqueValue("member")}@example.com`;

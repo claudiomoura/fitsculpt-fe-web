@@ -19,20 +19,32 @@ if (testFiles.length === 0) {
   process.exit(1);
 }
 
-const command = `pnpm exec tsx ${testFiles.join(' ')}`;
+function runSingleTest(file) {
+  return new Promise((resolve, reject) => {
+    const child = spawn('pnpm exec tsx', [file], {
+      cwd: apiRoot,
+      stdio: 'inherit',
+      shell: true,
+      env: process.env,
+    });
 
-const child = spawn(command, [], {
-  cwd: apiRoot,
-  stdio: 'inherit',
-  shell: true,
-  env: process.env,
-});
+    child.on('error', reject);
+    child.on('exit', (code, signal) => {
+      if (signal) {
+        reject(new Error(`Test ${file} exited with signal ${signal}`));
+        return;
+      }
 
-child.on('exit', (code, signal) => {
-  if (signal) {
-    process.kill(process.pid, signal);
-    return;
-  }
+      if (code !== 0) {
+        reject(new Error(`Test ${file} failed with exit code ${String(code)}`));
+        return;
+      }
 
-  process.exit(code ?? 1);
-});
+      resolve();
+    });
+  });
+}
+
+for (const file of testFiles) {
+  await runSingleTest(file);
+}

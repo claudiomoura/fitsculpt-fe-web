@@ -1,7 +1,7 @@
 import "dotenv/config";
 // Override with .env.local for local development (higher priority)
 import { config as dotenvConfig } from "dotenv";
-dotenvConfig({ path: ".env.local", override: true });
+dotenvConfig({ path: ".env.local", override: process.env.NODE_ENV !== "test" });
 import crypto from "node:crypto";
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import cors from "@fastify/cors";
@@ -85,16 +85,6 @@ import {
   tokenGrantForPlan,
 } from "./billing/tokenPolicy.js";
 import { resolveAiTokens, resolveBillingStatusReason } from "./billing/resolveAiTokens.js";
-import {
-  defaultTracking,
-  trackingDeleteSchema,
-  trackingEntryCreateSchema,
-  trackingSchema,
-} from "./tracking/schemas.js";
-import {
-  normalizeTrackingSnapshot,
-  upsertTrackingEntry,
-} from "./tracking/service.js";
 import { resetDemoState } from "./dev/demoSeed.js";
 import { registerWeeklyReviewRoute } from "./routes/weeklyReview.js";
 import { registerPassiveHealthRoutes } from "./routes/passiveHealth.js";
@@ -107,11 +97,11 @@ import { registerAuthRoutes } from "./routes/auth.js";
 import { authRateLimitMiddleware } from "./middleware/authRateLimit.js";
 import { registerProfileRoutes } from "./routes/profile.js";
 import { registerFeedRoutes } from "./routes/feed.js";
+import { registerTrackingRoutes } from "./routes/tracking.js";
 import { registerNutritionRoutes } from "./routes/nutrition.js";
 import { registerGymRoutes } from "./routes/gym.js";
 import { registerTrainerRoutes } from "./routes/trainer.js";
 import { registerAdminRoutes } from "./routes/admin.js";
-import { appendRctEvent, ensureRctAssignment } from "./services/futureProjection.js";
 import { registerAiRoutes } from "./domains/ai/registerAiRoutes.js";
 import { registerBillingRoutes } from "./domains/billing/registerBillingRoutes.js";
 import { registerWorkoutRoutes } from "./domains/training/registerWorkoutRoutes.js";
@@ -161,7 +151,7 @@ const prisma = await createPrismaClientWithRetry(app.log);
 
 // Register auth routes that are missing from this file:
 // resend-verification, verify-email, forgot-password, reset-password
-registerAuthRoutes(app, { prisma, app });
+registerAuthRoutes(app, { prisma, app, appBaseUrl: env.APP_BASE_URL });
 
 const shouldRunDbPreflight =
   process.env.NODE_ENV !== "production" ||
@@ -7102,6 +7092,8 @@ async function handleSignup(request: FastifyRequest, reply: FastifyReply) {
 
 // Auth routes now in routes/auth.ts - via registerAuthRoutes()
 // Duplicate handlers removed to avoid conflicts
+app.post("/auth/register", { preHandler: [authRateLimitMiddleware] }, handleSignup);
+app.post("/auth/signup", { preHandler: [authRateLimitMiddleware] }, handleSignup);
 
 const billingCheckoutHandler = async (request: FastifyRequest, reply: FastifyReply) => {
   /**
@@ -7990,127 +7982,9 @@ const billingStatusHandler = async (request: FastifyRequest, reply: FastifyReply
   }
 };
 
-app.get("/tracking", async (request, reply) => {
-  try {
-    const user = await requireUser(request);
-    const profile = await getOrCreateProfile(user.id);
-    return normalizeTrackingSnapshot(profile.tracking);
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
-});
-
-app.put("/tracking", async (request, reply) => {
-  try {
-    const user = await requireUser(request);
-    const currentProfile = await getOrCreateProfile(user.id);
-    const normalizedBody = normalizeTrackingSnapshot(request.body);
-    const hasPassiveData = typeof request.body === "object" && request.body !== null && Object.prototype.hasOwnProperty.call(request.body, "passiveData");
-    const data = trackingSchema.parse({
-      ...normalizedBody,
-      passiveData: hasPassiveData ? normalizedBody.passiveData : normalizeTrackingSnapshot(currentProfile.tracking).passiveData,
-    });
-    const updated = await prisma.userProfile.upsert({
-      where: { userId: user.id },
-      create: {
-        userId: user.id,
-        profile: Prisma.DbNull,
-        tracking: data,
-      },
-      update: {
-        tracking: data,
-      },
-    });
-    app.log.info(
-      {
-        userId: user.id,
-        checkins: data.checkins.length,
-        foodLog: data.foodLog.length,
-        workoutLog: data.workoutLog.length,
-      },
-      "tracking updated",
-    );
-
-    return normalizeTrackingSnapshot(updated.tracking ?? defaultTracking);
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
-});
-
-app.post("/tracking", async (request, reply) => {
-  try {
-    const user = await requireUser(request);
-    const payload = trackingEntryCreateSchema.parse(request.body);
-    const profile = await getOrCreateProfile(user.id);
-    const nextTracking = upsertTrackingEntry(profile.tracking, payload);
-    const assignmentResult = ensureRctAssignment(profile.profile, user.id);
-    const nextProfile = appendRctEvent(
-      assignmentResult.created ? assignmentResult.profile : profile.profile,
-      {
-        event: "logging_entry_created",
-        timestamp: new Date().toISOString(),
-        context: {
-          source: "tracking",
-          collection: payload.collection,
-        },
-      },
-    );
-    const nextProfileJson = nextProfile as Prisma.InputJsonValue;
-
-    let lastError: unknown;
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      try {
-        const updated = await prisma.userProfile.upsert({
-          where: { userId: user.id },
-          create: {
-            userId: user.id,
-            profile: nextProfileJson,
-            tracking: nextTracking,
-          },
-          update: {
-            profile: nextProfileJson,
-            tracking: nextTracking,
-          },
-        });
-
-        return reply
-          .status(201)
-          .send(normalizeTrackingSnapshot(updated.tracking));
-      } catch (error) {
-        lastError = error;
-      }
-    }
-
-    throw lastError;
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
-});
-
-app.delete("/tracking/:collection/:id", async (request, reply) => {
-  try {
-    const user = await requireUser(request);
-    const params = trackingDeleteSchema.parse(request.params);
-    const profile = await getOrCreateProfile(user.id);
-    const currentTracking = normalizeTrackingSnapshot(profile.tracking);
-    const rawList = currentTracking[params.collection];
-    const currentList = Array.isArray(rawList) ? rawList : [];
-    const nextList = currentList.filter((entry) => entry.id !== params.id);
-
-    const nextTracking = { ...currentTracking, [params.collection]: nextList };
-    const updated = await prisma.userProfile.update({
-      where: { userId: user.id },
-      data: { tracking: nextTracking },
-    });
-    return normalizeTrackingSnapshot(updated.tracking);
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
-});
-
 // TODO(BETA-13, follow-up): keep migrating remaining inline routes into
 // register*Routes modules without changing behavior in this PR.
-// Remaining inline domains include: auth/profile, tracking, feed/recipes,
+// Remaining inline domains include: auth/profile, feed/recipes,
 // admin user management and dev-only endpoints.
 registerBillingRoutes(app, {
   billingCheckoutHandler,
@@ -8173,6 +8047,13 @@ registerProfileRoutes(app, {
 registerFeedRoutes(app, {
   prisma,
   requireUser,
+});
+
+registerTrackingRoutes(app, {
+  prisma,
+  requireUser,
+  getOrCreateProfile,
+  handleRequestError,
 });
 
 // Nutrition, Gym, Trainer, Admin routes are registered directly in index.ts

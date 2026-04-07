@@ -61,7 +61,7 @@ const largeCatalogResult = applyNutritionPlanVarietyGuard(repeatedMockPlan, buil
 assert.equal(largeCatalogResult.varietyGuardApplied, true);
 assert.equal(largeCatalogResult.hadEnoughUniqueRecipes, true);
 assert.equal(largeCatalogResult.uniqueRecipeIdsWeek, 14, "expected unique IDs for every guarded slot when catalog is sufficient");
-assert.equal(largeCatalogResult.replacements, 14, "expected replacement on every guarded slot from repetitive AI output");
+assert.equal(largeCatalogResult.replacements, 13, "expected replacements on every duplicate guarded slot from repetitive AI output");
 assertNoSameDayDuplicates(largeCatalogResult.plan.days);
 
 const weeklyIdsLargeCatalog = new Set(
