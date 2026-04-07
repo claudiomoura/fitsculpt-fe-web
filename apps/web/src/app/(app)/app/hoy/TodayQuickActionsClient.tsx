@@ -1031,8 +1031,6 @@ export default function TodayQuickActionsClient() {
     signals.trainingState === "no-plan" &&
     !signals.nutritionReady &&
     !signals.checkinDoneThisWeek;
-  const canStartTodayWorkout =
-    signals.trainingState === "workout" && Boolean(signals.todayWorkoutId);
   const isDailyProgressComplete = dailyProgressPercent >= 100;
   const trainingMeta =
     signals.trainingState === "workout"
@@ -1054,15 +1052,14 @@ export default function TodayQuickActionsClient() {
       : signals.trainingState === "workout"
         ? "Empezar entrenamiento"
         : t("today.trainingManualCta");
+  const primaryActionTarget =
+    signals.trainingState === "no-plan"
+      ? manualPlanRoute
+      : signals.trainingState === "workout"
+        ? todayTrainingHref
+        : trainingRoute;
 
   const handlePrimaryTrainingAction = () => {
-    if (signals.trainingState === "no-plan") {
-      router.push(manualPlanRoute);
-      return;
-    }
-    if (signals.trainingState === "workout" && !signals.todayWorkoutId) {
-      return;
-    }
     if (!signals.hasTrainingAccess) {
       trackEvent("today_cta_click", {
         target: "billing",
@@ -1072,14 +1069,23 @@ export default function TodayQuickActionsClient() {
       router.push(billingHref);
       return;
     }
-    trackEvent("training_start_clicked", {
-      target: "training",
-      origin: "today",
+    trackEvent("today_cta_click", {
+      target:
+        signals.trainingState === "workout"
+          ? "training_start"
+          : signals.trainingState === "rest"
+            ? "training_week"
+            : "training_setup",
+      origin: "today_training",
     });
-    trackEvent("workout_started", { target: "training", origin: "today" });
-    router.push(
-      signals.trainingState === "workout" ? todayTrainingHref : trainingRoute,
-    );
+    if (signals.trainingState === "workout") {
+      trackEvent("training_start_clicked", {
+        target: "training",
+        origin: "today",
+      });
+      trackEvent("workout_started", { target: "training", origin: "today" });
+    }
+    router.push(primaryActionTarget);
   };
 
   // Prepare weekly summary data
@@ -1218,6 +1224,8 @@ export default function TodayQuickActionsClient() {
               trainingExerciseCount={signals.trainingExerciseCount}
               todayWorkoutId={signals.todayWorkoutId}
               hasTrainingAccess={signals.hasTrainingAccess}
+              primaryActionLabel={primaryActionLabel}
+              onPrimaryAction={handlePrimaryTrainingAction}
             />
 
             {/* Block 5: Nutrition Card */}

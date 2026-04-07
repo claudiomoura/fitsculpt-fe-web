@@ -1154,6 +1154,8 @@ export default function NutritionPlanClient({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const searchParamsString = searchParams.toString();
+  const currentRoute = `${pathname}${searchParamsString ? `?${searchParamsString}` : ""}`;
+  const billingHref = `/app/settings/billing?returnTo=${encodeURIComponent(currentRoute)}`;
   const safeT = (key: string, fallback: string = "") => {
     const value = t(key);
     return value === key ? fallback : value;
@@ -3371,7 +3373,7 @@ export default function NutritionPlanClient({
                     : []),
                   { label: t("nutrition.assignedPlanCta"), href: "/app/nutricion/editar", variant: isAiLocked ? "primary" : "secondary" },
                   ...((isAiLocked || isOutOfTokens)
-                    ? [{ label: t("billing.manageBilling"), href: "/app/settings/billing", variant: "ghost" as const }]
+                    ? [{ label: t("billing.manageBilling"), href: billingHref, variant: "ghost" as const }]
                     : []),
                 ]}
                 data-testid="member-nutrition-empty-state"
@@ -3581,7 +3583,7 @@ export default function NutritionPlanClient({
                           </p>
                           <div className="inline-actions-sm mt-12">
                             <Link
-                              href="/app/settings/billing"
+                              href={billingHref}
                               className="btn secondary fit-content"
                             >
                               {t("billing.manageBilling")}
@@ -3783,7 +3785,7 @@ export default function NutritionPlanClient({
                                   </button>
                                 ) : (
                                   <Link
-                                    href="/app/settings/billing"
+                                    href={billingHref}
                                     className="btn fit-content"
                                   >
                                     {t("billing.upgradePro")}
@@ -3978,16 +3980,32 @@ export default function NutritionPlanClient({
                                             )}
                                           </div>
                                         ) : (
-                                          <p className="muted">
-                                            {t("nutrition.emptySubtitle")}
-                                          </p>
+                                          <div className="stack-sm">
+                                            <p className="muted m-0">
+                                              {t("nutrition.emptySubtitle")}
+                                            </p>
+                                            <ButtonLink
+                                              variant="secondary"
+                                              href="/app/nutricion/editar"
+                                            >
+                                              {t("nutrition.editPlan")}
+                                            </ButtonLink>
+                                          </div>
                                         )}
                                       </div>
                                     ))
                                   ) : (
-                                    <p className="muted">
-                                      {t("nutrition.emptySubtitle")}
-                                    </p>
+                                    <div className="stack-sm">
+                                      <p className="muted m-0">
+                                        {t("nutrition.emptySubtitle")}
+                                      </p>
+                                      <ButtonLink
+                                        variant="secondary"
+                                        href="/app/nutricion/editar"
+                                      >
+                                        {t("nutrition.editPlan")}
+                                      </ButtonLink>
+                                    </div>
                                   )}
                                 </div>
                               ) : null}
@@ -4026,7 +4044,7 @@ export default function NutritionPlanClient({
                                   </button>
                                 ) : (
                                   <Link
-                                    href="/app/settings/billing"
+                                    href={billingHref}
                                     className="btn fit-content"
                                   >
                                     {t("billing.upgradePro")}

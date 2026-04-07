@@ -634,6 +634,8 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   };
 
   const getExerciseImageUrl = (exercise: Exercise) => getExerciseThumbUrl(exercise);
+  const currentRoute = `${pathname}${searchParamsString ? `?${searchParamsString}` : ""}`;
+  const billingHref = `/app/settings/billing?returnTo=${encodeURIComponent(currentRoute)}`;
 
   const mergeExerciseWithCatalog = (exercise: Exercise): Exercise => {
     const exerciseId = getExerciseIdentifier(exercise);
@@ -1197,8 +1199,6 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const handleGenerateClick = () => {
     if (aiGenerationInFlight.current || aiLoading || !profile) return;
     if (!aiEntitled) {
-      const currentRoute = `${pathname}${searchParamsString ? `?${searchParamsString}` : ""}`;
-      const billingHref = `/app/settings/billing?returnTo=${encodeURIComponent(currentRoute)}`;
       setAiActionableError({ title: t("ai.errorState.title"), description: safeT("training.aiModuleRequired", "Requiere StrengthAI o PRO"), ctaHref: billingHref, ctaLabel: t("billing.manageBilling") });
       return;
     }
@@ -1870,7 +1870,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                 actions={isAiLocked
                   ? [
                     { label: safeT("training.selectPlanCta", "Seleccionar plan"), href: "/app/biblioteca" },
-                    { label: t("billing.manageBilling"), href: "/app/settings/billing", variant: "secondary" },
+                    { label: t("billing.manageBilling"), href: billingHref, variant: "secondary" },
                     { label: safeT("training.manualCreate", "Crear manual"), href: "/app/entrenamiento/editar", variant: "secondary" },
                   ]
                   : [
@@ -2235,6 +2235,30 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                     <div className="stack-sm">
                       <p className="m-0 font-medium text-primary">{safeT("training.restDayTitle", "Descanso")}</p>
                       <p className="muted m-0">{safeT("training.restDaySubtitle", "Hoy prioriza recuperacion activa, movilidad suave o una caminata corta.")}</p>
+                      <div className="inline-actions-sm mt-12">
+                        <button
+                          type="button"
+                          className="btn fit-content"
+                          onClick={() => {
+                            setCalendarView("week");
+                          }}
+                        >
+                          {safeT("training.viewWeekCta", "Ver semana")}
+                        </button>
+                        {nextEntryHasWorkout ? (
+                          <button
+                            type="button"
+                            className="btn secondary fit-content"
+                            onClick={() => void openNextDayDetails()}
+                            disabled={detailsCtaLoading}
+                            aria-label={safeT("training.nextSessionDetailsAria", "Ver detalles del proximo entrenamiento")}
+                          >
+                            {detailsCtaLoading
+                              ? t("ui.loading")
+                              : safeT("training.nextSessionDetailsCta", "Ver proximo entrenamiento")}
+                          </button>
+                        ) : null}
+                      </div>
                     </div>
                   ) : (
                     selectedExercises.map((exercise, index) => {

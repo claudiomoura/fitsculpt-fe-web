@@ -1113,6 +1113,10 @@ function isGlobalAdminUser(user: { role: string; email: string }) {
   return user.role === "ADMIN" || isBootstrapAdmin(user.email);
 }
 
+function resolveEffectiveAuthRole(user: { role: string; email: string }) {
+  return isGlobalAdminUser(user) ? "ADMIN" : user.role;
+}
+
 function getBootstrapAdminEmails() {
   if (!env.BOOTSTRAP_ADMIN_EMAILS) return new Set<string>();
   return new Set(
@@ -7647,7 +7651,7 @@ app.post("/auth/login", { preHandler: [authRateLimitMiddleware] }, async (reques
     const token = await reply.jwtSign({
       sub: user.id,
       email: user.email,
-      role: user.role,
+      role: resolveEffectiveAuthRole(user),
     });
 
     reply.setCookie("fs_token", token, buildCookieOptions());
@@ -7676,8 +7680,7 @@ app.get("/auth/me", async (request, reply) => {
         "auth/me billing sync failed",
       );
     }
-    const effectiveIsAdmin =
-      effectiveUser.role === "ADMIN" || isBootstrapAdmin(effectiveUser.email);
+    const effectiveAuthRole = resolveEffectiveAuthRole(effectiveUser);
     const membershipRecord = await prisma.gymMembership.findFirst({
       where: {
         userId: user.id,
@@ -7700,7 +7703,7 @@ app.get("/auth/me", async (request, reply) => {
     const aiTokenPayload = getAiTokenPayload(effectiveUser, entitlements);
     return buildAuthMeResponse({
       user: effectiveUser,
-      role: effectiveIsAdmin ? "ADMIN" : effectiveUser.role,
+      role: effectiveAuthRole === "ADMIN" ? "ADMIN" : "USER",
       aiTokenBalance: aiTokenPayload.aiTokenBalance,
       aiTokenRenewalAt: aiTokenPayload.aiTokenRenewalAt,
       entitlements,
@@ -7892,7 +7895,7 @@ app.get("/auth/google/callback", async (request, reply) => {
   const token = await reply.jwtSign({
     sub: user.id,
     email: user.email,
-    role: user.role,
+    role: resolveEffectiveAuthRole(user),
   });
 
   if (mode === "bff") {

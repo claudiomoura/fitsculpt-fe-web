@@ -10,6 +10,9 @@ type TodayPriorityHeroProps = {
   trainingExerciseCount?: number;
   todayWorkoutId?: string | null;
   hasTrainingAccess?: boolean;
+  primaryActionLabel?: string;
+  onPrimaryAction?: () => void;
+  primaryActionDisabled?: boolean;
   className?: string;
 };
 
@@ -32,28 +35,31 @@ export function TodayPriorityHero({
   trainingExerciseCount = 8,
   todayWorkoutId,
   hasTrainingAccess = true,
+  primaryActionLabel,
+  onPrimaryAction,
+  primaryActionDisabled = false,
   className,
 }: TodayPriorityHeroProps) {
   const router = useRouter();
 
-  const handleStart = () => {
-    if (todayWorkoutId) {
+  const handlePrimaryAction = () => {
+    if (onPrimaryAction) {
+      onPrimaryAction();
+      return;
+    }
+    if (!hasTrainingAccess) {
+      router.push("/app/settings/billing");
+      return;
+    }
+    if (trainingState === "no-plan") {
+      router.push("/app/entrenamiento/editar");
+      return;
+    }
+    if (trainingState === "workout" && todayWorkoutId) {
       router.push(`/app/entrenamiento/${encodeURIComponent(todayWorkoutId)}/start`);
       return;
     }
     router.push("/app/entrenamiento");
-  };
-
-  const handleDetails = () => {
-    if (todayWorkoutId) {
-      router.push(`/app/entrenamiento/${encodeURIComponent(todayWorkoutId)}`);
-      return;
-    }
-    router.push("/app/entrenamiento");
-  };
-
-  const handleDone = () => {
-    router.push("/app/seguimiento/check-in");
   };
 
   // Determine display based on training state
@@ -85,7 +91,13 @@ export function TodayPriorityHero({
   };
 
   const display = getStateDisplay();
-  const canStart = trainingState === "workout" && hasTrainingAccess;
+  const ctaLabel =
+    primaryActionLabel
+    ?? (trainingState === "rest"
+      ? "Ver semana"
+      : trainingState === "no-plan"
+        ? "Crear plan"
+        : "Empezar entrenamiento");
 
   return (
     <article
@@ -197,77 +209,36 @@ export function TodayPriorityHero({
         </div>
       )}
 
-      {/* Action buttons - responsive layout */}
+      {/* Action button - single dominant CTA */}
       <div
         style={{
           display: "flex",
           gap: "clamp(8px, 2vw, 16px)",
           alignItems: "center",
-          flexWrap: "wrap",
         }}
       >
-        {/* Empezar button - primary gradient */}
         <Button
-          onClick={handleStart}
-          disabled={!canStart}
+          onClick={handlePrimaryAction}
+          disabled={primaryActionDisabled}
           style={{
             flex: "clamp(120px, 30vw, 360px)",
             minWidth: "120px",
             height: "clamp(44px, 8vw, 56px)",
             fontSize: "clamp(14px, 2vw, 18px)",
             fontWeight: 600,
-            background: canStart
+            background: !primaryActionDisabled
               ? "linear-gradient(135deg, #00B4A0 0%, #2378FF 100%)"
               : "rgba(255,255,255,0.1)",
             border: "none",
             borderRadius: "28px",
-            cursor: canStart ? "pointer" : "not-allowed",
+            cursor: primaryActionDisabled ? "not-allowed" : "pointer",
             color: "#fff",
-            boxShadow: canStart
+            boxShadow: !primaryActionDisabled
               ? "0 4px 20px rgba(0, 180, 160, 0.3)"
               : "none",
           }}
         >
-          Empezar
-        </Button>
-
-        {/* Detalles button - secondary outline */}
-        <Button
-          onClick={handleDetails}
-          style={{
-            flex: "clamp(80px, 20vw, 270px)",
-            minWidth: "80px",
-            height: "clamp(44px, 8vw, 56px)",
-            fontSize: "clamp(14px, 2vw, 18px)",
-            fontWeight: 500,
-            background: "transparent",
-            border: "2px solid rgba(255, 255, 255, 0.3)",
-            borderRadius: "28px",
-            cursor: "pointer",
-            color: "rgba(255, 255, 255, 0.9)",
-          }}
-        >
-          Detalles
-        </Button>
-
-        {/* Hecho button - secondary */}
-        <Button
-          onClick={handleDone}
-          disabled={!canStart}
-          style={{
-            flex: "clamp(60px, 15vw, 170px)",
-            minWidth: "60px",
-            height: "clamp(44px, 8vw, 56px)",
-            fontSize: "clamp(14px, 2vw, 18px)",
-            fontWeight: 500,
-            background: "rgba(255,255,255,0.1)",
-            border: "none",
-            borderRadius: "28px",
-            cursor: canStart ? "pointer" : "not-allowed",
-            color: "rgba(255, 255, 255, 0.7)",
-          }}
-        >
-          Hecho
+          {ctaLabel}
         </Button>
       </div>
     </article>
