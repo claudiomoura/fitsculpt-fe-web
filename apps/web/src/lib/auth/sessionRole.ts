@@ -1,31 +1,6 @@
-const ADMIN_ROLE_TOKENS = new Set(["ADMIN", "ROLE_ADMIN", "ADMINISTRATOR"]);
-const TRAINER_ROLE_TOKENS = new Set(["TRAINER", "COACH", "ROLE_TRAINER", "ROLE_COACH", "MANAGER", "ROLE_MANAGER"]);
-const USER_ROLE_TOKENS = new Set(["USER", "ROLE_USER"]);
+import { getPrimaryRole, getRoleFlags } from "@/lib/roles";
 
 export type SessionRole = "ADMIN" | "TRAINER" | "USER" | "UNKNOWN";
-
-function toUpperString(value: unknown) {
-  return typeof value === "string" ? value.toUpperCase() : null;
-}
-
-function collectTokenClaims(claims: Record<string, unknown>) {
-  const directRole = toUpperString(claims.role);
-  const directRoles = Array.isArray(claims.roles)
-    ? claims.roles.map((item) => toUpperString(item)).filter((item): item is string => item !== null)
-    : [];
-
-  const nestedUser = claims.user;
-  const nestedRole =
-    typeof nestedUser === "object" && nestedUser !== null ? toUpperString((nestedUser as Record<string, unknown>).role) : null;
-  const nestedRoles =
-    typeof nestedUser === "object" && nestedUser !== null && Array.isArray((nestedUser as Record<string, unknown>).roles)
-      ? ((nestedUser as Record<string, unknown>).roles as unknown[])
-          .map((item) => toUpperString(item))
-          .filter((item): item is string => item !== null)
-      : [];
-
-  return [directRole, nestedRole, ...directRoles, ...nestedRoles].filter((item): item is string => item !== null);
-}
 
 function decodeTokenPayload(token: string): Record<string, unknown> | null {
   const parts = token.split(".");
@@ -48,11 +23,17 @@ export function readSessionRole(token: string): SessionRole {
   const claims = decodeTokenPayload(token);
   if (!claims) return "UNKNOWN";
 
-  const roleTokens = collectTokenClaims(claims);
+  const roleFlags = getRoleFlags(claims);
+  if (roleFlags.isAdmin) return "ADMIN";
+  if (roleFlags.isTrainer) return "TRAINER";
 
-  if (roleTokens.some((roleToken) => ADMIN_ROLE_TOKENS.has(roleToken))) return "ADMIN";
-  if (roleTokens.some((roleToken) => TRAINER_ROLE_TOKENS.has(roleToken))) return "TRAINER";
-  if (roleTokens.some((roleToken) => USER_ROLE_TOKENS.has(roleToken))) return "USER";
+  return getPrimaryRole(claims) === "user" ? "USER" : "UNKNOWN";
+}
 
-  return "UNKNOWN";
+export function getDefaultAppPathForSessionRole(sessionRole: SessionRole): "/app" | "/app/admin" | "/app/hoy" | "/app/trainer" {
+  if (sessionRole === "ADMIN") return "/app/admin";
+  if (sessionRole === "TRAINER") return "/app/trainer";
+  if (sessionRole === "USER") return "/app/hoy";
+
+  return "/app";
 }

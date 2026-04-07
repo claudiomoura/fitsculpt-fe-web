@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Button } from "@/design-system/components/Button";
 import { ButtonLink } from "@/design-system/components/Button";
 import { useLanguage } from "@/context/LanguageProvider";
 
@@ -14,6 +15,14 @@ type TodayNutritionCardProps = {
   mealsTotal?: number;
   hasPlan?: boolean;
   hasAiEntitlement?: boolean;
+  primaryCtaLabel?: string;
+  primaryCtaHref?: string;
+  onPrimaryCtaClick?: () => void;
+  secondaryCtaLabel?: string;
+  onSecondaryCtaClick?: () => void;
+  tertiaryCtaLabel?: string;
+  tertiaryCtaHref?: string;
+  onTertiaryCtaClick?: () => void;
   nutritionHref?: string;
   detailsHref?: string;
   editHref?: string;
@@ -39,6 +48,14 @@ export function TodayNutritionCard({
   mealsTotal = 3,
   hasPlan = true,
   hasAiEntitlement = false,
+  primaryCtaLabel,
+  primaryCtaHref,
+  onPrimaryCtaClick,
+  secondaryCtaLabel,
+  onSecondaryCtaClick,
+  tertiaryCtaLabel,
+  tertiaryCtaHref,
+  onTertiaryCtaClick,
   nutritionHref = "/app/nutricion",
   detailsHref = "/app/nutricion",
   editHref = "/app/nutricion/editar",
@@ -203,9 +220,10 @@ export function TodayNutritionCard({
         {hasPlan ? (
           <ButtonLink
             as={Link}
-            href={nutritionHref}
+            href={primaryCtaHref ?? nutritionHref}
             variant="primary"
             className="fit-content"
+            onClick={onPrimaryCtaClick}
             style={{
               flex: "clamp(120px, 30vw, 360px)",
               minWidth: "120px",
@@ -219,7 +237,7 @@ export function TodayNutritionCard({
               boxShadow: "0 4px 20px rgba(0, 180, 160, 0.3)",
             }}
           >
-            {t("today.nutritionPrimaryCta")}
+            {primaryCtaLabel ?? t("today.nutritionPrimaryCta")}
           </ButtonLink>
         ) : hasAiEntitlement ? (
           <ButtonLink
@@ -265,33 +283,55 @@ export function TodayNutritionCard({
           </ButtonLink>
         )}
 
-        {/* Secondary: Unirse a un gimnasio */}
-        <ButtonLink
-          as={Link}
-          href="/app/gym"
-          variant="secondary"
-          className="fit-content"
-          style={{
-            flex: "clamp(80px, 20vw, 270px)",
-            minWidth: "80px",
-            height: "clamp(44px, 8vw, 56px)",
-            fontSize: "clamp(14px, 2vw, 18px)",
-            fontWeight: 500,
-            background: "transparent",
-            border: "2px solid rgba(255, 255, 255, 0.3)",
-            borderRadius: "28px",
-            color: "rgba(255, 255, 255, 0.9)",
-          }}
-        >
-          {t("gym.join.consumerCta")}
-        </ButtonLink>
+        {/* Secondary CTA changes between with-plan and no-plan states */}
+        {hasPlan ? (
+          <Button
+            variant="secondary"
+            className="fit-content"
+            onClick={onSecondaryCtaClick}
+            style={{
+              flex: "clamp(80px, 20vw, 270px)",
+              minWidth: "80px",
+              height: "clamp(44px, 8vw, 56px)",
+              fontSize: "clamp(14px, 2vw, 18px)",
+              fontWeight: 500,
+              background: "transparent",
+              border: "2px solid rgba(255, 255, 255, 0.3)",
+              borderRadius: "28px",
+              color: "rgba(255, 255, 255, 0.9)",
+            }}
+          >
+            {secondaryCtaLabel ?? "Registrar comida"}
+          </Button>
+        ) : (
+          <ButtonLink
+            as={Link}
+            href="/app/gym"
+            variant="secondary"
+            className="fit-content"
+            style={{
+              flex: "clamp(80px, 20vw, 270px)",
+              minWidth: "80px",
+              height: "clamp(44px, 8vw, 56px)",
+              fontSize: "clamp(14px, 2vw, 18px)",
+              fontWeight: 500,
+              background: "transparent",
+              border: "2px solid rgba(255, 255, 255, 0.3)",
+              borderRadius: "28px",
+              color: "rgba(255, 255, 255, 0.9)",
+            }}
+          >
+            {t("gym.join.consumerCta")}
+          </ButtonLink>
+        )}
 
         {/* Tertiary: Crear manual */}
         <ButtonLink
           as={Link}
-          href={editHref}
+          href={hasPlan ? (tertiaryCtaHref ?? detailsHref) : editHref}
           variant="ghost"
           className="fit-content"
+          onClick={hasPlan ? onTertiaryCtaClick : undefined}
           style={{
             flex: "clamp(60px, 15vw, 170px)",
             minWidth: "60px",
@@ -304,7 +344,9 @@ export function TodayNutritionCard({
             color: "rgba(255, 255, 255, 0.7)",
           }}
         >
-          {hasPlan ? t("today.nutritionEditCta") : t("today.nutritionCreateManualCta")}
+          {hasPlan
+            ? (tertiaryCtaLabel ?? t("today.nutritionEditCta"))
+            : t("today.nutritionCreateManualCta")}
         </ButtonLink>
       </div>
     </article>

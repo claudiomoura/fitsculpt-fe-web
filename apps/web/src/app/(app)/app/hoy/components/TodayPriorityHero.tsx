@@ -16,6 +16,12 @@ type TodayPriorityHeroProps = {
   primaryActionLabel?: string;
   onPrimaryAction?: () => void;
   primaryActionDisabled?: boolean;
+  secondaryActionLabel?: string;
+  secondaryActionHref?: string;
+  onSecondaryAction?: () => void;
+  tertiaryActionLabel?: string;
+  tertiaryActionHref?: string;
+  onTertiaryAction?: () => void;
   hasPlan?: boolean;
   hasAiEntitlement?: boolean;
   gymMembershipState?: "in_gym" | "not_in_gym" | "unknown";
@@ -44,6 +50,12 @@ export function TodayPriorityHero({
   primaryActionLabel,
   onPrimaryAction,
   primaryActionDisabled = false,
+  secondaryActionLabel,
+  secondaryActionHref,
+  onSecondaryAction,
+  tertiaryActionLabel,
+  tertiaryActionHref,
+  onTertiaryAction,
   hasPlan = false,
   hasAiEntitlement = false,
   gymMembershipState = "unknown",
@@ -315,6 +327,7 @@ export function TodayPriorityHero({
         <div
           style={{
             display: "flex",
+            flexWrap: "wrap",
             gap: "clamp(8px, 2vw, 16px)",
             alignItems: "center",
           }}
@@ -342,6 +355,48 @@ export function TodayPriorityHero({
           >
             {ctaLabel}
           </Button>
+          {secondaryActionLabel && secondaryActionHref ? (
+            <ButtonLink
+              as={Link}
+              href={secondaryActionHref}
+              variant="secondary"
+              onClick={onSecondaryAction}
+              style={{
+                flex: "clamp(80px, 20vw, 270px)",
+                minWidth: "80px",
+                height: "clamp(44px, 8vw, 56px)",
+                fontSize: "clamp(14px, 2vw, 18px)",
+                fontWeight: 500,
+                background: "transparent",
+                border: "2px solid rgba(255, 255, 255, 0.3)",
+                borderRadius: "28px",
+                color: "rgba(255, 255, 255, 0.9)",
+              }}
+            >
+              {secondaryActionLabel}
+            </ButtonLink>
+          ) : null}
+          {tertiaryActionLabel && tertiaryActionHref ? (
+            <ButtonLink
+              as={Link}
+              href={tertiaryActionHref}
+              variant="ghost"
+              onClick={onTertiaryAction}
+              style={{
+                flex: "clamp(60px, 15vw, 170px)",
+                minWidth: "60px",
+                height: "clamp(44px, 8vw, 56px)",
+                fontSize: "clamp(14px, 2vw, 18px)",
+                fontWeight: 500,
+                background: "rgba(255,255,255,0.1)",
+                border: "none",
+                borderRadius: "28px",
+                color: "rgba(255, 255, 255, 0.7)",
+              }}
+            >
+              {tertiaryActionLabel}
+            </ButtonLink>
+          ) : null}
         </div>
       )}
     </article>

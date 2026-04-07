@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { Button } from "@/design-system/components/Button";
 import { Input } from "@/design-system/components/Input";
 import { Modal } from "@/design-system/components/Modal";
@@ -30,6 +30,10 @@ type QuickLogHubProps = {
   latestCheckin: CheckinEntry | null;
   currentWeightKg?: number | null;
   onSaved?: () => Promise<void> | void;
+};
+
+export type QuickLogHubHandle = {
+  open: (mode?: Mode) => void;
 };
 
 function toTodayKey(): string {
@@ -82,7 +86,10 @@ function checkinFromWeight(date: string, weightKg: number, latestCheckin: Checki
   };
 }
 
-export default function QuickLogHub({ origin, latestCheckin, currentWeightKg = null, onSaved }: QuickLogHubProps) {
+const QuickLogHub = forwardRef<QuickLogHubHandle, QuickLogHubProps>(function QuickLogHub(
+  { origin, latestCheckin, currentWeightKg = null, onSaved },
+  ref,
+) {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<Mode>("meal");
   const [status, setStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
@@ -118,11 +125,18 @@ export default function QuickLogHub({ origin, latestCheckin, currentWeightKg = n
     return typeof maybeCtor === "function";
   }, []);
 
-  const openHub = () => {
+  const openHub = (nextMode: Mode = "meal") => {
     setStatus(null);
+    setMode(nextMode);
     setOpen(true);
     trackEvent("quick_log_opened", { target: "nutrition", origin });
   };
+
+  useImperativeHandle(ref, () => ({
+    open: (nextMode: Mode = "meal") => {
+      openHub(nextMode);
+    },
+  }));
 
   const closeHub = () => {
     setOpen(false);
@@ -305,7 +319,7 @@ export default function QuickLogHub({ origin, latestCheckin, currentWeightKg = n
 
   return (
     <div className={styles.launcher}>
-      <Button className={styles.launcherButton} variant="secondary" onClick={openHub}>
+      <Button className={styles.launcherButton} variant="secondary" onClick={() => openHub()}>
         Quick log
       </Button>
 
@@ -411,4 +425,6 @@ export default function QuickLogHub({ origin, latestCheckin, currentWeightKg = n
       </Modal>
     </div>
   );
-}
+});
+
+export default QuickLogHub;

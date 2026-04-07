@@ -64,6 +64,16 @@ describe("navigation section gating", () => {
     expect(allItemIds).not.toContain("admin-dashboard");
   });
 
+  it("keeps trainer navigation for capability-based trainers without exposing today", () => {
+    const sections = buildNavigationSections({ role: "USER", isCoach: true, gymMembershipState: "in_gym" });
+    const sectionIds = sections.map((section) => section.id);
+    const allItemIds = sections.flatMap((section) => section.items.map((item) => item.id));
+
+    expect(sectionIds).toEqual(["trainer", "account"]);
+    expect(allItemIds).toContain("trainer-home");
+    expect(allItemIds).not.toContain("today");
+  });
+
   it("marks admin gym requests as unavailable to avoid broken flows", () => {
     const sections = buildNavigationSections({ role: "admin" });
     const adminSection = sections.find((section) => section.id === "admin");

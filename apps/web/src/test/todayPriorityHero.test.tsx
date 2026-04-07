@@ -24,12 +24,28 @@ describe("TodayPriorityHero routes", () => {
           trainingState="workout"
           todayWorkoutId="workout-123"
           hasTrainingAccess
+          secondaryActionLabel="Entreno de hoy"
+          secondaryActionHref="/app/entrenamiento?day=2026-04-07"
+          tertiaryActionLabel="Ver semana"
+          tertiaryActionHref="/app/entrenamiento?day=2026-04-07"
         />
       </LanguageProvider>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Empezar entrenamiento" }));
-    expect(pushMock).toHaveBeenCalledWith("/app/entrenamiento/workout-123/start");
+    expect(
+      screen.getByRole("link", { name: "Entreno de hoy" }),
+    ).toHaveAttribute("href", "/app/entrenamiento?day=2026-04-07");
+    expect(screen.getByRole("link", { name: "Ver semana" })).toHaveAttribute(
+      "href",
+      "/app/entrenamiento?day=2026-04-07",
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Empezar entrenamiento" }),
+    );
+    expect(pushMock).toHaveBeenCalledWith(
+      "/app/entrenamiento/workout-123/start",
+    );
   });
 
   it("uses deterministic fallback routes for rest and no-plan states", () => {
@@ -61,11 +77,18 @@ describe("TodayPriorityHero routes", () => {
 
     // Log the links for debugging
     links.forEach((link) => {
-      console.log("Link href:", link.getAttribute("href"), "text:", link.textContent);
+      console.log(
+        "Link href:",
+        link.getAttribute("href"),
+        "text:",
+        link.textContent,
+      );
     });
 
     // Verify there's a link to manual plan editing
-    const hasEditarLink = links.some((link) => link.getAttribute("href") === "/app/entrenamiento/editar");
+    const hasEditarLink = links.some(
+      (link) => link.getAttribute("href") === "/app/entrenamiento/editar",
+    );
     expect(hasEditarLink).toBe(true);
   });
 });

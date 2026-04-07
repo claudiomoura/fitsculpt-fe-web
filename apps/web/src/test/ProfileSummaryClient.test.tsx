@@ -53,4 +53,19 @@ describe("ProfileSummaryClient", () => {
 
     expect(screen.getByRole("button", { name: /reintentar|retry/i })).toBeInTheDocument();
   });
+
+  it("renders the GYM quick link in the more section", async () => {
+    getUserProfileMock.mockResolvedValue({
+      name: "Laura",
+      goal: "maintain",
+      trainingPreferences: { level: "beginner", daysPerWeek: 3, sessionTime: "medium" },
+      nutritionPreferences: { dietType: "balanced", mealsPerDay: 3, allergies: [] },
+    });
+    fetchAuthMeMock.mockResolvedValue(null);
+
+    renderWithProviders(<ProfileSummaryClient />);
+
+    const gymLink = await screen.findByRole("link", { name: "GYM" });
+    expect(gymLink).toHaveAttribute("href", "/app/gym");
+  });
 });

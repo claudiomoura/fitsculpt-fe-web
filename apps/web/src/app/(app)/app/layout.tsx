@@ -3,8 +3,9 @@ import { redirectToOnboardingIfIncomplete } from "@/lib/server/profileGate";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   // Enforce profile completion on ALL /app/* routes (except onboarding itself)
-  // We use a generic returnTo since the layout doesn't have direct pathname access
-  await redirectToOnboardingIfIncomplete("/app/hoy");
+  // Use the generic /app landing so role-aware redirects can send users back to
+  // the correct home surface after onboarding.
+  await redirectToOnboardingIfIncomplete("/app");
 
   return <AppShellLayout shell="app">{children}</AppShellLayout>;
 }

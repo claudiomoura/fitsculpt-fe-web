@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { readSessionRole } from "@/lib/auth/sessionRole";
+import { getDefaultAppPathForSessionRole, readSessionRole } from "@/lib/auth/sessionRole";
 
 const PROTECTED_PREFIXES = ["/app"];
 const TRAINER_PREFIXES = ["/app/trainer"];
@@ -9,6 +9,7 @@ const DEV_PREFIXES = ["/app/dev"];
 
 const DEV_ROLE_TOKENS = new Set(["DEV", "DEVELOPER", "ROLE_DEV", "ROLE_DEVELOPER"]);
 const DEV_PERMISSION_TOKENS = new Set(["DEV", "DEVELOPER", "ROLE_DEV", "ROLE_DEVELOPER"]);
+const PRIMARY_APP_SURFACES = new Set(["/app", "/app/dashboard", "/app/hoy", "/app/today"]);
 
 function startsWithAny(pathname: string, prefixes: string[]) {
   return prefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
@@ -121,12 +122,17 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
+  const sessionRole = readSessionRole(token);
+  const defaultAppPath = getDefaultAppPathForSessionRole(sessionRole);
+
+  if (PRIMARY_APP_SURFACES.has(pathname) && pathname !== defaultAppPath && defaultAppPath !== "/app") {
+    return redirectTo(req, defaultAppPath);
+  }
+
   const legacyRedirect = getLegacyRedirect(pathname);
   if (legacyRedirect) {
     return redirectTo(req, legacyRedirect, 301);
   }
-
-  const sessionRole = readSessionRole(token);
 
   if (sessionRole === "USER" && isTrainerPath(pathname)) {
     return redirectTo(req, "/app");

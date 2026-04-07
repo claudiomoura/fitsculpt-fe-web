@@ -25,4 +25,26 @@ describe("readSessionRole", () => {
 
     expect(readSessionRole(token)).toBe("TRAINER");
   });
+
+  it("treats trainer capability claims as TRAINER even when the base role is USER", () => {
+    const token = buildJwt({
+      sub: "u_trainer_cap",
+      email: "trainer@example.com",
+      role: "USER",
+      permissions: ["TRAINER_READ"],
+    });
+
+    expect(readSessionRole(token)).toBe("TRAINER");
+  });
+
+  it("keeps admin precedence when admin and trainer claims are both present", () => {
+    const token = buildJwt({
+      sub: "u_admin",
+      email: "admin@example.com",
+      role: "USER",
+      permissions: ["TRAINER_READ", "ADMIN"],
+    });
+
+    expect(readSessionRole(token)).toBe("ADMIN");
+  });
 });

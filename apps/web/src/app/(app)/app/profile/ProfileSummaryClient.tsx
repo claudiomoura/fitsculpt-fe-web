@@ -599,6 +599,7 @@ export default function ProfileSummaryClient() {
           <HubRow label={t("profile.checkinTitle")} href="/app/seguimiento/check-in" />
           <HubRow label={t("nav.today")} href="/app/hoy" />
           <HubRow label={t("nav.library")} href="/app/biblioteca" />
+          <HubRow label="GYM" href="/app/gym" />
           {/* Requiere implementación: centro de notificaciones/cuenta dedicado fuera de las rutas existentes. */}
         </div>
       </section>

@@ -35,7 +35,9 @@ import { pickWorkoutIdForDateCandidates } from "@/lib/trainingWorkoutSelection";
 import { TodayEmptyState } from "./TodayEmptyState";
 import { TodayErrorState } from "./TodayErrorState";
 import { TodaySkeleton } from "./TodaySkeleton";
-import QuickLogHub from "@/components/quick-log/QuickLogHub";
+import QuickLogHub, {
+  type QuickLogHubHandle,
+} from "@/components/quick-log/QuickLogHub";
 
 // NEW COMPONENTS - Phase 3 Integration
 import { TodayHeader } from "./components/TodayHeader";
@@ -280,7 +282,9 @@ function activityMultiplier(activity: ProfileActivity): number {
   }
 }
 
-function estimateNutritionTargetCalories(profile: ProfileSummaryPayload): number | null {
+function estimateNutritionTargetCalories(
+  profile: ProfileSummaryPayload,
+): number | null {
   if (
     !isPositiveNumber(profile.weightKg) ||
     !isPositiveNumber(profile.heightCm) ||
@@ -423,11 +427,14 @@ export default function TodayQuickActionsClient() {
   const hasAiAccess = canAccessFeature(entitlements, "ai");
 
   const [status, setStatus] = useState<ViewStatus>("loading");
+  const quickLogHubRef = useRef<QuickLogHubHandle>(null);
   const [signals, setSignals] = useState<TodaySignals>({
     checkinDoneThisWeek: false,
     userName: "",
     subscriptionPlan: "FREE",
     aiTokenBalance: 0,
+    hasAiEntitlement: false,
+    gymMembershipState: "unknown",
     trainingName: "",
     trainingDuration: null,
     trainingExerciseCount: 0,
@@ -509,6 +516,8 @@ export default function TodayQuickActionsClient() {
         userName: "",
         subscriptionPlan: "FREE",
         aiTokenBalance: 0,
+        hasAiEntitlement: false,
+        gymMembershipState: "unknown",
         trainingName: "",
         trainingDuration: null,
         trainingExerciseCount: 0,
@@ -567,7 +576,8 @@ export default function TodayQuickActionsClient() {
           profileEstimatedNutritionTarget = Math.round(profilePlanTarget);
         } else {
           // Fallback to calculated target from profile metrics.
-          profileEstimatedNutritionTarget = estimateNutritionTargetCalories(profile);
+          profileEstimatedNutritionTarget =
+            estimateNutritionTargetCalories(profile);
         }
       }
 
@@ -680,13 +690,10 @@ export default function TodayQuickActionsClient() {
                 ok: nutritionDetailSummary.ok,
                 json: async () => nutritionDetailSummary.data,
               }
-            : await fetch(
-                `/api/nutrition-plans/${nutritionPlanId}`,
-                {
-                  cache: "no-store",
-                  credentials: "include",
-                },
-              );
+            : await fetch(`/api/nutrition-plans/${nutritionPlanId}`, {
+                cache: "no-store",
+                credentials: "include",
+              });
           if (nutritionDetailResponse.ok) {
             const nutritionDetail =
               (await nutritionDetailResponse.json()) as NutritionPlanDetail;
@@ -711,7 +718,7 @@ export default function TodayQuickActionsClient() {
                 adherenceStore[nutritionDayKey] ?? [],
               );
               nextSignals.nutritionMealsTotal = nutritionDay.meals.length;
-              
+
               // Count meals that are actually marked as consumed in adherence store
               const adherenceConsumedCount = nutritionDay.meals.reduce(
                 (count, meal, index) =>
@@ -723,7 +730,7 @@ export default function TodayQuickActionsClient() {
                     : 0),
                 0,
               );
-              
+
               // Only count calories from meals that are actually marked as consumed
               // If no meals are marked as consumed in adherence store, show 0 even if mealLog has entries
               if (adherenceConsumedCount === 0) {
@@ -744,7 +751,7 @@ export default function TodayQuickActionsClient() {
                         getNutritionMealKey(meal, nutritionDayKey, index),
                       )
                         ? Number.isFinite(meal.macros?.calories)
-                          ? meal.macros?.calories ?? 0
+                          ? (meal.macros?.calories ?? 0)
                           : 0
                         : 0),
                     0,
@@ -758,7 +765,7 @@ export default function TodayQuickActionsClient() {
                         getNutritionMealKey(meal, nutritionDayKey, index),
                       )
                         ? Number.isFinite(meal.macros?.protein)
-                          ? meal.macros?.protein ?? 0
+                          ? (meal.macros?.protein ?? 0)
                           : 0
                         : 0),
                     0,
@@ -772,7 +779,7 @@ export default function TodayQuickActionsClient() {
                         getNutritionMealKey(meal, nutritionDayKey, index),
                       )
                         ? Number.isFinite(meal.macros?.carbs)
-                          ? meal.macros?.carbs ?? 0
+                          ? (meal.macros?.carbs ?? 0)
                           : 0
                         : 0),
                     0,
@@ -786,7 +793,7 @@ export default function TodayQuickActionsClient() {
                         getNutritionMealKey(meal, nutritionDayKey, index),
                       )
                         ? Number.isFinite(meal.macros?.fats)
-                          ? meal.macros?.fats ?? 0
+                          ? (meal.macros?.fats ?? 0)
                           : 0
                         : 0),
                     0,
@@ -817,9 +824,9 @@ export default function TodayQuickActionsClient() {
       }
 
       if (
-        todayTrainingDay
-        && nextSignals.trainingState === "workout"
-        && nextSignals.hasTrainingAccess
+        todayTrainingDay &&
+        nextSignals.trainingState === "workout" &&
+        nextSignals.hasTrainingAccess
       ) {
         const workoutsResponse = await fetch("/api/workouts?take=30", {
           cache: "no-store",
@@ -851,9 +858,9 @@ export default function TodayQuickActionsClient() {
               credentials: "include",
               body: JSON.stringify({
                 name:
-                  todayTrainingDay.focus
-                  || todayTrainingDay.label
-                  || nextSignals.trainingName,
+                  todayTrainingDay.focus ||
+                  todayTrainingDay.label ||
+                  nextSignals.trainingName,
                 notes: `Dia: ${todayTrainingDay.label}`,
                 scheduledAt: new Date(
                   `${toDateKey(scheduledDate)}T12:00:00`,
@@ -861,14 +868,20 @@ export default function TodayQuickActionsClient() {
                 durationMin: Number.isFinite(todayTrainingDay.duration)
                   ? Number(todayTrainingDay.duration)
                   : 45,
-                exercises: (todayTrainingDay.exercises ?? []).map((exercise, index) => ({
-                  exerciseId: exercise.id,
-                  name: exercise.name,
-                  sets: typeof exercise.sets === "number" || typeof exercise.sets === "string" ? String(exercise.sets) : undefined,
-                  reps: exercise.reps ?? parseRepsFromSets(exercise.sets),
-                  notes: exercise.notes ?? undefined,
-                  order: index,
-                })),
+                exercises: (todayTrainingDay.exercises ?? []).map(
+                  (exercise, index) => ({
+                    exerciseId: exercise.id,
+                    name: exercise.name,
+                    sets:
+                      typeof exercise.sets === "number" ||
+                      typeof exercise.sets === "string"
+                        ? String(exercise.sets)
+                        : undefined,
+                    reps: exercise.reps ?? parseRepsFromSets(exercise.sets),
+                    notes: exercise.notes ?? undefined,
+                    order: index,
+                  }),
+                ),
               }),
             });
 
@@ -1048,11 +1061,15 @@ export default function TodayQuickActionsClient() {
   const todayTrainingHref = signals.todayWorkoutId
     ? `/app/entrenamiento/${encodeURIComponent(signals.todayWorkoutId)}/start`
     : trainingRoute;
+  const trainingTodayHref = signals.trainingDayKey
+    ? `${trainingRoute}?day=${encodeURIComponent(signals.trainingDayKey)}`
+    : trainingRoute;
+  const trainingWeekHref = trainingTodayHref;
   const primaryActionLabel =
     signals.trainingState === "rest"
       ? "Ver semana"
       : signals.trainingState === "workout"
-        ? "Empezar entrenamiento"
+        ? "Empezar ahora"
         : t("today.trainingManualCta");
   const primaryActionTarget =
     signals.trainingState === "no-plan"
@@ -1072,12 +1089,7 @@ export default function TodayQuickActionsClient() {
       return;
     }
     trackEvent("today_cta_click", {
-      target:
-        signals.trainingState === "workout"
-          ? "training_start"
-          : signals.trainingState === "rest"
-            ? "training_week"
-            : "training_setup",
+      target: "training",
       origin: "today_training",
     });
     if (signals.trainingState === "workout") {
@@ -1091,22 +1103,26 @@ export default function TodayQuickActionsClient() {
   };
 
   // Prepare weekly summary data
-  const weeklyData = useMemo((): Array<{ day: string; completed: boolean; type: "training" | "nutrition" | "checkin" | null }> => {
+  const weeklyData = useMemo((): Array<{
+    day: string;
+    completed: boolean;
+    type: "training" | "nutrition" | "checkin" | null;
+  }> => {
     // This would ideally come from tracking history
     // For now, we'll create a simple structure based on current signals
     const today = new Date();
     const dayOfWeek = today.getDay();
     const weekDays = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
-    
+
     return weekDays.map((day, idx) => {
       // Simple logic: past days might have data, future days don't
       const isPast = idx < dayOfWeek;
       const isToday = idx === dayOfWeek;
-      
+
       if (!isPast && !isToday) {
         return { day, completed: false, type: null };
       }
-      
+
       // For today, use current signals
       if (isToday) {
         let type: "training" | "nutrition" | "checkin" | null = null;
@@ -1117,14 +1133,17 @@ export default function TodayQuickActionsClient() {
         } else if (signals.checkinDoneThisWeek) {
           type = "checkin";
         }
-        
+
         return {
           day,
-          completed: signals.trainingState === "workout" || signals.nutritionReady || signals.checkinDoneThisWeek,
+          completed:
+            signals.trainingState === "workout" ||
+            signals.nutritionReady ||
+            signals.checkinDoneThisWeek,
           type,
         };
       }
-      
+
       // Past days - placeholder (would need historical data)
       return { day, completed: false, type: null };
     });
@@ -1136,6 +1155,38 @@ export default function TodayQuickActionsClient() {
   const checkinCompleted = signals.checkinDoneThisWeek ? 1 : 0;
   const todayDayKey = toDateKey(new Date());
   const nutritionTodayHref = `${nutritionRoute}?day=${encodeURIComponent(todayDayKey)}`;
+  const nutritionPlanHref = nutritionRoute;
+  const handleTrainingTodayClick = () => {
+    trackEvent("today_cta_click", {
+      target: "training",
+      origin: "today_training_day",
+    });
+  };
+  const handleTrainingWeekClick = () => {
+    trackEvent("today_cta_click", {
+      target: "training",
+      origin: "today_training_week",
+    });
+  };
+  const handleNutritionTodayClick = () => {
+    trackEvent("today_cta_click", {
+      target: "nutrition",
+      origin: "today_nutrition_today",
+    });
+  };
+  const handleNutritionRegisterClick = () => {
+    trackEvent("today_cta_click", {
+      target: "nutrition",
+      origin: "today_nutrition_register",
+    });
+    quickLogHubRef.current?.open("meal");
+  };
+  const handleNutritionPlanClick = () => {
+    trackEvent("today_cta_click", {
+      target: "nutrition",
+      origin: "today_nutrition_plan",
+    });
+  };
 
   return (
     <div className="today-page-stack flex flex-col gap-6 pb-0">
@@ -1145,6 +1196,7 @@ export default function TodayQuickActionsClient() {
       {/* QuickLogHub - kept in header area for easy access */}
       <div className="flex justify-end">
         <QuickLogHub
+          ref={quickLogHubRef}
           origin="today"
           latestCheckin={null}
           currentWeightKg={signals.currentWeightKg}
@@ -1167,7 +1219,11 @@ export default function TodayQuickActionsClient() {
         <>
           {/* Check-in success message */}
           {showCheckinSuccess ? (
-            <section className="status-card status-card--success premium-fade-up" role="status" aria-live="polite">
+            <section
+              className="status-card status-card--success premium-fade-up"
+              role="status"
+              aria-live="polite"
+            >
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="m-0 text-sm font-semibold text-primary">
@@ -1201,7 +1257,6 @@ export default function TodayQuickActionsClient() {
 
           {/* Main Dashboard - 8-block premium layout */}
           <div className="today-premium-stack flex flex-col gap-6">
-            
             {/* Block 2: Summary Card - Daily progress overview */}
             <TodaySummaryCard
               dailyProgressPercent={dailyProgressPercent}
@@ -1228,6 +1283,34 @@ export default function TodayQuickActionsClient() {
               hasTrainingAccess={signals.hasTrainingAccess}
               primaryActionLabel={primaryActionLabel}
               onPrimaryAction={handlePrimaryTrainingAction}
+              secondaryActionLabel={
+                signals.trainingState === "workout"
+                  ? "Entreno de hoy"
+                  : undefined
+              }
+              secondaryActionHref={
+                signals.trainingState === "workout"
+                  ? trainingTodayHref
+                  : undefined
+              }
+              onSecondaryAction={
+                signals.trainingState === "workout"
+                  ? handleTrainingTodayClick
+                  : undefined
+              }
+              tertiaryActionLabel={
+                signals.trainingState === "workout" ? "Ver semana" : undefined
+              }
+              tertiaryActionHref={
+                signals.trainingState === "workout"
+                  ? trainingWeekHref
+                  : undefined
+              }
+              onTertiaryAction={
+                signals.trainingState === "workout"
+                  ? handleTrainingWeekClick
+                  : undefined
+              }
             />
 
             {/* Block 5: Nutrition Card */}
@@ -1239,7 +1322,18 @@ export default function TodayQuickActionsClient() {
               fatsG={signals.nutritionFatsG}
               mealsLogged={signals.nutritionMealsLogged}
               mealsTotal={signals.nutritionMealsTotal}
-              hasPlan={signals.nutritionStatus === "ready" || signals.nutritionMealsTotal > 0}
+              hasPlan={
+                signals.nutritionStatus === "ready" ||
+                signals.nutritionMealsTotal > 0
+              }
+              primaryCtaLabel="Ver comidas de hoy"
+              primaryCtaHref={nutritionTodayHref}
+              onPrimaryCtaClick={handleNutritionTodayClick}
+              secondaryCtaLabel="Registrar comida"
+              onSecondaryCtaClick={handleNutritionRegisterClick}
+              tertiaryCtaLabel="Ver plan"
+              tertiaryCtaHref={nutritionPlanHref}
+              onTertiaryCtaClick={handleNutritionPlanClick}
               nutritionHref={nutritionTodayHref}
               detailsHref={nutritionRoute}
               editHref={nutritionEditRoute}
@@ -1257,7 +1351,6 @@ export default function TodayQuickActionsClient() {
 
             {/* Block 7: Weekly Summary - Week at a glance */}
             <TodayWeeklySummaryCard weekData={weeklyData} />
-
           </div>
         </>
       ) : null}

@@ -95,22 +95,24 @@ describe("navConfig", () => {
     ]);
   });
 
-  it("defines USER mobile tabs as the v0 five core routes", () => {
+  it("defines USER mobile tabs with the current six core routes", () => {
     expect(mainTabsMobile.map((tab) => tab.href)).toEqual([
       "/app/hoy",
       "/app/entrenamiento",
       "/app/nutricion",
       "/app/seguimiento",
+      "/app/gym",
       "/app/profile",
     ]);
   });
 
-  it("defines USER mobile tabs with exact v0 labels", () => {
+  it("defines USER mobile tabs with the current labels", () => {
     expect(mainTabsMobile.map((tab) => tab.label)).toEqual([
       "Hoy",
       "Entreno",
       "Nutrición",
       "Progreso",
+      "Gimnasios",
       "Perfil",
     ]);
   });
