@@ -90,15 +90,15 @@ function resolvePlanOrigin(plan: TrainingPlanListItem, options: {
   return "manual";
 }
 
-function getOriginBadge(origin: PlanOrigin): { label: string; variant: "info" | "warning" | "muted" } {
+function getOriginBadge(origin: PlanOrigin, t: (key: string, values?: Record<string, string | number | boolean | null | undefined>) => string): { label: string; variant: "info" | "warning" | "muted" } {
   switch (origin) {
     case "trainer":
-      return { label: "Origen: entrenador", variant: "warning" };
+      return { label: t("library.training.originTrainer"), variant: "warning" };
     case "ai":
-      return { label: "Origen: IA", variant: "info" };
+      return { label: t("library.training.originAi"), variant: "info" };
     case "manual":
     default:
-      return { label: "Origen: manual", variant: "muted" };
+      return { label: t("library.training.originManual"), variant: "muted" };
   }
 }
 
@@ -285,7 +285,7 @@ export default function TrainingLibraryClient() {
   }, []);
 
 
-  const formatter = useMemo(() => new Intl.DateTimeFormat(locale === "es" ? "es-ES" : "en-US", {
+  const formatter = useMemo(() => new Intl.DateTimeFormat(locale === "es" ? "es-ES" : locale === "pt" ? "pt-PT" : "en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -342,12 +342,12 @@ export default function TrainingLibraryClient() {
       assignedPlanId,
       gymPlanIds,
     });
-    const originBadge = getOriginBadge(origin);
+    const originBadge = getOriginBadge(origin, t);
 
     return (
       <>
-        <Badge variant={isSelected ? "success" : "muted"}>{isSelected ? "Seleccionado" : "No seleccionado"}</Badge>
-        {isAssignedByTrainer ? <Badge variant="warning">Asignado por entrenador</Badge> : null}
+        <Badge variant={isSelected ? "success" : "muted"}>{isSelected ? t("library.training.statusSelected") : t("library.training.statusNotSelected")}</Badge>
+        {isAssignedByTrainer ? <Badge variant="warning">{t("library.training.assignedByTrainer")}</Badge> : null}
         <Badge variant={originBadge.variant}>{originBadge.label}</Badge>
       </>
     );
@@ -358,19 +358,19 @@ export default function TrainingLibraryClient() {
       <section className={`card premium-surface-card ${plansHubStyles.plansHubShell}`}>
         <div className="stack-sm">
           <div>
-            <p className="m-0 text-xs uppercase tracking-wider text-muted">Planes</p>
-            <h1 className="section-title m-0">Biblioteca de entrenamiento</h1>
-            <p className="section-subtitle m-0">Consulta planes asignados, revisa tu biblioteca y crea uno nuevo desde aquí.</p>
+            <p className="m-0 text-xs uppercase tracking-wider text-muted">{t("library.training.hubEyebrow")}</p>
+            <h1 className="section-title m-0">{t("library.training.hubTitle")}</h1>
+            <p className="section-subtitle m-0">{t("library.training.hubSubtitle")}</p>
           </div>
           <SegmentedControl
             className={plansHubStyles.plansHubSegmented}
-            ariaLabel="Secciones de planes de entrenamiento"
+            ariaLabel={t("library.training.sectionAriaLabel")}
             value={planSection}
             onChange={(id) => setPlanSection(id as "assigned" | "library" | "create")}
             options={[
-              { id: "assigned", label: "Asignados" },
-              { id: "library", label: "Mis planes" },
-              { id: "create", label: "Crear" },
+              { id: "assigned", label: t("library.training.tabs.assigned") },
+              { id: "library", label: t("library.training.tabs.library") },
+              { id: "create", label: t("library.training.tabs.create") },
             ]}
           />
         </div>
@@ -390,14 +390,14 @@ export default function TrainingLibraryClient() {
 
       {planSection === "assigned" ? (
       <ActivePlanSection title={t("plans.activeTitle")} emptyTitle={t("plans.activeEmpty")}>
-        <p className="muted mt-6">Este es el plan seleccionado para tu calendario. Si tienes uno asignado por entrenador, se muestra como referencia.</p>
+        <p className="muted mt-6">{t("library.training.activeDescription")}</p>
         {(fitSculptState === "loading" || assignedPlanState === "loading" || (canLoadGymPlans && gymState === "loading")) ? <LoadingState showCard={false} ariaLabel={t("ui.loading")} className="mt-12" lines={2} /> : null}
         {(fitSculptState === "error" || assignedPlanState === "error" || gymState === "error") ? <ErrorState className="mt-12" title={t("library.training.sectionError")} retryLabel={t("ui.retry")} onRetry={() => setReloadKey((value) => value + 1)} /> : null}
         {activePlan ? (
             <PlanCard
               title={activePlan.title}
               metadata={t("library.training.planMeta", { days: activePlan.daysCount, level: activePlan.level, date: formatPlanDate(activePlan) })}
-              statusLabel="Seleccionado"
+              statusLabel={t("library.training.statusSelected")}
               badges={renderPlanBadges(activePlan, true)}
               testId="training-active-plan-card"
               actions={[
@@ -411,8 +411,8 @@ export default function TrainingLibraryClient() {
 
         {assignedPlan && assignedPlanId !== resolvedActivePlanId ? (
           <div className="mt-12 stack-sm">
-            <h3 className="m-0">Plan asignado por entrenador (referencia)</h3>
-            <p className="muted m-0">Este plan no reemplaza tu seleccion actual salvo que lo elijas manualmente.</p>
+            <h3 className="m-0">{t("library.training.assignedReferenceTitle")}</h3>
+            <p className="muted m-0">{t("library.training.assignedReferenceDescription")}</p>
             <PlanCard
               title={assignedPlan.title}
               metadata={t("library.training.planMeta", { days: assignedPlan.daysCount, level: assignedPlan.level, date: formatPlanDate(assignedPlan) })}
@@ -432,12 +432,12 @@ export default function TrainingLibraryClient() {
       <PlanHistoryList title={t("plans.historyTitle")} emptyTitle={t("plans.historyEmpty")}>
         {activePlan ? (
           <div className="feature-card mt-12">
-            <p className="m-0 text-xs uppercase tracking-wider text-muted">Seleccionado actualmente</p>
+            <p className="m-0 text-xs uppercase tracking-wider text-muted">{t("library.training.currentlySelectedLabel")}</p>
             <div className="mt-6">
               <PlanCard
                 title={activePlan.title}
                 metadata={t("library.training.planMeta", { days: activePlan.daysCount, level: activePlan.level, date: formatPlanDate(activePlan) })}
-                statusLabel="Seleccionado"
+                statusLabel={t("library.training.statusSelected")}
                 badges={renderPlanBadges(activePlan, true)}
                 testId="training-library-active-plan-card"
                 actions={[
@@ -481,7 +481,7 @@ export default function TrainingLibraryClient() {
 
       {planSection === "create" ? (
       <section className="card premium-surface-card">
-        <h2 className="section-title section-title-sm">Crear un nuevo plan</h2>
+        <h2 className="section-title section-title-sm">{t("library.training.createTitle")}</h2>
         {aiGateState === "loading" ? (
           <LoadingState showCard={false} ariaLabel={t("ui.loading")} className="mt-12" lines={2} />
         ) : null}
@@ -512,7 +512,7 @@ export default function TrainingLibraryClient() {
         ) : (
           <div className="feature-card mt-12">
             <strong>{t("training.manualCreate")}</strong>
-            <p className="muted mt-6">Crea un plan manual y selecciónalo después desde tu biblioteca.</p>
+            <p className="muted mt-6">{t("library.training.manualOnlyDescription")}</p>
             <div className="mt-12">
               <Link href="/app/entrenamiento/editar" className="btn secondary">{t("training.manualCreate")}</Link>
             </div>

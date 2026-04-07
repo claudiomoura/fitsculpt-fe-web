@@ -351,7 +351,7 @@ export function NutritionPlanHeader({
               </div>
             </div>
 
-            <p className="muted mt-12">{t("nutrition.preferenceHint")}</p>
+            <p className="muted mt-12">{t("nutrition.preferencesHint")}</p>
           </div>
         </section>
       )}

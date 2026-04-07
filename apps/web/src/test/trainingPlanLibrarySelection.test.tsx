@@ -100,4 +100,25 @@ describe("Training plan library selection flow", () => {
       expect(screen.getByText("Plan IA nuevo")).toBeInTheDocument();
     });
   });
+
+  it("renders localized locked AI CTA without raw translation keys", async () => {
+    getMockNavigation().searchParams = new URLSearchParams();
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "/api/auth/me") return mockResponse({ role: "user", aiEntitlements: { ai: false } });
+      if (url.startsWith("/api/training-plans/active")) return mockResponse({ source: "own" });
+      if (url.startsWith("/api/training-plans?")) return mockResponse({ items: [] });
+      throw new Error(`Unhandled fetch: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+
+    renderWithProviders(<TrainingLibraryClient />);
+
+    fireEvent.click(await screen.findByRole("tab", { name: "Crear" }));
+
+    expect(await screen.findByRole("link", { name: "Gestionar facturación" })).toBeInTheDocument();
+    expect(screen.queryByText("billing.manageBilling")).not.toBeInTheDocument();
+  });
 });

@@ -3381,7 +3381,7 @@ export default function NutritionPlanClient({
               {isAiLocked ? (
                 <div className="mt-12">
                   <AiModuleUpgradeCTA
-                    title={t("aiLockedTitle")}
+                    title={t("pro.aiLockedTitle")}
                     description={aiLockDescription}
                     buttonLabel={t("billing.upgradePro")}
                   />
@@ -3564,7 +3564,7 @@ export default function NutritionPlanClient({
 
                       {isAiLocked ? (
                         <AiModuleUpgradeCTA
-                          title={t("aiLockedTitle")}
+                          title={t("pro.aiLockedTitle")}
                           description={aiLockDescription}
                           buttonLabel={t("billing.upgradePro")}
                         />

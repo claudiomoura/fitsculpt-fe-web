@@ -307,9 +307,9 @@ export default function FeedClient() {
 
       {isAiLocked ? (
         <div className="feature-card" style={{ marginTop: 12 }}>
-          <strong>{t("aiLockedTitle")}</strong>
+          <strong>{t("pro.aiLockedTitle")}</strong>
           <p className="muted" style={{ marginTop: 6 }}>
-            {aiEntitled ? t("aiLockedSubtitle") : t("ai.notPro")}
+            {aiEntitled ? t("pro.aiLockedSubtitle") : t("ai.notPro")}
           </p>
         </div>
       ) : null}

@@ -1780,7 +1780,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
 
         {isAiLocked ? (
           <AiModuleUpgradeCTA
-            title={t("aiLockedTitle")}
+            title={t("pro.aiLockedTitle")}
             description={aiLockDescription}
             buttonLabel={t("billing.upgradePro")}
           />
@@ -1882,7 +1882,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
               {isAiLocked ? (
                 <div className="mt-12">
                   <AiModuleUpgradeCTA
-                    title={t("aiLockedTitle")}
+                    title={t("pro.aiLockedTitle")}
                     description={aiLockDescription}
                     buttonLabel={t("billing.upgradePro")}
                   />
@@ -2064,7 +2064,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                                 type="button"
                                 className={`exercise-mini-card ${exerciseHref ? "is-clickable" : "is-disabled"}`}
                                 data-testid="training-plan-exercise-item"
-                                aria-label={`${t("training.exerciseLink")}: ${exercise.name}`}
+                                aria-label={`${t("workoutDetail.exerciseLink")}: ${exercise.name}`}
                                 aria-pressed={false}
                                 aria-disabled={!exerciseHref}
                                 disabled={!exerciseHref}
@@ -2276,7 +2276,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                             type="button"
                             className={`meal-card meal-card--horizontal meal-card--horizontal-compact ${styles.exerciseDetailButton} ${styles.exerciseMiniCard} ${exerciseHref ? "is-clickable" : "is-disabled"}`}
                             data-testid="training-plan-exercise-item"
-                            aria-label={`${t("training.exerciseLink")}: ${exercise.name}`}
+                            aria-label={`${t("workoutDetail.exerciseLink")}: ${exercise.name}`}
                             aria-pressed={false}
                             aria-disabled={!exerciseHref}
                             disabled={!exerciseHref}

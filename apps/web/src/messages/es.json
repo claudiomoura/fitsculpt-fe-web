@@ -49,7 +49,8 @@
     "weeklyReview": "Revisión semanal",
     "trainerNutritionPlans": "Planes de nutrición",
     "trainerRecipes": "Recetas del entrenador",
-    "dev": "Dev"
+    "dev": "Dev",
+    "appNavigation": "Navegación de la aplicación"
   },
   "navSections": {
     "summary": "Resumen",
@@ -1581,6 +1582,7 @@
     "macroBulkPercentPlaceholder": "Ej: 10"
   },
   "tracking": {
+    "errorTitle": "Seguimiento no disponible",
     "sectionCheckins": "Check-ins semanales",
     "sectionMeals": "Registro de comidas",
     "sectionWorkouts": "Registro de entrenamientos",
@@ -1982,6 +1984,26 @@
     "addToPlansSuccessDescription": "{exercise} se añadió a {count} plan(es).",
     "addActionLabel": "Agregar",
     "training": {
+      "hubEyebrow": "Planes",
+      "hubTitle": "Biblioteca de entrenamiento",
+      "hubSubtitle": "Consulta tu plan asignado, revisa tu biblioteca y crea uno nuevo desde aqui.",
+      "sectionAriaLabel": "Secciones de planes de entrenamiento",
+      "tabs": {
+        "assigned": "Asignados",
+        "library": "Mis planes",
+        "create": "Crear"
+      },
+      "activeDescription": "Este es el plan seleccionado para tu calendario. Si tienes uno asignado por entrenador, se muestra como referencia.",
+      "assignedReferenceTitle": "Plan asignado por entrenador (referencia)",
+      "assignedReferenceDescription": "Este plan no reemplaza tu seleccion actual salvo que lo elijas manualmente.",
+      "currentlySelectedLabel": "Seleccionado actualmente",
+      "createTitle": "Crear un nuevo plan",
+      "manualOnlyDescription": "Crea un plan manual y seleccionalo despues desde tu biblioteca.",
+      "originTrainer": "Origen: entrenador",
+      "originAi": "Origen: IA",
+      "originManual": "Origen: manual",
+      "statusSelected": "Seleccionado",
+      "statusNotSelected": "No seleccionado",
       "sections": {
         "fitsculpt": "Planes FitSculpt",
         "gym": "Planes de gimnasio",
@@ -2230,6 +2252,7 @@
     "chatError": "No pudimos generar una respuesta contextual en este momento.",
     "chatUsage": "Consumo IA: {tokens} tokens · {eur} EUR",
     "tipError": "No pudimos generar el tip diario.",
+    "errorUnauthorized": "Tu sesión expiró. Inicia sesión de nuevo para ver tu feed.",
     "errorLoad": "No pudimos cargar el feed.",
     "errorGenerate": "No pudimos generar el resumen.",
     "errorUnexpected": "Error inesperado."
@@ -2266,6 +2289,7 @@
     "tokenRenewalLabel": "Renovación de tokens",
     "aiTokensLabel": "Tokens IA disponibles",
     "upgradePro": "Mejorar a PRO",
+    "manageBilling": "Gestionar facturación",
     "manageSubscription": "Gestionar suscripción",
     "redirecting": "Redirigiendo...",
     "opening": "Abriendo...",
@@ -3161,7 +3185,8 @@
     "success": "Éxito",
     "error": "Error",
     "upgradeRequired": "Se requiere mejora",
-    "upgradeRequiredDescription": "Tu acceso actual aún no incluye esta sección."
+    "upgradeRequiredDescription": "Tu acceso actual aún no incluye esta sección.",
+    "notAvailable": "No disponible"
   },
   "adminGyms": {
     "title": "Administrar gimnasios",

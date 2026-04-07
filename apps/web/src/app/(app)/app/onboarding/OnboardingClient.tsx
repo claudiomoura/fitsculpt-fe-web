@@ -604,7 +604,7 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
             onChange={(e) => updateNutritionPreference("mealsPerDay", parseNumberInput(e.target.value))}
           />
           <label className="form-stack">
-            {t("profile.dietType")}
+            {t("profile.dietTypeLabel")}
             <select
               value={profile.nutritionPreferences.dietType}
               onChange={(event) => updateNutritionPreference("dietType", event.target.value as NutritionDietType | "")}

@@ -49,7 +49,8 @@
     "weeklyReview": "Weekly review",
     "trainerNutritionPlans": "Nutrition plans",
     "trainerRecipes": "Trainer recipes",
-    "dev": "Dev"
+    "dev": "Dev",
+    "appNavigation": "Application navigation"
   },
   "navSections": {
     "summary": "Summary",
@@ -1577,6 +1578,7 @@
     "macroBulkPercentPlaceholder": "E.g. 10"
   },
   "tracking": {
+    "errorTitle": "Tracking unavailable",
     "sectionCheckins": "Weekly check-ins",
     "sectionMeals": "Meal log",
     "sectionWorkouts": "Workout log",
@@ -1978,6 +1980,26 @@
     "addToPlansSuccessDescription": "{exercise} was added to {count} plan(s).",
     "addActionLabel": "Add",
     "training": {
+      "hubEyebrow": "Plans",
+      "hubTitle": "Training library",
+      "hubSubtitle": "Review your assigned plan, browse your library, and create a new one from here.",
+      "sectionAriaLabel": "Training plan sections",
+      "tabs": {
+        "assigned": "Assigned",
+        "library": "My plans",
+        "create": "Create"
+      },
+      "activeDescription": "This is the plan selected for your calendar. If your trainer assigned one, it appears here as reference.",
+      "assignedReferenceTitle": "Trainer-assigned plan (reference)",
+      "assignedReferenceDescription": "This plan does not replace your current selection unless you choose it manually.",
+      "currentlySelectedLabel": "Currently selected",
+      "createTitle": "Create a new plan",
+      "manualOnlyDescription": "Create a manual plan and then pick it from your library.",
+      "originTrainer": "Source: trainer",
+      "originAi": "Source: AI",
+      "originManual": "Source: manual",
+      "statusSelected": "Selected",
+      "statusNotSelected": "Not selected",
       "sections": {
         "fitsculpt": "FitSculpt plans",
         "gym": "Gym plans",
@@ -2226,6 +2248,7 @@
     "chatError": "We couldn't generate a contextual answer right now.",
     "chatUsage": "AI usage: {tokens} tokens · {eur} EUR",
     "tipError": "We couldn't generate the daily tip.",
+    "errorUnauthorized": "Your session expired. Log in again to view your feed.",
     "errorLoad": "We couldn't load the feed.",
     "errorGenerate": "We couldn't generate the summary.",
     "errorUnexpected": "Unexpected error."
@@ -2269,6 +2292,7 @@
     "noPlansDescription": "There are currently no billing plans to display.",
     "currentPlanBadge": "Current",
     "upgradePro": "Upgrade to PRO",
+    "manageBilling": "Manage billing",
     "choosePlan": "Choose plan",
     "subscribe": "Subscribe",
     "manageSubscription": "Manage subscription",
@@ -3158,7 +3182,8 @@
     "success": "Success",
     "error": "Error",
     "upgradeRequired": "Upgrade required",
-    "upgradeRequiredDescription": "Your current access does not include this section yet."
+    "upgradeRequiredDescription": "Your current access does not include this section yet.",
+    "notAvailable": "Not available"
   },
   "adminGyms": {
     "title": "Manage gyms",

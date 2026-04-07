@@ -106,6 +106,8 @@ describe("Feed contextual chat", () => {
     fireEvent.click(screen.getByRole("button", { name: "Preguntar a la IA" }));
 
     expect(await screen.findByText("Tokens IA agotados")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Gestionar facturación" })).toBeInTheDocument();
+    expect(screen.queryByText("billing.manageBilling")).not.toBeInTheDocument();
   });
 
   it("blocks empty message submissions", async () => {
@@ -144,5 +146,7 @@ describe("Feed contextual chat", () => {
     const chatInput = await screen.findByLabelText("Campo de chat contextual con IA");
     expect(chatInput).toBeDisabled();
     expect(screen.getByRole("button", { name: "Preguntar a la IA" })).toBeDisabled();
+    expect(screen.getByText("Mejora tu plan con FitSculpt AI (Pro)")).toBeInTheDocument();
+    expect(screen.queryByText("aiLockedTitle")).not.toBeInTheDocument();
   });
 });
