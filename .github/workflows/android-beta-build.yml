@@ -1,0 +1,80 @@
+name: Android Beta Build
+
+on:
+  push:
+    branches:
+      - dev
+      - main
+    paths:
+      - "apps/web/**"
+      - ".github/workflows/android-beta-build.yml"
+  workflow_dispatch:
+    inputs:
+      server_url:
+        description: "Public HTTPS URL for FitSculpt web app"
+        required: true
+        default: "https://example.com"
+        type: string
+      include_aab:
+        description: "Also build unsigned release AAB"
+        required: true
+        default: true
+        type: boolean
+
+jobs:
+  build-android:
+    name: Build Android artifacts (APK + optional AAB)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    env:
+      CAPACITOR_SERVER_URL: ${{ github.event.inputs.server_url || vars.CAPACITOR_SERVER_URL || 'https://example.com' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Install web dependencies
+        run: npm ci
+
+      - name: Prepare Capacitor Android project
+        run: npm run mobile:android:prepare
+
+      - name: Build debug APK (unsigned)
+        working-directory: apps/web/android
+        run: ./gradlew --no-daemon assembleDebug
+
+      - name: Build release AAB (unsigned)
+        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.include_aab != 'false' }}
+        working-directory: apps/web/android
+        run: ./gradlew --no-daemon bundleRelease
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: fitsculpt-android-debug-apk
+          path: apps/web/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+      - name: Upload unsigned release AAB
+        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.include_aab != 'false' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: fitsculpt-android-release-aab-unsigned
+          path: apps/web/android/app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: warn

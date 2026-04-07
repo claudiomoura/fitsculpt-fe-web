@@ -20,9 +20,14 @@
     "lint:ds": "node scripts/lint-design-system-guardrails.mjs",
     "lint:ds:imports": "node scripts/lint-design-system-imports.mjs",
     "endpoints:inventory": "node scripts/endpoints-inventory.mjs",
-    "endpoints:inventory:check": "node scripts/endpoints-inventory.mjs --check"
+    "endpoints:inventory:check": "node scripts/endpoints-inventory.mjs --check",
+    "mobile:android:sync": "npx cap sync android",
+    "mobile:android:prepare": "npm run build && npm run mobile:android:sync",
+    "mobile:android:doctor": "npx cap doctor"
   },
   "dependencies": {
+    "@capacitor/android": "^8.3.0",
+    "@capacitor/core": "^8.3.0",
     "@sentry/nextjs": "^10.46.0",
     "next": "16.1.1",
     "posthog-js": "^1.360.2",
@@ -33,6 +38,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.3.0",
     "@playwright/test": "1.58.2",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.4.2",
