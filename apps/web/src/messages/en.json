@@ -566,7 +566,15 @@
     "nameHelper": "How you want your name to appear.",
     "emailHelper": "Use the email you signed up with.",
     "passwordHelper": "At least 8 characters.",
-    "promoHelper": "Promo code required for activation."
+    "promoHelper": "Promo code required for activation.",
+    "forgotPassword": "Forgot your password?",
+    "loginHeroEyebrow": "Training + AI",
+    "loginHeroTitle": "Your momentum starts when you log back in",
+    "loginHeroSubtitle": "Open your daily plan, lock into your goals, and let FitSculpt guide the work.",
+    "loginHeroListAria": "FitSculpt return benefits",
+    "loginHeroPointOne": "AI-powered training and nutrition plans.",
+    "loginHeroPointTwo": "Real habit tracking to refine every week.",
+    "loginHeroPointThree": "Built for both mobile app and desktop flow."
   },
   "pro": {
     "aiLockedTitle": "Upgrade with FitSculpt AI (Pro)",

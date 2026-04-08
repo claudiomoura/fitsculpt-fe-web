@@ -13,6 +13,7 @@ type LoginFormProps = {
     emailHelper: string;
     password: string;
     passwordHelper: string;
+    forgotPassword: string;
     submit: string;
     loading: string;
     showPassword: string;
@@ -23,7 +24,7 @@ type LoginFormProps = {
 function SubmitButton({ label, loadingLabel }: { label: string; loadingLabel: string }) {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" loading={pending} className="fit-content">
+    <Button type="submit" variant="primaryGlow" loading={pending} className="fit-content auth-login-submit">
       {pending ? loadingLabel : label}
     </Button>
   );
@@ -33,12 +34,13 @@ export default function LoginForm({ action, next, labels }: LoginFormProps) {
   const [showPassword, setShowPassword] = useState(false);
 
   return (
-    <form action={action} className="form-stack">
+    <form action={action} className="form-stack auth-login-form">
       <input type="hidden" name="next" value={next} />
 
       <Input
         name="email"
         type="email"
+        variant="premium"
         label={labels.email}
         helperText={labels.emailHelper}
         required
@@ -54,7 +56,7 @@ export default function LoginForm({ action, next, labels }: LoginFormProps) {
             id="login-password"
             name="password"
             type={showPassword ? "text" : "password"}
-            className="ui-input"
+            className="ui-input ui-input--premium"
             required
             minLength={8}
             autoComplete="current-password"
@@ -75,7 +77,7 @@ export default function LoginForm({ action, next, labels }: LoginFormProps) {
 
       <div style={{ textAlign: "center" }}>
         <a href="/forgot-password" className="link" style={{ fontSize: "0.875rem" }}>
-          ¿Olvidaste tu contraseña?
+          {labels.forgotPassword}
         </a>
       </div>
     </form>

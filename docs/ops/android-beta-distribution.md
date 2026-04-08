@@ -46,6 +46,24 @@ If you do not set it, workflow dispatch defaults to `https://example.com` and th
 - Debug APK is unsigned for store distribution; use only with trusted beta users.
 - Some deep links, push notifications, or native features are not configured in this first setup.
 
+## Branding assets (logo/icon) for Android shell
+
+- Launcher icon and splash are taken from Android native resources under `apps/web/android/app/src/main/res`.
+- Current source-of-truth logo files in repo:
+  - `apps/web/public/logo.png` (launcher icon base)
+  - `apps/web/public/fitsculpt-logo-transparent.png` (splash + shell fallback)
+- `npm run mobile:android:sync` copies `webDir` (`apps/web/capacitor-shell`) into Android assets, but does not regenerate launcher/splash resources.
+- If branding is updated, regenerate icon/splash assets in `apps/web/android/app/src/main/res` before running workflow.
+
+Quick local verification before CI:
+
+1. `cd apps/web`
+2. `npm run mobile:android:prepare`
+3. Build and install debug APK from Android module (`./gradlew assembleDebug` in `apps/web/android`) and verify:
+   - Launcher icon shows FitSculpt logo.
+   - Splash shows centered FitSculpt logo.
+   - Shell fallback (`Loading FitSculpt...`) shows logo when offline/URL unavailable.
+
 ## Safety notes
 
 - Share APK only with trusted users.

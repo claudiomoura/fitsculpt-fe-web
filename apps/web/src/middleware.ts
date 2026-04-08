@@ -10,6 +10,32 @@ const DEV_PREFIXES = ["/app/dev"];
 const DEV_ROLE_TOKENS = new Set(["DEV", "DEVELOPER", "ROLE_DEV", "ROLE_DEVELOPER"]);
 const DEV_PERMISSION_TOKENS = new Set(["DEV", "DEVELOPER", "ROLE_DEV", "ROLE_DEVELOPER"]);
 const PRIMARY_APP_SURFACES = new Set(["/app", "/app/dashboard", "/app/hoy", "/app/today"]);
+const APP_HINT_QUERY_PARAMS = ["fs_app", "fsApp", "nativeApp", "capacitor"];
+
+function isTruthy(value: string | null | undefined) {
+  if (!value) return false;
+  const normalized = value.trim().toLowerCase();
+  return normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on";
+}
+
+function isMobileAppRequest(req: NextRequest) {
+  if (APP_HINT_QUERY_PARAMS.some((param) => isTruthy(req.nextUrl.searchParams.get(param)))) {
+    return true;
+  }
+
+  const appHeaderHints = ["x-fitsculpt-app", "x-fitsculpt-client", "x-capacitor", "x-app-platform"];
+  if (appHeaderHints.some((header) => isTruthy(req.headers.get(header)))) {
+    return true;
+  }
+
+  const requestedWith = req.headers.get("x-requested-with")?.toLowerCase() ?? "";
+  if (requestedWith.includes("capacitor") || requestedWith.includes("fitsculpt")) {
+    return true;
+  }
+
+  const userAgent = req.headers.get("user-agent")?.toLowerCase() ?? "";
+  return userAgent.includes("capacitor") || (userAgent.includes("android") && userAgent.includes("; wv)"));
+}
 
 function startsWithAny(pathname: string, prefixes: string[]) {
   return prefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
@@ -105,16 +131,20 @@ function getLegacyRedirect(pathname: string): string | null {
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  const token = req.cookies.get("fs_token")?.value;
 
   if (pathname === "/app/treinador" || pathname.startsWith("/app/treinador/")) {
     const canonicalPath = pathname.replace("/app/treinador", "/app/trainer");
     return redirectTo(req, canonicalPath, 302);
   }
 
+  if (pathname === "/" && isMobileAppRequest(req)) {
+    return redirectTo(req, token ? "/app" : "/login", 302);
+  }
+
   const isProtected = PROTECTED_PREFIXES.some((p) => pathname.startsWith(p));
   if (!isProtected) return NextResponse.next();
 
-  const token = req.cookies.get("fs_token")?.value;
   if (!token) {
     const loginUrl = req.nextUrl.clone();
     loginUrl.pathname = "/login";
@@ -160,5 +190,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/app/:path*"],
+  matcher: ["/", "/app/:path*"],
 };

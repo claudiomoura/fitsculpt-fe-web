@@ -32,78 +32,101 @@ export default async function LoginPage({
   if (hasSession) redirect("/app");
 
   return (
-    <main className="auth-card card">
-      <div className="auth-header">
-        <Badge variant="muted">{t("auth.loginBadge")}</Badge>
-        <h1 className="section-title">{t("auth.loginTitle")}</h1>
-        <p className="section-subtitle">{t("auth.loginSubtitle")}</p>
-      </div>
+    <main className="auth-login-page">
+      <section className="auth-login-hero card" aria-label={t("auth.loginHeroEyebrow")}>
+        <Badge variant="muted">{t("auth.loginHeroEyebrow")}</Badge>
+        <h1 className="section-title">{t("auth.loginHeroTitle")}</h1>
+        <p className="section-subtitle">{t("auth.loginHeroSubtitle")}</p>
+        <ul className="auth-login-hero-list" aria-label={t("auth.loginHeroListAria")}>
+          <li className="auth-login-hero-item">
+            <Icon name="sparkles" />
+            <span>{t("auth.loginHeroPointOne")}</span>
+          </li>
+          <li className="auth-login-hero-item">
+            <Icon name="check" />
+            <span>{t("auth.loginHeroPointTwo")}</span>
+          </li>
+          <li className="auth-login-hero-item">
+            <Icon name="dumbbell" />
+            <span>{t("auth.loginHeroPointThree")}</span>
+          </li>
+        </ul>
+      </section>
 
-      {(error || unverified || blocked || promoError || oauthError || registered) && (
-        <div className={`status-card ${registered ? "status-card--success" : "status-card--warning"}`}>
-          <div className="inline-actions-sm">
-            <Icon name={registered ? "check" : "warning"} />
-            <strong>
-              {registered ? t("auth.registerSuccessTitle") : t("auth.loginIssueTitle")}
-            </strong>
-          </div>
-          <p className="muted">
-            {registered
-              ? t("auth.registerSuccess")
-              : blocked
-                ? t("auth.blockedAccount")
-                : promoError
-                  ? t("auth.googlePromoError")
-                  : oauthError
-                    ? t("auth.oauthError")
-                : unverified
-                  ? t("auth.emailNotVerified")
-                  : t("auth.invalidCredentials")}
-          </p>
+      <section className="auth-card card auth-login-panel">
+        <div className="auth-header">
+          <Badge variant="muted">{t("auth.loginBadge")}</Badge>
+          <h2 className="section-title">{t("auth.loginTitle")}</h2>
+          <p className="section-subtitle">{t("auth.loginSubtitle")}</p>
         </div>
-      )}
 
-      <LoginForm
-        action={loginAction}
-        next={next}
-        labels={{
-          email: t("auth.email"),
-          emailHelper: t("auth.emailHelper"),
-          password: t("auth.password"),
-          passwordHelper: t("auth.passwordHelper"),
-          submit: t("auth.submit"),
-          loading: t("auth.loginLoading"),
-          showPassword: t("auth.showPassword"),
-          hidePassword: t("auth.hidePassword"),
-        }}
-      />
+        {(error || unverified || blocked || promoError || oauthError || registered) && (
+          <div className={`status-card ${registered ? "status-card--success" : "status-card--warning"}`}>
+            <div className="inline-actions-sm">
+              <Icon name={registered ? "check" : "warning"} />
+              <strong>
+                {registered ? t("auth.registerSuccessTitle") : t("auth.loginIssueTitle")}
+              </strong>
+            </div>
+            <p className="muted">
+              {registered
+                ? t("auth.registerSuccess")
+                : blocked
+                  ? t("auth.blockedAccount")
+                  : promoError
+                    ? t("auth.googlePromoError")
+                    : oauthError
+                      ? t("auth.oauthError")
+                  : unverified
+                    ? t("auth.emailNotVerified")
+                    : t("auth.invalidCredentials")}
+            </p>
+          </div>
+        )}
 
-      <div className="auth-footer">
-        <GoogleLoginButton
+        <LoginForm
+          action={loginAction}
+          next={next}
           labels={{
-            button: t("auth.google"),
-            modalTitle: t("auth.googlePromoTitle"),
-            modalSubtitle: t("auth.googlePromoSubtitle"),
-            promoLabel: t("auth.promoCode"),
-            promoPlaceholder: t("auth.googlePromoPlaceholder"),
-            promoHint: t("auth.googlePromoHint"),
-            confirm: t("auth.googlePromoConfirm"),
-            skip: t("auth.googlePromoSkip"),
-            cancel: t("auth.googlePromoCancel"),
-            promoError: t("auth.googlePromoError"),
-            oauthError: t("auth.oauthError"),
+            email: t("auth.email"),
+            emailHelper: t("auth.emailHelper"),
+            password: t("auth.password"),
+            passwordHelper: t("auth.passwordHelper"),
+            forgotPassword: t("auth.forgotPassword"),
+            submit: t("auth.submit"),
+            loading: t("auth.loginLoading"),
+            showPassword: t("auth.showPassword"),
+            hidePassword: t("auth.hidePassword"),
           }}
         />
 
-        {unverified ? <ResendVerificationButton /> : null}
+        <div className="auth-footer">
+          <GoogleLoginButton
+            labels={{
+              button: t("auth.google"),
+              modalTitle: t("auth.googlePromoTitle"),
+              modalSubtitle: t("auth.googlePromoSubtitle"),
+              promoLabel: t("auth.promoCode"),
+              promoPlaceholder: t("auth.googlePromoPlaceholder"),
+              promoHint: t("auth.googlePromoHint"),
+              confirm: t("auth.googlePromoConfirm"),
+              skip: t("auth.googlePromoSkip"),
+              cancel: t("auth.googlePromoCancel"),
+              promoError: t("auth.googlePromoError"),
+              oauthError: t("auth.oauthError"),
+            }}
+          />
 
-        <p className="muted">
-          {t("auth.noAccount")}{" "}
-          <Link href="/register" className="link">
-            {t("auth.createAccount")}
-          </Link>
-        </p>
-      </div>
+          {unverified ? <ResendVerificationButton /> : null}
+
+          <p className="muted">
+            {t("auth.noAccount")}{" "}
+            <Link href="/register" className="link">
+              {t("auth.createAccount")}
+            </Link>
+          </p>
+        </div>
+      </section>
     </main>
   );
 }

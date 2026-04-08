@@ -554,7 +554,15 @@
     "nameHelper": "Como quieres que aparezca tu nombre.",
     "emailHelper": "Usa el email con el que te registraste.",
     "passwordHelper": "Mínimo 8 caracteres.",
-    "promoHelper": "Código requerido para activación."
+    "promoHelper": "Código requerido para activación.",
+    "forgotPassword": "¿Olvidaste tu contraseña?",
+    "loginHeroEyebrow": "Entrenamiento + IA",
+    "loginHeroTitle": "Tu progreso empieza cuando vuelves a entrar",
+    "loginHeroSubtitle": "Activa tu plan diario, enfoca tu objetivo y deja que FitSculpt haga el resto.",
+    "loginHeroListAria": "Beneficios de volver a FitSculpt",
+    "loginHeroPointOne": "Planes de entrenamiento y nutrición guiados por IA.",
+    "loginHeroPointTwo": "Seguimiento real de hábitos para ajustar cada semana.",
+    "loginHeroPointThree": "Una experiencia pensada para móvil y escritorio."
   },
   "pro": {
     "aiLockedTitle": "Mejora tu plan con FitSculpt AI (Pro)",

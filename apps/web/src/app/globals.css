@@ -3218,6 +3218,57 @@ label {
   gap: 16px;
 }
 
+.auth-login-page {
+  width: min(1080px, 100%);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: 24px;
+  align-items: stretch;
+}
+
+.auth-login-hero {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  align-content: center;
+  gap: 14px;
+  padding: 28px;
+  border: 1px solid color-mix(in srgb, var(--brand-primary) 26%, transparent);
+  background:
+    radial-gradient(circle at 20% 20%, color-mix(in srgb, var(--brand-primary) 26%, transparent), transparent 58%),
+    radial-gradient(circle at 85% 18%, color-mix(in srgb, var(--accent) 23%, transparent), transparent 52%),
+    linear-gradient(145deg, color-mix(in srgb, var(--surface-card-bg) 94%, var(--brand-primary) 6%), var(--surface-card-bg));
+}
+
+.auth-login-hero-list {
+  list-style: none;
+  display: grid;
+  gap: 10px;
+  margin: 6px 0 0;
+  padding: 0;
+}
+
+.auth-login-hero-item {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  color: var(--text-primary);
+}
+
+.auth-login-panel {
+  margin-top: 0;
+}
+
+.auth-login-form {
+  gap: 12px;
+}
+
+.auth-login-submit {
+  width: 100%;
+  justify-content: center;
+}
+
 .auth-layout {
   min-height: 100vh;
   display: grid;
@@ -3235,6 +3286,23 @@ label {
   display: grid;
   gap: 8px;
   text-align: center;
+}
+
+@media (max-width: 960px) {
+  .auth-login-page {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .auth-login-hero {
+    padding: 22px;
+  }
+
+  .auth-card {
+    width: 100%;
+    max-width: 520px;
+    margin-top: 0;
+  }
 }
 
 .page-header {
