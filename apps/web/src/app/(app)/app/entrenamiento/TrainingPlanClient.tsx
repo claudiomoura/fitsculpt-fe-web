@@ -785,7 +785,7 @@ export default function TrainingPlanClient({
     () => (form ? generatePlan(form, locale, t) : null),
     [form, locale, t],
   );
-  const visiblePlan = isManualView ? (savedPlan ?? plan) : activePlan;
+  const visiblePlan = isManualView ? (savedPlan ?? plan) : (activePlan ?? savedPlan);
   const planStartDate = useMemo(
     () => parseDate(visiblePlan?.startDate ?? visiblePlan?.days?.[0]?.date),
     [visiblePlan?.startDate, visiblePlan?.days],
@@ -1170,6 +1170,25 @@ export default function TrainingPlanClient({
     } finally {
       setSaving(false);
       window.setTimeout(() => setSaveMessage(null), 2000);
+    }
+  };
+
+  const handleUseSuggestedPlan = async () => {
+    const suggestedPlan = plan ?? visiblePlan;
+    if (!suggestedPlan) return;
+
+    setSaving(true);
+    setSaveMessage(null);
+    try {
+      const nextPlan = ensurePlanStartDate(suggestedPlan);
+      const updated = await updateUserProfile({ trainingPlan: nextPlan });
+      setSavedPlan(updated.trainingPlan ?? nextPlan);
+      router.push("/app/entrenamiento");
+    } catch (_err) {
+      setSaveMessage(t("training.savePlanError"));
+      window.setTimeout(() => setSaveMessage(null), 2000);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -3351,11 +3370,9 @@ export default function TrainingPlanClient({
               <button
                 type="button"
                 className="btn secondary"
+                disabled={saving || !(plan ?? visiblePlan)}
                 onClick={() => {
-                  if (visiblePlan) {
-                    setManualPlan(visiblePlan);
-                    router.push("/app/entrenamiento");
-                  }
+                  void handleUseSuggestedPlan();
                 }}
               >
                 {t("training.manualPlanReset")}

@@ -265,6 +265,29 @@ type ProfileSummaryPayload = {
   } | null;
 };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+export function normalizeProfileSummaryPayload(value: unknown): ProfileSummaryPayload {
+  if (!isRecord(value)) {
+    return {};
+  }
+
+  const flattened: Record<string, unknown> = { ...value };
+  const nestedProfile = flattened.profile;
+  delete flattened.profile;
+
+  if (isRecord(nestedProfile)) {
+    return {
+      ...(normalizeProfileSummaryPayload(nestedProfile) as Record<string, unknown>),
+      ...flattened,
+    } as ProfileSummaryPayload;
+  }
+
+  return flattened as ProfileSummaryPayload;
+}
+
 function activityMultiplier(activity: ProfileActivity): number {
   switch (activity) {
     case "sedentary":
@@ -562,7 +585,7 @@ export default function TodayQuickActionsClient() {
       }
 
       if (profileResponse.ok) {
-        const profile = (await profileResponse.json()) as ProfileSummaryPayload;
+        const profile = normalizeProfileSummaryPayload(await profileResponse.json());
         nextSignals.startWeightKg = isPositiveNumber(profile.weightKg)
           ? profile.weightKg
           : null;

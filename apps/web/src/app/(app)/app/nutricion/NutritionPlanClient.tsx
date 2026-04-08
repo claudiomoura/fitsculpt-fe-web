@@ -2007,6 +2007,25 @@ export default function NutritionPlanClient({
     }
   };
 
+  const handleUseSuggestedPlan = async () => {
+    const suggestedPlan = plan ?? visiblePlan;
+    if (!suggestedPlan) return;
+
+    setSaving(true);
+    setSaveMessage(null);
+    try {
+      const planToSave = ensurePlanStartDate(suggestedPlan);
+      const updated = await updateUserProfile({ nutritionPlan: planToSave });
+      setSavedPlan(updated.nutritionPlan ?? planToSave);
+      router.push("/app/nutricion");
+    } catch (_err) {
+      setSaveMessage(t("nutrition.savePlanError"));
+      window.setTimeout(() => setSaveMessage(null), 2000);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleSetStartDate = async () => {
     if (!visiblePlan) return;
     try {
@@ -4284,11 +4303,9 @@ export default function NutritionPlanClient({
               <button
                 type="button"
                 className="btn secondary"
+                disabled={saving || !(plan ?? visiblePlan)}
                 onClick={() => {
-                  if (visiblePlan) {
-                    setManualPlan(visiblePlan);
-                    router.push("/app/nutricion");
-                  }
+                  void handleUseSuggestedPlan();
                 }}
               >
                 {t("nutrition.manualPlanReset")}
