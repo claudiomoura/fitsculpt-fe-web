@@ -578,7 +578,16 @@
     "loginHeroListAria": "FitSculpt return benefits",
     "loginHeroPointOne": "AI-powered training and nutrition plans.",
     "loginHeroPointTwo": "Real habit tracking to refine every week.",
-    "loginHeroPointThree": "Built for both mobile app and desktop flow."
+    "loginHeroPointThree": "Built for both mobile app and desktop flow.",
+    "appEntryTitle": "Your AI trainer",
+    "appEntrySubtitle": "Transform your body with personalized plans that are simple to follow.",
+    "appEntryPrimaryCta": "Get started",
+    "appEntrySecondaryPrefix": "Already have an account?",
+    "appEntrySecondaryCta": "Log in",
+    "backToStart": "Back to start",
+    "termsLabel": "Terms of use",
+    "privacyLabel": "Privacy policy",
+    "supportLabel": "Support"
   },
   "pro": {
     "aiLockedTitle": "Upgrade with FitSculpt AI (Pro)",
@@ -1955,7 +1964,8 @@
     "summaryNutritionLabel": "Nutrition",
     "summaryNutritionSupport": "Daily structure designed to support adherence.",
     "summaryAdherenceLabel": "Adherence",
-    "summaryAdherenceSupport": "Macro baseline and weekly rhythm to keep you consistent."
+    "summaryAdherenceSupport": "Macro baseline and weekly rhythm to keep you consistent.",
+    "completeBeforeActivation": "Complete all required steps before activating beta access."
   },
   "admin": {
     "unauthorized": "You don't have access to this section.",

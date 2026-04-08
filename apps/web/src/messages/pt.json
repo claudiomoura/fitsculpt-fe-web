@@ -282,7 +282,8 @@
     "summaryNutritionLabel": "Nutricao",
     "summaryNutritionSupport": "Estrutura diaria pensada para apoiar a aderencia.",
     "summaryAdherenceLabel": "Aderencia",
-    "summaryAdherenceSupport": "Base de macros e ritmo semanal para manter consistencia."
+    "summaryAdherenceSupport": "Base de macros e ritmo semanal para manter consistencia.",
+    "completeBeforeActivation": "Conclua todos os passos obrigatorios antes de ativar o acesso beta."
   },
   "tracking": {
     "errorTitle": "Progresso indisponivel",

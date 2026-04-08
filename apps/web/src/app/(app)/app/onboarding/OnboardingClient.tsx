@@ -54,8 +54,12 @@ const LAST_STEP = 5;
 
 type OnboardingDefaults = {
   activity: Activity;
-  trainingPreferences: Pick<ProfileData["trainingPreferences"], "daysPerWeek" | "level" | "sessionTime" | "focus" | "workoutLength">;
+  trainingPreferences: Pick<
+    ProfileData["trainingPreferences"],
+    "daysPerWeek" | "level" | "sessionTime" | "focus" | "workoutLength" | "equipment"
+  >;
   nutritionPreferences: Pick<ProfileData["nutritionPreferences"], "mealsPerDay" | "dietType" | "cookingTime" | "mealDistribution">;
+  macroFormula: MacroFormula;
 };
 
 const FORMULA_DEFAULTS: Record<MacroFormula, { proteinGPerKg: number; fatGPerKg: number; cutPercent: number; bulkPercent: number }> = {
@@ -90,6 +94,7 @@ const getOnboardingDefaults = (sex: Sex | "", age: number | null): OnboardingDef
       sessionTime: "medium",
       focus: "full",
       workoutLength: "45m",
+      equipment: "gym",
     },
     nutritionPreferences: {
       mealsPerDay: isYoungAdult ? 4 : 3,
@@ -97,6 +102,7 @@ const getOnboardingDefaults = (sex: Sex | "", age: number | null): OnboardingDef
       cookingTime: "quick",
       mealDistribution: { preset: "balanced" },
     },
+    macroFormula: "mifflin",
   };
 };
 
@@ -112,6 +118,7 @@ const applyOnboardingDefaults = (profile: ProfileData, sex: Sex | "", age: numbe
       sessionTime: profile.trainingPreferences.sessionTime || defaults.trainingPreferences.sessionTime,
       focus: profile.trainingPreferences.focus || defaults.trainingPreferences.focus,
       workoutLength: profile.trainingPreferences.workoutLength || defaults.trainingPreferences.workoutLength,
+      equipment: profile.trainingPreferences.equipment || defaults.trainingPreferences.equipment,
     },
     nutritionPreferences: {
       ...profile.nutritionPreferences,
@@ -122,6 +129,10 @@ const applyOnboardingDefaults = (profile: ProfileData, sex: Sex | "", age: numbe
         profile.nutritionPreferences.mealDistribution.preset === ""
           ? defaults.nutritionPreferences.mealDistribution
           : profile.nutritionPreferences.mealDistribution,
+    },
+    macroPreferences: {
+      ...profile.macroPreferences,
+      formula: profile.macroPreferences.formula || defaults.macroFormula,
     },
   };
 };
@@ -470,9 +481,6 @@ export default function OnboardingClient({
       }),
     [profile]
   );
-  const canActivateGuest =
-    activationEmail.trim().length > 3 && activationPassword.trim().length >= 8 && activationPromoCode.trim().length > 0;
-
   const renderChoiceGroup = <T extends string | number,>(
     label: string,
     value: T | "",
@@ -572,6 +580,11 @@ export default function OnboardingClient({
         : step === LAST_STEP
           ? canFinishOnboarding
           : true;
+  const canActivateGuest =
+    canFinishOnboarding &&
+    activationEmail.trim().length > 3 &&
+    activationPassword.trim().length >= 8 &&
+    activationPromoCode.trim().length > 0;
   const isMaintainGoal = profile.goal === "maintain";
 
   if (loadState === "loading") {
@@ -921,6 +934,12 @@ export default function OnboardingClient({
                   {activationError ? (
                     <div className="status-card status-card--warning" role="alert">
                       <p className="muted m-0">{activationError === "promo" ? t("auth.promoError") : t("auth.registerError")}</p>
+                    </div>
+                  ) : null}
+
+                  {!canFinishOnboarding ? (
+                    <div className="status-card status-card--warning" role="alert">
+                      <p className="muted m-0">{t("onboarding.completeBeforeActivation")}</p>
                     </div>
                   ) : null}
 

@@ -24,7 +24,7 @@ type LoginFormProps = {
 function SubmitButton({ label, loadingLabel }: { label: string; loadingLabel: string }) {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" variant="primaryGlow" loading={pending} className="fit-content auth-login-submit">
+    <Button type="submit" variant="primaryGlow" loading={pending} className="auth-login-submit">
       {pending ? loadingLabel : label}
     </Button>
   );
@@ -70,16 +70,10 @@ export default function LoginForm({ action, next, labels }: LoginFormProps) {
             {showPassword ? "🙈" : "👁️"}
           </button>
         </div>
-        <span className="ui-input-helper">{labels.passwordHelper}</span>
+        {labels.passwordHelper ? <span className="ui-input-helper">{labels.passwordHelper}</span> : null}
       </div>
 
       <SubmitButton label={labels.submit} loadingLabel={labels.loading} />
-
-      <div style={{ textAlign: "center" }}>
-        <a href="/forgot-password" className="link" style={{ fontSize: "0.875rem" }}>
-          {labels.forgotPassword}
-        </a>
-      </div>
     </form>
   );
 }
