@@ -45,7 +45,40 @@ function parseProfileDraft(profileDraft: string): Record<string, unknown> | null
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
       return null;
     }
-    return parsed as Record<string, unknown>;
+
+    const sanitizeDraftValue = (value: unknown): unknown => {
+      if (Array.isArray(value)) {
+        const sanitizedArray = value
+          .map((item) => sanitizeDraftValue(item))
+          .filter((item) => item !== undefined);
+        return sanitizedArray;
+      }
+
+      if (value && typeof value === "object") {
+        const sanitizedEntries = Object.entries(value as Record<string, unknown>)
+          .map(([key, entryValue]) => [key, sanitizeDraftValue(entryValue)] as const)
+          .filter(([, entryValue]) => entryValue !== undefined);
+
+        if (sanitizedEntries.length === 0) {
+          return undefined;
+        }
+
+        return Object.fromEntries(sanitizedEntries);
+      }
+
+      if (typeof value === "string" && value.trim() === "") {
+        return undefined;
+      }
+
+      return value;
+    };
+
+    const sanitized = sanitizeDraftValue(parsed) as Record<string, unknown> | undefined;
+    if (!sanitized || Object.keys(sanitized).length === 0) {
+      return null;
+    }
+
+    return sanitized;
   } catch {
     return null;
   }

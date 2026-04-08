@@ -118,4 +118,55 @@ describe("registerAction", () => {
     expect(profileSyncRequest.method).toBe("PUT");
     expect(profileSyncRequest.headers?.cookie).toBe("fs_token=token_123; fs_token.sig=sig_456");
   });
+
+  it("sanitizes empty-string enum placeholders in onboarding draft", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(mockJsonResponse(201, { id: "user_2" }))
+      .mockResolvedValueOnce(
+        mockJsonResponse(
+          200,
+          { ok: true },
+          ["fs_token=token_abc; Path=/", "fs_token.sig=sig_xyz; Path=/"]
+        )
+      )
+      .mockResolvedValueOnce(mockJsonResponse(200, { profile: { goal: "cut", weightKg: 84 } }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { registerAction } = await import("@/app/(auth)/login/actions");
+
+    const formData = createFormData({
+      email: "sanitize@fitsculpt.test",
+      password: "Passw0rd!123",
+      name: "Sanitized User",
+      promoCode: "FitSculpt-100%",
+      next: "/app",
+      source: "onboarding",
+      profileDraft: JSON.stringify({
+        goal: "cut",
+        weightKg: 84,
+        trainingPreferences: {
+          level: "beginner",
+          timerSound: "",
+        },
+        nutritionPreferences: {
+          mealDistribution: { preset: "" },
+        },
+      }),
+    });
+
+    await expect(registerAction(formData)).rejects.toThrow("REDIRECT:/app");
+
+    const signupRequest = fetchMock.mock.calls[0]?.[1] as { body?: string };
+    const signupBody = JSON.parse(signupRequest.body ?? "{}");
+    expect(signupBody.profileDraft).toMatchObject({
+      goal: "cut",
+      weightKg: 84,
+      trainingPreferences: {
+        level: "beginner",
+      },
+    });
+    expect(signupBody.profileDraft.trainingPreferences.timerSound).toBeUndefined();
+    expect(signupBody.profileDraft.nutritionPreferences).toBeUndefined();
+  });
 });
