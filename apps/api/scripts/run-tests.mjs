@@ -1,4 +1,5 @@
 import { readdir } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -21,7 +22,8 @@ if (testFiles.length === 0) {
 
 function runSingleTest(file) {
   return new Promise((resolve, reject) => {
-    const child = spawn('pnpm exec tsx', [file], {
+    const runnerCommand = hasPnpmBinary() ? 'pnpm exec tsx' : 'npm exec -- tsx';
+    const child = spawn(runnerCommand, [file], {
       cwd: apiRoot,
       stdio: 'inherit',
       shell: true,
@@ -43,6 +45,24 @@ function runSingleTest(file) {
       resolve();
     });
   });
+}
+
+function hasPnpmBinary() {
+  const pathValue = process.env.PATH || '';
+  const pathEntries = pathValue.split(path.delimiter).filter(Boolean);
+  const candidates = process.platform === 'win32'
+    ? ['pnpm.cmd', 'pnpm.exe', 'pnpm.ps1']
+    : ['pnpm'];
+
+  for (const entry of pathEntries) {
+    for (const candidate of candidates) {
+      if (existsSync(path.join(entry, candidate))) {
+        return true;
+      }
+    }
+  }
+
+  return false;
 }
 
 for (const file of testFiles) {

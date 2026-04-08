@@ -153,7 +153,7 @@ describe("QuickLogHub", () => {
       expect(compressAvatarToDataUrlMock).toHaveBeenCalled();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /analizar foto/i }));
+    fireEvent.click(screen.getByRole("button", { name: /(analizar|analyze).*foto|analy(z|s)e.*photo/i }));
 
     await waitFor(() => {
       expect(analyzeMealPhotoMock).toHaveBeenCalledWith(
