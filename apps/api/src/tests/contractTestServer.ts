@@ -1,5 +1,7 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { once } from "node:events";
+import { existsSync } from "node:fs";
+import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { apiRoot } from "./testPaths.js";
 
@@ -162,6 +164,24 @@ function getServerEnv(port: number, bootstrapAdminEmails?: string) {
   };
 }
 
+function hasPnpmBinary() {
+  const pathValue = process.env.PATH || "";
+  const pathEntries = pathValue.split(path.delimiter).filter(Boolean);
+  const candidates = process.platform === "win32"
+    ? ["pnpm.cmd", "pnpm.exe", "pnpm.ps1"]
+    : ["pnpm"];
+
+  for (const entry of pathEntries) {
+    for (const candidate of candidates) {
+      if (existsSync(path.join(entry, candidate))) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
 async function waitForProcessExit(server: ChildProcessWithoutNullStreams, timeoutMs: number) {
   if (server.exitCode !== null || server.signalCode !== null) {
     return;
@@ -205,7 +225,8 @@ export function startContractServer(options: StartContractServerOptions): Starte
     activeTimers.clear();
   };
 
-  const server = spawn("pnpm exec tsx src/index.ts", [], {
+  const serverCommand = hasPnpmBinary() ? "pnpm exec tsx src/index.ts" : "npm exec -- tsx src/index.ts";
+  const server = spawn(serverCommand, [], {
     cwd: apiRoot,
     env: getServerEnv(options.port, options.bootstrapAdminEmails),
     shell: true,
