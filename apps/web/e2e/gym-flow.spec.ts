@@ -169,6 +169,9 @@ test.describe('Gym flow smoke (manager approval + assignment)', () => {
             createPlanAttempt += 1;
             const titleSuffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
             const currentPlanTitle = `E2E Gym Smoke Plan ${titleSuffix}`;
+            const startDate = new Date(Date.now() + createPlanAttempt * 30 * 24 * 60 * 60 * 1000)
+              .toISOString()
+              .slice(0, 10);
             const createPlanResponse = await managerContext.post('/training-plans', {
               data: {
                 title: currentPlanTitle,
@@ -177,7 +180,7 @@ test.describe('Gym flow smoke (manager approval + assignment)', () => {
                 focus: 'full_body',
                 equipment: 'gym',
                 daysPerWeek: 3,
-                startDate: '2026-01-01',
+                startDate,
                 daysCount: 7,
               },
             });

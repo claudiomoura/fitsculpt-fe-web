@@ -21,15 +21,22 @@ export interface AiJobResult {
 let aiQueueInstance: Queue<AiJobData, AiJobResult> | null = null;
 let aiWorkerInstance: Worker<AiJobData, AiJobResult> | null = null;
 
+class NoopQueue {
+  async add(_name: string, data: AiJobData) {
+    return { id: data.requestId };
+  }
+
+  async close() {
+    return undefined;
+  }
+}
+
 export function getAiQueue(logger: FastifyBaseLogger): Queue<AiJobData, AiJobResult> {
   if (aiQueueInstance) return aiQueueInstance;
 
   if (!env.REDIS_URL) {
     logger.warn("REDIS_URL not configured - queue operations will be no-op");
-    aiQueueInstance = new Queue<AiJobData, AiJobResult>("ai-jobs", {
-      connection: { host: "localhost", port: 6379 },
-      defaultJobOptions: { attempts: 0, removeOnComplete: false },
-    });
+    aiQueueInstance = new NoopQueue() as unknown as Queue<AiJobData, AiJobResult>;
     return aiQueueInstance;
   }
 
