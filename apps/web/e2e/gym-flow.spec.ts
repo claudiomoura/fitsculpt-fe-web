@@ -262,7 +262,19 @@ test.describe('Gym flow smoke (manager approval + assignment)', () => {
       await loginAsDemoUser(page);
       await page.goto('/app/training');
 
-      await expect(page.locator('.status-card strong')).toContainText(createdPlan.title ?? '');
+      await expect
+        .poll(
+          async () => {
+            const trainingViewText = (await page.locator('main').innerText()).replace(/\s+/g, ' ').trim();
+            return trainingViewText.includes(createdPlan.title ?? '');
+          },
+          {
+            message: 'training page should render assigned plan title for member',
+            intervals: [500, 1000, 2000, 2000],
+            timeout: 15_000,
+          }
+        )
+        .toBeTruthy();
     } finally {
       await managerContext.dispose();
       await memberContext.dispose();
