@@ -3,6 +3,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getBackendUrl } from "@/lib/backend";
+import { clearOnboardingDraft } from "@/lib/onboardingDraft";
 
 function getResponseSetCookies(response: Response) {
   const setCookieHeader = response.headers.get("set-cookie");
@@ -51,7 +52,7 @@ async function syncProfileDraft(profileDraft: string, authCookie: string) {
     return;
   }
 
-  await fetch(`${getBackendUrl()}/profile`, {
+  const response = await fetch(`${getBackendUrl()}/profile`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
@@ -59,6 +60,12 @@ async function syncProfileDraft(profileDraft: string, authCookie: string) {
     },
     body: JSON.stringify(payload),
   });
+
+  if (!response.ok) {
+    throw new Error(`Profile sync failed: ${response.status}`);
+  }
+
+  return response.json();
 }
 
 export async function loginAction(formData: FormData) {
@@ -152,10 +159,12 @@ export async function registerAction(formData: FormData) {
   await storeAuthCookie(loginResponse);
 
   const authCookie = buildCookieHeader(getResponseSetCookies(loginResponse));
-  try {
-    await syncProfileDraft(profileDraft, authCookie);
-  } catch {
-    // If the draft sync fails, keep the user signed in and let the app continue.
+  const syncResult = await syncProfileDraft(profileDraft, authCookie);
+  if (!syncResult) {
+    console.warn("[registerAction] Profile draft sync failed, user will need to complete onboarding manually");
+  } else {
+    console.log("[registerAction] Profile draft synced successfully");
+    clearOnboardingDraft();
   }
 
   redirect(next);
