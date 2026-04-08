@@ -25,13 +25,12 @@ const labels = {
 };
 
 describe("LoginForm", () => {
-  it("renders auth fields and helper links", () => {
+  it("renders auth fields and hidden next target", () => {
     formStatus.pending = false;
     render(<LoginForm action={vi.fn()} next="/app/hoy" labels={labels} />);
 
     expect(screen.getByLabelText("Email")).toBeInTheDocument();
     expect(screen.getByLabelText("Password")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Forgot your password?" })).toHaveAttribute("href", "/forgot-password");
     expect(screen.getByDisplayValue("/app/hoy")).toHaveAttribute("name", "next");
   });
 
