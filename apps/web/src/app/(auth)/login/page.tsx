@@ -1,5 +1,5 @@
 import { loginAction } from "./actions";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getServerT } from "@/lib/serverI18n";
 import Link from "next/link";
@@ -7,12 +7,41 @@ import Image from "next/image";
 import ResendVerificationButton from "./ResendVerificationButton";
 import LoginForm from "./LoginForm";
 import GoogleLoginButton from "./GoogleLoginButton";
-import { Badge } from "@/design-system/components/Badge";
+import LanguageSwitcher from "@/components/layout/LanguageSwitcher";
 import { Icon } from "@/design-system/components/Icon";
 
 type SearchParams =
-  | { next?: string; error?: string; registered?: string; view?: string }
-  | Promise<{ next?: string; error?: string; registered?: string; view?: string }>;
+  | { next?: string; error?: string; registered?: string; view?: string; nativeApp?: string; fs_app?: string; capacitor?: string }
+  | Promise<{ next?: string; error?: string; registered?: string; view?: string; nativeApp?: string; fs_app?: string; capacitor?: string }>;
+
+const isNativeAppSignal = (value: string | undefined) => value === "1" || value === "true";
+
+async function isNativeAppRequest(search: Awaited<SearchParams>) {
+  if (isNativeAppSignal(search.nativeApp) || isNativeAppSignal(search.fs_app) || isNativeAppSignal(search.capacitor)) {
+    return true;
+  }
+
+  const headerStore = await headers();
+  const requestedWith = headerStore.get("x-requested-with")?.toLowerCase() ?? "";
+  const appClient = [
+    headerStore.get("x-fitsculpt-app"),
+    headerStore.get("x-fitsculpt-client"),
+    headerStore.get("x-capacitor"),
+    headerStore.get("x-app-platform"),
+  ]
+    .join(" ")
+    .toLowerCase();
+  const ua = headerStore.get("user-agent")?.toLowerCase() ?? "";
+
+  return (
+    requestedWith.includes("capacitor") ||
+    appClient.includes("capacitor") ||
+    appClient.includes("fitsculpt") ||
+    ua.includes("capacitor") ||
+    ua.includes("com.fitsculpt.beta") ||
+    (ua.includes("android") && ua.includes("; wv)"))
+  );
+}
 
 export default async function LoginPage({
   searchParams,
@@ -30,6 +59,7 @@ export default async function LoginPage({
   const registered = sp.registered === "1";
   const showSignIn =
     sp.view === "signin" || error || unverified || blocked || promoError || oauthError || registered;
+  const isNativeApp = await isNativeAppRequest(sp);
 
   const hasSession = Boolean((await cookies()).get("fs_token")?.value);
   if (hasSession) redirect("/app");
@@ -38,10 +68,13 @@ export default async function LoginPage({
 
   if (!showSignIn) {
     return (
-      <main className="auth-entry-page">
+      <main className={`auth-entry-page ${isNativeApp ? "auth-page--native" : ""}`}>
         <section className="auth-entry-stage">
           <div className="auth-entry-visual">
             <Image src="/branding/girl_front.png" alt="FitSculpt" fill priority className="auth-entry-image" />
+          </div>
+          <div className="auth-entry-language">
+            <LanguageSwitcher />
           </div>
           <div className="auth-entry-content">
             <div className="auth-entry-brand">
@@ -68,7 +101,7 @@ export default async function LoginPage({
   }
 
   return (
-    <main className="auth-signin-page">
+    <main className={`auth-signin-page ${isNativeApp ? "auth-page--native" : ""}`}>
       <section className="auth-signin-shell">
         <div className="auth-signin-topbar">
           <Link href="/login" className="auth-signin-back" aria-label={t("auth.backToStart")}>←</Link>

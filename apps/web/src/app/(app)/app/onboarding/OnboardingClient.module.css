@@ -1,222 +1,292 @@
 .pageShell {
-  padding: 24px 16px 40px;
+  min-height: 100dvh;
+  padding: 20px 14px 0;
+  background:
+    radial-gradient(120% 65% at 50% -5%, color-mix(in srgb, var(--accent) 20%, transparent) 0%, transparent 60%),
+    linear-gradient(180deg, color-mix(in srgb, var(--surface) 78%, black 22%) 0%, color-mix(in srgb, var(--surface) 60%, black 40%) 100%);
+}
+
+.viewportLocked {
+  height: 100dvh;
+  overflow: hidden;
 }
 
 .container {
   max-width: 760px;
   margin: 0 auto;
   display: grid;
-  gap: 18px;
+  gap: 12px;
+}
+
+.viewportLocked .container {
+  height: 100%;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
 }
 
 .topBar {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.topBarCenter {
+  display: grid;
+  gap: 6px;
+  text-align: center;
+}
+
+.navButton,
+.closeButton {
+  min-width: 38px;
+  min-height: 38px;
+  padding: 0;
+  border-radius: 999px;
+  display: inline-grid;
+  place-items: center;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .brandLabel {
   margin: 0;
-  font-size: 0.82rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  font-size: 0.73rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: color-mix(in srgb, var(--accent) 74%, white 26%);
+  color: color-mix(in srgb, var(--accent) 76%, white 24%);
+}
+
+.progressPill {
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--surface-border-default) 70%, transparent);
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 56%, transparent);
+}
+
+.progressPill span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 95%, white 5%), color-mix(in srgb, var(--accent) 58%, #7fd9ff 42%));
+  transition: width 200ms ease;
 }
 
 .progressCopy {
-  margin: 6px 0 0;
-  color: var(--text-muted);
-  font-size: 0.95rem;
+  margin: 0;
+  font-size: 0.82rem;
+  color: color-mix(in srgb, var(--text) 72%, white 28%);
+}
+
+.metaRow {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .betaBadge {
   display: inline-flex;
   align-items: center;
-  padding: 8px 12px;
+  padding: 6px 11px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--accent) 12%, var(--surface) 88%);
-  border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
-  color: color-mix(in srgb, var(--accent) 82%, white 18%);
-  font-size: 0.82rem;
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface) 86%);
+  border: 1px solid color-mix(in srgb, var(--accent) 36%, transparent);
+  color: color-mix(in srgb, var(--accent) 84%, white 16%);
+  font-size: 0.74rem;
   font-weight: 700;
-}
-
-.progressTrack {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 8px;
-}
-
-.progressBar {
-  height: 6px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.progressBarActive {
-  background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 55%, #59b7ff 45%));
+  letter-spacing: 0.03em;
 }
 
 .stageCard {
-  padding: 24px;
-  border-radius: 28px;
-  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  padding: 18px 14px 24px;
+  border-radius: 24px;
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 70%, transparent);
   background:
-    radial-gradient(circle at top center, color-mix(in srgb, var(--accent) 12%, transparent) 0%, transparent 42%),
-    color-mix(in srgb, var(--surface) 94%, black 6%);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+    radial-gradient(circle at top center, color-mix(in srgb, var(--accent) 11%, transparent) 0%, transparent 45%),
+    color-mix(in srgb, var(--surface) 86%, black 14%);
+  box-shadow: 0 26px 46px rgba(0, 0, 0, 0.34);
+}
+
+.viewportLocked .stageCard {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-bottom: calc(28px + env(safe-area-inset-bottom));
 }
 
 .stageIntro {
-  display: grid;
-  gap: 10px;
-  justify-items: center;
-  text-align: center;
+  margin: 0 auto 14px;
   max-width: 560px;
-  margin: 0 auto 24px;
+  display: grid;
+  gap: 8px;
+  text-align: center;
 }
 
 .stageEyebrow,
 .previewEyebrow {
   margin: 0;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: color-mix(in srgb, var(--accent) 78%, white 22%);
+  color: color-mix(in srgb, var(--accent) 74%, white 26%);
 }
 
 .stageTitle,
 .previewTitle {
   margin: 0;
-  font-size: clamp(2rem, 4.6vw, 3.4rem);
-  line-height: 0.98;
-  letter-spacing: -0.04em;
+  font-size: clamp(1.6rem, 6vw, 2.25rem);
+  line-height: 1.03;
+  letter-spacing: -0.03em;
   text-wrap: balance;
 }
 
 .stageSubtitle,
 .previewSubtitle {
   margin: 0;
-  max-width: 44ch;
-  color: color-mix(in srgb, var(--text) 78%, white 22%);
-  font-size: 1.02rem;
-  line-height: 1.55;
+  color: color-mix(in srgb, var(--text) 76%, white 24%);
+  font-size: 0.92rem;
+  line-height: 1.45;
 }
 
 .returnHint {
-  margin: 4px 0 0;
+  margin: 2px 0 0;
   color: var(--text-muted);
-  font-size: 0.92rem;
+  font-size: 0.84rem;
 }
 
 .stageContent {
   display: grid;
-  gap: 20px;
+  gap: 12px;
+  align-content: start;
 }
 
 .choiceGroup {
   display: grid;
-  gap: 10px;
+  gap: 9px;
 }
 
 .choiceLabel {
-  font-size: 0.92rem;
+  font-size: 0.86rem;
   font-weight: 700;
   color: color-mix(in srgb, var(--text) 90%, white 10%);
 }
 
 .choiceGrid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: 1fr;
+  gap: 9px;
 }
 
 .choiceGridThree {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.choiceGridPills {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .choiceCard {
-  min-height: 94px;
+  min-height: 56px;
+  width: 100%;
   display: grid;
+  gap: 4px;
+  justify-items: start;
   align-content: center;
-  gap: 6px;
-  padding: 16px;
-  border-radius: 22px;
-  border: 1px solid color-mix(in srgb, var(--surface-border-default) 78%, transparent);
-  background: color-mix(in srgb, var(--surface) 88%, white 12%);
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 72%, transparent);
+  background: color-mix(in srgb, var(--surface) 89%, white 11%);
   color: var(--text);
   text-align: left;
-  transition: transform 140ms ease, border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
+  transition: border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
 }
 
 .choiceCard strong {
-  font-size: 1rem;
+  font-size: 0.92rem;
+  line-height: 1.3;
 }
 
 .choiceCard span {
   color: var(--text-muted);
-  font-size: 0.86rem;
-  line-height: 1.35;
+  font-size: 0.79rem;
+  line-height: 1.32;
 }
 
 .choiceCard:hover {
-  transform: translateY(-1px);
-  border-color: color-mix(in srgb, var(--accent) 38%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 44%, transparent);
+}
+
+.choiceCard:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 74%, white 26%);
+  outline-offset: 2px;
+}
+
+.choiceCardPill {
+  min-height: 42px;
+  padding: 10px 12px;
+  border-radius: 999px;
+  justify-items: center;
+  text-align: center;
+}
+
+.choiceCardPill span {
+  display: none;
 }
 
 .choiceCardActive {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 16%, var(--surface) 84%), color-mix(in srgb, var(--brand) 12%, var(--surface) 88%));
-  border-color: color-mix(in srgb, var(--accent) 52%, transparent);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent), 0 18px 40px rgba(25, 168, 255, 0.14);
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 18%, var(--surface) 82%), color-mix(in srgb, var(--brand) 14%, var(--surface) 86%));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent);
 }
 
 .metricGrid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
+  grid-template-columns: 1fr;
 }
 
 .toggleRow {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 14px;
-  border-radius: 18px;
-  background: color-mix(in srgb, var(--surface) 85%, white 15%);
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface) 83%, white 17%);
   border: 1px solid color-mix(in srgb, var(--surface-border-default) 72%, transparent);
 }
 
 .microHint {
   margin: 0;
   color: var(--text-muted);
-  font-size: 0.92rem;
+  font-size: 0.86rem;
 }
 
 .previewHero {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .summaryGrid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
+  grid-template-columns: 1fr;
 }
 
 .summaryCard {
   display: grid;
-  gap: 8px;
-  padding: 18px;
-  border-radius: 22px;
-  border: 1px solid color-mix(in srgb, var(--surface-border-default) 76%, transparent);
-  background: color-mix(in srgb, var(--surface) 86%, white 14%);
+  gap: 6px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 72%, transparent);
+  background: color-mix(in srgb, var(--surface) 87%, white 13%);
 }
 
 .summaryCard span {
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -224,26 +294,25 @@
 }
 
 .summaryCard strong {
-  font-size: 1.08rem;
-  line-height: 1.35;
+  font-size: 0.96rem;
+  line-height: 1.34;
 }
 
 .summaryCard small {
   color: var(--text-muted);
-  font-size: 0.9rem;
-  line-height: 1.45;
+  font-size: 0.82rem;
+  line-height: 1.4;
 }
 
 .notesBlock {
   display: grid;
-  gap: 12px;
-  padding-top: 4px;
+  gap: 10px;
 }
 
 .notesBlock h3,
 .activationHeader h3 {
   margin: 0;
-  font-size: 1.18rem;
+  font-size: 1.04rem;
 }
 
 .notesBlock p,
@@ -251,17 +320,17 @@
 .previewBanner p {
   margin: 0;
   color: var(--text-muted);
-  line-height: 1.55;
+  line-height: 1.46;
 }
 
 .activationPanel,
 .previewBanner {
   display: grid;
-  gap: 14px;
-  padding: 18px;
-  border-radius: 24px;
-  border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 10%, var(--surface) 90%), color-mix(in srgb, var(--surface) 94%, black 6%));
+  gap: 12px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 9%, var(--surface) 91%), color-mix(in srgb, var(--surface) 89%, black 11%));
 }
 
 .activationHeader {
@@ -271,46 +340,152 @@
 
 .activationForm {
   display: grid;
-  gap: 14px;
+  gap: 12px;
 }
 
 .footerCard {
-  padding: 16px;
-  border-radius: 22px;
+  position: sticky;
+  bottom: 0;
+  z-index: 4;
+  padding: 12px;
+  border-radius: 16px 16px 0 0;
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 72%, transparent);
+  background: color-mix(in srgb, var(--surface) 90%, black 10%);
+  backdrop-filter: blur(14px);
+}
+
+.viewportLocked .footerCard {
+  padding-bottom: calc(12px + env(safe-area-inset-bottom));
 }
 
 .footerActions {
-  display: flex;
-  gap: 12px;
-  justify-content: flex-end;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
 }
 
-@media (max-width: 720px) {
+.footerActions :global(.btn) {
+  width: 100%;
+}
+
+@media (min-width: 721px) {
   .pageShell {
-    padding-inline: 12px;
+    padding: 28px 20px 34px;
+  }
+
+  .container {
+    gap: 16px;
+  }
+
+  .topBarCenter {
+    gap: 8px;
+  }
+
+  .brandLabel {
+    font-size: 0.78rem;
+  }
+
+  .progressCopy {
+    font-size: 0.88rem;
   }
 
   .stageCard {
-    padding: 20px 16px;
-    border-radius: 24px;
+    padding: 24px;
+    border-radius: 26px;
   }
 
-  .choiceGrid,
-  .choiceGridThree,
-  .metricGrid,
-  .summaryGrid {
-    grid-template-columns: 1fr;
+  .stageIntro {
+    margin-bottom: 18px;
+  }
+
+  .stageTitle,
+  .previewTitle {
+    font-size: clamp(2rem, 4.2vw, 2.95rem);
+  }
+
+  .stageSubtitle,
+  .previewSubtitle {
+    font-size: 1rem;
+    line-height: 1.55;
+  }
+
+  .stageContent {
+    gap: 16px;
+  }
+
+  .choiceGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .choiceGridThree {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .choiceGridPills {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .choiceCard {
-    min-height: 78px;
+    min-height: 76px;
+    padding: 14px 16px;
+    border-radius: 18px;
+  }
+
+  .choiceCard strong {
+    font-size: 0.98rem;
+  }
+
+  .choiceCard span {
+    font-size: 0.84rem;
+  }
+
+  .choiceCardPill {
+    min-height: 48px;
+    border-radius: 999px;
+    padding-inline: 16px;
+  }
+
+  .metricGrid,
+  .summaryGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .summaryCard {
+    padding: 16px;
+    border-radius: 18px;
+  }
+
+  .summaryCard strong {
+    font-size: 1.02rem;
+  }
+
+  .summaryCard small {
+    font-size: 0.86rem;
+  }
+
+  .activationPanel,
+  .previewBanner {
+    padding: 18px;
+    border-radius: 20px;
+  }
+
+  .footerCard {
+    border-radius: 18px;
+    padding: 14px;
+    position: static;
+    backdrop-filter: none;
   }
 
   .footerActions {
-    flex-direction: column;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
   }
 
   .footerActions :global(.btn) {
-    width: 100%;
+    width: auto;
+    min-width: 132px;
   }
 }

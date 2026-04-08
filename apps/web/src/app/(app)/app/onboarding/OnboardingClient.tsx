@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import { Input } from "@/design-system/components/Input";
 import { useLanguage } from "@/context/LanguageProvider";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { trackEvent } from "@/lib/analytics";
 import styles from "./OnboardingClient.module.css";
 import {
@@ -31,6 +32,7 @@ type Props = {
   nextUrl?: string;
   ai?: string;
   mode?: "authenticated" | "guest";
+  lockViewport?: boolean;
   activationAction?: (formData: FormData) => void | Promise<void>;
   activationError?: "promo" | "generic" | null;
 };
@@ -50,7 +52,7 @@ type ChoiceOption<T extends string | number> = {
 };
 
 const FIRST_STEP = 0;
-const LAST_STEP = 5;
+const LAST_STEP = 11;
 
 type OnboardingDefaults = {
   activity: Activity;
@@ -141,6 +143,7 @@ export default function OnboardingClient({
   nextUrl,
   ai,
   mode = "authenticated",
+  lockViewport = false,
   activationAction,
   activationError = null,
 }: Props) {
@@ -396,9 +399,24 @@ export default function OnboardingClient({
         description: t("onboarding.basicsDescription"),
       },
       {
+        eyebrow: t("onboarding.stepIntro"),
+        title: t("profile.basicsTitle"),
+        description: t("profile.activity"),
+      },
+      {
         eyebrow: t("onboarding.stepTraining"),
         title: t("onboarding.trainingTitle"),
         description: t("onboarding.trainingDescription"),
+      },
+      {
+        eyebrow: t("onboarding.stepTraining"),
+        title: t("onboarding.trainingTitle"),
+        description: t("profile.trainingSessionTime"),
+      },
+      {
+        eyebrow: t("onboarding.stepTraining"),
+        title: t("onboarding.trainingTitle"),
+        description: t("profile.trainingFocus"),
       },
       {
         eyebrow: t("onboarding.stepNutrition"),
@@ -406,9 +424,24 @@ export default function OnboardingClient({
         description: t("onboarding.nutritionDescription"),
       },
       {
+        eyebrow: t("onboarding.stepNutrition"),
+        title: t("onboarding.nutritionTitle"),
+        description: t("profile.dietTypeLabel"),
+      },
+      {
+        eyebrow: t("onboarding.stepNutrition"),
+        title: t("onboarding.nutritionTitle"),
+        description: t("profile.mealDistributionLabel"),
+      },
+      {
         eyebrow: t("onboarding.stepAdherence"),
         title: t("profile.macroTitle"),
         description: t("onboarding.macroDescription"),
+      },
+      {
+        eyebrow: t("onboarding.stepPreview"),
+        title: t("onboarding.notesTitle"),
+        description: t("onboarding.notesSubtitle"),
       },
       {
         eyebrow: t("onboarding.stepPreview"),
@@ -420,11 +453,15 @@ export default function OnboardingClient({
   );
   const currentStepDefinition = stepDefinitions[step] ?? stepDefinitions[FIRST_STEP];
   const pendingSummaryLabel = t("onboarding.summaryPending");
+  const isMobileViewport = useMediaQuery("(max-width: 720px)");
+  const useMobileChoiceSelect = lockViewport || isMobileViewport;
+  const progressPercent = ((step + 1) / (LAST_STEP + 1)) * 100;
   const finishLabel = isGuestMode
     ? t("onboarding.activateBeta")
     : nextUrl || ai
       ? t("onboarding.finishAndContinue")
       : t("onboarding.finish");
+  const closeLabel = t("ui.close");
   const returnHint = isGuestMode
     ? t("onboarding.returnHintGuest")
     : ai
@@ -486,19 +523,27 @@ export default function OnboardingClient({
     value: T | "",
     options: Array<ChoiceOption<T>>,
     onSelect: (next: T) => void,
-    columns: "two" | "three" = "two"
+    columns: "two" | "three" = "two",
+    mobileVariant: "cards" | "auto" = "cards"
   ) => (
     <div className={styles.choiceGroup}>
       <span className={styles.choiceLabel}>{label}</span>
-      <div className={`${styles.choiceGrid} ${columns === "three" ? styles.choiceGridThree : ""}`}>
+      <div
+        className={`${styles.choiceGrid} ${columns === "three" ? styles.choiceGridThree : ""} ${
+          useMobileChoiceSelect && mobileVariant === "auto" ? styles.choiceGridPills : ""
+        }`}
+      >
         {options.map((option) => {
           const isActive = value === option.value;
           return (
             <button
               key={`${label}-${option.value}`}
               type="button"
-              className={`${styles.choiceCard} ${isActive ? styles.choiceCardActive : ""}`}
+              className={`${styles.choiceCard} ${isActive ? styles.choiceCardActive : ""} ${
+                useMobileChoiceSelect && mobileVariant === "auto" ? styles.choiceCardPill : ""
+              }`}
               onClick={() => onSelect(option.value)}
+              aria-pressed={isActive}
             >
               <strong>{option.label}</strong>
               {option.hint ? <span>{option.hint}</span> : null}
@@ -562,9 +607,8 @@ export default function OnboardingClient({
   }, [isGuestMode, nextUrl, profile, router]);
 
   const hasValidBasics =
-    hasPositiveNumber(profile.age) &&
-    hasPositiveNumber(profile.heightCm) &&
-    hasPositiveNumber(profile.weightKg);
+    hasPositiveNumber(profile.age);
+  const hasValidBodyMetrics = hasPositiveNumber(profile.heightCm) && hasPositiveNumber(profile.weightKg);
   const canFinishOnboarding = isProfileComplete({
     ...profile,
     macroPreferences: {
@@ -577,6 +621,8 @@ export default function OnboardingClient({
       ? Boolean(profile.goal)
       : step === 1
         ? hasValidBasics
+        : step === 2
+          ? hasValidBodyMetrics
         : step === LAST_STEP
           ? canFinishOnboarding
           : true;
@@ -589,7 +635,7 @@ export default function OnboardingClient({
 
   if (loadState === "loading") {
     return (
-        <div className={`page ${styles.pageShell}`}>
+        <div className={`page ${styles.pageShell} ${lockViewport ? styles.viewportLocked : ""}`}>
         <LoadingState
           title={t("onboarding.title")}
           ariaLabel={t("onboarding.loadingState")}
@@ -602,7 +648,7 @@ export default function OnboardingClient({
 
   if (loadState === "error") {
     return (
-        <div className={`page ${styles.pageShell}`}>
+        <div className={`page ${styles.pageShell} ${lockViewport ? styles.viewportLocked : ""}`}>
         <ErrorState
           title={t("onboarding.errorTitle")}
           description={t("onboarding.errorSubtitle")}
@@ -618,7 +664,7 @@ export default function OnboardingClient({
 
   if (loadState === "empty") {
     return (
-        <div className={`page ${styles.pageShell}`}>
+        <div className={`page ${styles.pageShell} ${lockViewport ? styles.viewportLocked : ""}`}>
         <EmptyState
           title={t("onboarding.emptyTitle")}
           description={t("onboarding.emptySubtitle")}
@@ -635,7 +681,7 @@ export default function OnboardingClient({
 
   if (saveState === "success") {
     return (
-        <div className={`page ${styles.pageShell}`}>
+        <div className={`page ${styles.pageShell} ${lockViewport ? styles.viewportLocked : ""}`}>
         <EmptyState
           title={t("onboarding.successTitle")}
           description={t("onboarding.successSubtitle")}
@@ -649,21 +695,46 @@ export default function OnboardingClient({
   }
 
   return (
-    <div className={`page ${styles.pageShell}`}>
+    <div className={`page ${styles.pageShell} ${lockViewport ? styles.viewportLocked : ""}`}>
       <div className={styles.container}>
         <header className={styles.topBar}>
-          <div>
+          <button
+            type="button"
+            className={`btn secondary fit-content ${styles.navButton}`}
+            onClick={goToBack}
+            aria-label={t("onboarding.back")}
+          >
+            <span aria-hidden="true">&lt;</span>
+          </button>
+          <div className={styles.topBarCenter}>
             <p className={styles.brandLabel}>{t("onboarding.title")}</p>
+            <div
+              className={styles.progressPill}
+              role="progressbar"
+              aria-valuemin={1}
+              aria-valuemax={LAST_STEP + 1}
+              aria-valuenow={step + 1}
+              aria-label={t("onboarding.stepCounter", { current: step + 1, total: LAST_STEP + 1 })}
+            >
+              <span style={{ width: `${progressPercent}%` }} />
+            </div>
             <p className={styles.progressCopy}>{t("onboarding.stepCounter", { current: step + 1, total: LAST_STEP + 1 })}</p>
           </div>
-          {isGuestMode ? <span className={styles.betaBadge}>{t("auth.activateBetaBadge")}</span> : null}
+          <button
+            type="button"
+            className={`btn secondary fit-content ${styles.closeButton}`}
+            onClick={() => router.push("/login")}
+            aria-label={closeLabel}
+          >
+            <span aria-hidden="true">x</span>
+          </button>
         </header>
 
-        <div className={styles.progressTrack} aria-label={t("onboarding.stepCounter", { current: step + 1, total: LAST_STEP + 1 })}>
-          {Array.from({ length: LAST_STEP + 1 }).map((_, index) => (
-            <span key={index} className={`${styles.progressBar} ${index <= step ? styles.progressBarActive : ""}`} />
-          ))}
-        </div>
+        {isGuestMode ? (
+          <div className={styles.metaRow}>
+            <span className={styles.betaBadge}>{t("auth.activateBetaBadge")}</span>
+          </div>
+        ) : null}
 
         <section className={`card ${styles.stageCard}`}>
           <div className={styles.stageIntro}>
@@ -703,17 +774,22 @@ export default function OnboardingClient({
                   setProfile((prev) => applyOnboardingDefaults({ ...prev, sex: nextSex }, nextSex, prev.age));
                 }
               )}
+              <Input
+                variant="premium"
+                type="number"
+                label={`${t("profile.age")} *`}
+                value={profile.age ?? ""}
+                onChange={(e) => {
+                  const nextAge = parseNumberInput(e.target.value);
+                  setProfile((prev) => applyOnboardingDefaults({ ...prev, age: nextAge }, prev.sex, nextAge));
+                }}
+              />
+            </div>
+          ) : null}
+
+          {step === 2 ? (
+            <div className={styles.stageContent}>
               <div className={styles.metricGrid}>
-                <Input
-                  variant="premium"
-                  type="number"
-                  label={`${t("profile.age")} *`}
-                  value={profile.age ?? ""}
-                  onChange={(e) => {
-                    const nextAge = parseNumberInput(e.target.value);
-                    setProfile((prev) => applyOnboardingDefaults({ ...prev, age: nextAge }, prev.sex, nextAge));
-                  }}
-                />
                 <Input
                   variant="premium"
                   type="number"
@@ -729,10 +805,18 @@ export default function OnboardingClient({
                   onChange={(e) => updateProfile("weightKg", parseNumberInput(e.target.value))}
                 />
               </div>
+              {renderChoiceGroup(
+                t("profile.activity"),
+                profile.activity,
+                activityOptions,
+                (next) => updateProfile("activity", next as Activity),
+                "three",
+                "auto"
+              )}
             </div>
           ) : null}
 
-          {step === 2 ? (
+          {step === 3 ? (
             <div className={styles.stageContent}>
               {renderChoiceGroup(
                 t("profile.trainingDays"),
@@ -748,6 +832,11 @@ export default function OnboardingClient({
                 (next) => updateTrainingPreference("level", next as TrainingLevel),
                 "three"
               )}
+            </div>
+          ) : null}
+
+          {step === 4 ? (
+            <div className={styles.stageContent}>
               {renderChoiceGroup(
                 t("profile.trainingSessionTime"),
                 profile.trainingPreferences.sessionTime,
@@ -755,6 +844,11 @@ export default function OnboardingClient({
                 (next) => updateTrainingPreference("sessionTime", next as SessionTime),
                 "three"
               )}
+            </div>
+          ) : null}
+
+          {step === 5 ? (
+            <div className={styles.stageContent}>
               {renderChoiceGroup(
                 t("profile.trainingEquipment"),
                 profile.trainingPreferences.equipment,
@@ -771,7 +865,7 @@ export default function OnboardingClient({
             </div>
           ) : null}
 
-          {step === 3 ? (
+          {step === 6 ? (
             <div className={styles.stageContent}>
               {renderChoiceGroup(
                 t("profile.mealsPerDay"),
@@ -780,13 +874,24 @@ export default function OnboardingClient({
                 (next) => updateNutritionPreference("mealsPerDay", next as number),
                 "three"
               )}
+            </div>
+          ) : null}
+
+          {step === 7 ? (
+            <div className={styles.stageContent}>
               {renderChoiceGroup(
                 t("profile.dietTypeLabel"),
                 profile.nutritionPreferences.dietType,
                 dietOptions,
                 (next) => updateNutritionPreference("dietType", next as NutritionDietType),
-                "three"
+                "three",
+                "auto"
               )}
+            </div>
+          ) : null}
+
+          {step === 8 ? (
+            <div className={styles.stageContent}>
               {renderChoiceGroup(
                 t("profile.cookingTime"),
                 profile.nutritionPreferences.cookingTime,
@@ -804,7 +909,7 @@ export default function OnboardingClient({
             </div>
           ) : null}
 
-          {step === 4 ? (
+          {step === 9 ? (
             <div className={styles.stageContent}>
               {renderChoiceGroup(
                 t("profile.macroFormula"),
@@ -877,7 +982,24 @@ export default function OnboardingClient({
             </div>
           ) : null}
 
-          {step === 5 ? (
+          {step === 10 ? (
+            <div className={styles.stageContent}>
+              <div className={styles.notesBlock}>
+                <h3>{t("onboarding.notesTitle")}</h3>
+                <p>{t("onboarding.notesSubtitle")}</p>
+                <label className="form-stack">
+                  {t("profile.injuriesLabel")}
+                  <textarea value={profile.injuries} onChange={(e) => updateProfile("injuries", e.target.value)} />
+                </label>
+                <label className="form-stack">
+                  {t("profile.notes")}
+                  <textarea value={profile.notes} onChange={(e) => updateProfile("notes", e.target.value)} />
+                </label>
+              </div>
+            </div>
+          ) : null}
+
+          {step === LAST_STEP ? (
             <div className={styles.stageContent}>
               <div className={styles.previewHero}>
                 <div>
@@ -908,19 +1030,6 @@ export default function OnboardingClient({
                   <strong>{adherenceSummary || pendingSummaryLabel}</strong>
                   <small>{t("onboarding.summaryAdherenceSupport")}</small>
                 </article>
-              </div>
-
-              <div className={styles.notesBlock}>
-                <h3>{t("onboarding.notesTitle")}</h3>
-                <p>{t("onboarding.notesSubtitle")}</p>
-                <label className="form-stack">
-                  {t("profile.injuriesLabel")}
-                  <textarea value={profile.injuries} onChange={(e) => updateProfile("injuries", e.target.value)} />
-                </label>
-                <label className="form-stack">
-                  {t("profile.notes")}
-                  <textarea value={profile.notes} onChange={(e) => updateProfile("notes", e.target.value)} />
-                </label>
               </div>
 
               {isGuestMode ? (

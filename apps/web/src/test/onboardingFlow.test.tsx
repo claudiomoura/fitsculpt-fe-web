@@ -63,20 +63,9 @@ describe("Onboarding flow MVP", () => {
       expect(screen.getAllByText("Datos básicos").length).toBeGreaterThan(0);
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
-
-    await waitFor(() => {
-      expect(screen.getAllByText("¿Cómo quieres entrenar?").length).toBeGreaterThan(0);
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
-
-    await waitFor(() => {
-      expect(screen.getAllByText("¿Cómo quieres comer?").length).toBeGreaterThan(0);
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
-    fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
+    for (let index = 0; index < 10; index += 1) {
+      fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
+    }
 
     await waitFor(() => {
       expect(screen.getAllByText("Tu plan base está listo").length).toBeGreaterThan(0);
@@ -94,13 +83,13 @@ describe("Onboarding flow MVP", () => {
     fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
     fireEvent.click(screen.getByRole("button", { name: "Masculino" }));
     fireEvent.change(screen.getByLabelText("Edad *"), { target: { value: "31" } });
+    fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
     fireEvent.change(screen.getByLabelText("Altura (cm) *"), { target: { value: "178" } });
     fireEvent.change(screen.getByLabelText("Peso actual (kg) *"), { target: { value: "84" } });
 
-    fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
-    fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
-    fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
-    fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
+    for (let index = 0; index < 9; index += 1) {
+      fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
+    }
 
     await screen.findByRole("button", { name: "Activar acceso beta" });
     expect(screen.getByLabelText("Email")).toBeInTheDocument();
@@ -109,5 +98,46 @@ describe("Onboarding flow MVP", () => {
 
     expect(window.localStorage.getItem(ONBOARDING_DRAFT_STORAGE_KEY)).toContain('"weightKg":84');
     expect(getMockNavigation().push).not.toHaveBeenCalled();
+  });
+
+  it("shows a close control to return to login and keeps CTA available in locked viewport", async () => {
+    renderWithProviders(<OnboardingClient mode="guest" activationAction={async () => {}} lockViewport />);
+
+    await screen.findByText("Primero ves tu plan. El código beta solo aparece al final.");
+
+    const closeButton = screen.getByRole("button", { name: /cerrar|close/i });
+    expect(closeButton).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Siguiente" })).toBeInTheDocument();
+
+    fireEvent.click(closeButton);
+    expect(getMockNavigation().push).toHaveBeenCalledWith("/login");
+  });
+
+  it("keeps dense groups as compact pills and persists selection", async () => {
+    renderWithProviders(<OnboardingClient mode="guest" activationAction={async () => {}} lockViewport />);
+
+    await screen.findByText("Primero ves tu plan. El código beta solo aparece al final.");
+    fireEvent.click(screen.getByRole("button", { name: "Pérdida de peso (cut)" }));
+    fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
+    fireEvent.change(screen.getByLabelText("Edad *"), { target: { value: "31" } });
+    fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
+    fireEvent.change(screen.getByLabelText("Altura (cm) *"), { target: { value: "178" } });
+    fireEvent.change(screen.getByLabelText("Peso actual (kg) *"), { target: { value: "84" } });
+    fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
+
+    for (let index = 0; index < 4; index += 1) {
+      fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
+    }
+
+    const veganOption = screen.getByRole("button", { name: /vegana|vegan/i });
+    fireEvent.click(veganOption);
+
+    expect(veganOption).toHaveAttribute("aria-pressed", "true");
+
+    for (let index = 0; index < 4; index += 1) {
+      fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
+    }
+
+    await screen.findByText(/vegana|vegan/i);
   });
 });

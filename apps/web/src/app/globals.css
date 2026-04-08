@@ -3373,6 +3373,31 @@ label {
   position: relative;
 }
 
+.auth-entry-language {
+  position: absolute;
+  z-index: 2;
+  top: max(env(safe-area-inset-top), 12px);
+  right: 12px;
+}
+
+.auth-entry-language .nav-language-toggle {
+  background: color-mix(in srgb, #02070d 78%, transparent);
+  border-color: color-mix(in srgb, var(--surface-border-default) 70%, transparent);
+  backdrop-filter: blur(6px);
+}
+
+.auth-entry-language .nav-language-option {
+  min-height: 32px;
+  padding: 6px 10px;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+}
+
+.auth-page--native {
+  height: 100dvh;
+  overflow: hidden;
+}
+
 .auth-entry-visual {
   position: absolute;
   inset: 0;
@@ -3575,6 +3600,11 @@ label {
     font-size: 2.2rem;
   }
 
+  .auth-entry-language {
+    top: max(env(safe-area-inset-top), 10px);
+    right: 10px;
+  }
+
   .auth-entry-content h1 {
     font-size: 2.7rem;
   }
@@ -3586,6 +3616,12 @@ label {
   .auth-signin-shell {
     min-height: 100dvh;
     padding: 16px 16px 20px;
+  }
+
+  .auth-page--native .auth-signin-shell {
+    height: 100dvh;
+    overflow: hidden;
+    padding-bottom: max(20px, env(safe-area-inset-bottom));
   }
 
   .auth-signin-topbar {
