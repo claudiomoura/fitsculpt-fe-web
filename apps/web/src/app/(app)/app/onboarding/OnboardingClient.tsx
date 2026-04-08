@@ -52,7 +52,8 @@ type ChoiceOption<T extends string | number> = {
 };
 
 const FIRST_STEP = 0;
-const LAST_STEP = 11;
+const AUTH_LAST_STEP = 11;
+const GUEST_LAST_STEP = 12;
 
 type OnboardingDefaults = {
   activity: Activity;
@@ -150,10 +151,11 @@ export default function OnboardingClient({
   const { t } = useLanguage();
   const router = useRouter();
   const isGuestMode = mode === "guest";
+  const lastStep = isGuestMode ? GUEST_LAST_STEP : AUTH_LAST_STEP;
 
   const [profile, setProfile] = useState<ProfileData>(defaultProfile);
   const [loadState, setLoadState] = useState<LoadState>("loading");
-  const [step, setStep] = useState<number>(isGuestMode && activationError ? LAST_STEP : FIRST_STEP);
+  const [step, setStep] = useState<number>(isGuestMode && activationError ? lastStep : FIRST_STEP);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [showAdvancedMacros, setShowAdvancedMacros] = useState(false);
   const [isProteinTouched, setIsProteinTouched] = useState(false);
@@ -448,6 +450,11 @@ export default function OnboardingClient({
         title: t("onboarding.previewTitle"),
         description: t("onboarding.previewDescription"),
       },
+      {
+        eyebrow: t("onboarding.stepPreview"),
+        title: t("auth.activateBetaTitle"),
+        description: t("auth.activateBetaSubtitle"),
+      },
     ],
     [t]
   );
@@ -455,7 +462,7 @@ export default function OnboardingClient({
   const pendingSummaryLabel = t("onboarding.summaryPending");
   const isMobileViewport = useMediaQuery("(max-width: 720px)");
   const useMobileChoiceSelect = lockViewport || isMobileViewport;
-  const progressPercent = ((step + 1) / (LAST_STEP + 1)) * 100;
+  const progressPercent = ((step + 1) / (lastStep + 1)) * 100;
   const finishLabel = isGuestMode
     ? t("onboarding.activateBeta")
     : nextUrl || ai
@@ -554,7 +561,7 @@ export default function OnboardingClient({
     </div>
   );
 
-  const goToNext = () => setStep((current) => Math.min(current + 1, LAST_STEP));
+  const goToNext = () => setStep((current) => Math.min(current + 1, lastStep));
   const goToBack = () => {
     if (step === FIRST_STEP) {
       router.push(isGuestMode ? "/" : "/app/hoy");
@@ -623,7 +630,7 @@ export default function OnboardingClient({
         ? hasValidBasics
         : step === 2
           ? hasValidBodyMetrics
-        : step === LAST_STEP
+        : step === lastStep
           ? canFinishOnboarding
           : true;
   const canActivateGuest =
@@ -713,13 +720,13 @@ export default function OnboardingClient({
                 className={styles.progressPill}
                 role="progressbar"
                 aria-valuemin={1}
-                aria-valuemax={LAST_STEP + 1}
+                aria-valuemax={lastStep + 1}
                 aria-valuenow={step + 1}
-                aria-label={t("onboarding.stepCounter", { current: step + 1, total: LAST_STEP + 1 })}
+                aria-label={t("onboarding.stepCounter", { current: step + 1, total: lastStep + 1 })}
               >
                 <span style={{ width: `${progressPercent}%` }} />
               </div>
-              <p className={styles.progressCopy}>{t("onboarding.stepCounter", { current: step + 1, total: LAST_STEP + 1 })}</p>
+              <p className={styles.progressCopy}>{t("onboarding.stepCounter", { current: step + 1, total: lastStep + 1 })}</p>
             </div>
             <button
               type="button"
@@ -1001,7 +1008,7 @@ export default function OnboardingClient({
             </div>
           ) : null}
 
-          {step === LAST_STEP ? (
+          {step === AUTH_LAST_STEP ? (
             <div className={styles.stageContent}>
               <div className={styles.previewHero}>
                 <div>
@@ -1034,105 +1041,111 @@ export default function OnboardingClient({
                 </article>
               </div>
 
-              {isGuestMode ? (
-                <div className={styles.activationPanel}>
-                  <div className={styles.activationHeader}>
-                    <span className={styles.betaBadge}>{t("auth.activateBetaBadge")}</span>
-                    <h3>{t("auth.activateBetaTitle")}</h3>
-                    <p>{t("auth.activateBetaSubtitle")}</p>
-                  </div>
-
-                  {activationError ? (
-                    <div className="status-card status-card--warning" role="alert">
-                      <p className="muted m-0">{activationError === "promo" ? t("auth.promoError") : t("auth.registerError")}</p>
-                    </div>
-                  ) : null}
-
-                  {!canFinishOnboarding ? (
-                    <div className="status-card status-card--warning" role="alert">
-                      <p className="muted m-0">{t("onboarding.completeBeforeActivation")}</p>
-                    </div>
-                  ) : null}
-
-                  {activationAction ? (
-                    <form action={activationAction} className={styles.activationForm}>
-                      <input type="hidden" name="next" value={nextUrl ?? "/app"} />
-                      <input type="hidden" name="profileDraft" value={serializedDraft} />
-                      <input type="hidden" name="source" value="onboarding" />
-                      <input type="hidden" name="name" value={profile.name} />
-                      <Input
-                        variant="premium"
-                        name="email"
-                        type="email"
-                        label={t("auth.email")}
-                        helperText={t("auth.emailHelper")}
-                        value={activationEmail}
-                        onChange={(e) => setActivationEmail(e.target.value)}
-                        required
-                      />
-                      <Input
-                        variant="premium"
-                        name="password"
-                        type="password"
-                        label={t("auth.password")}
-                        helperText={t("auth.passwordHelper")}
-                        value={activationPassword}
-                        onChange={(e) => setActivationPassword(e.target.value)}
-                        minLength={8}
-                        required
-                      />
-                      <Input
-                        variant="premium"
-                        name="promoCode"
-                        type="text"
-                        label={t("auth.promoCode")}
-                        helperText={t("auth.promoHelper")}
-                        value={activationPromoCode}
-                        onChange={(e) => setActivationPromoCode(e.target.value)}
-                        required
-                      />
-                      <button type="submit" className="btn" disabled={!canActivateGuest}>
-                        {t("auth.activateBetaSubmit")}
-                      </button>
-                    </form>
-                  ) : (
-                    <button type="button" className="btn" onClick={() => void saveProfile()}>
-                      {finishLabel}
-                    </button>
-                  )}
-                </div>
-              ) : (
+              {!isGuestMode ? (
                 <div className={styles.previewBanner}>
                   <p>{t("onboarding.previewBanner")}</p>
                 </div>
-              )}
+              ) : null}
+            </div>
+          ) : null}
+
+          {isGuestMode && step === GUEST_LAST_STEP ? (
+            <div className={styles.stageContent}>
+              <div className={styles.activationPanel}>
+                <div className={styles.activationHeader}>
+                  <span className={styles.betaBadge}>{t("auth.activateBetaBadge")}</span>
+                  <h3>{t("auth.activateBetaTitle")}</h3>
+                  <p>{t("auth.activateBetaSubtitle")}</p>
+                </div>
+
+                {activationError ? (
+                  <div className="status-card status-card--warning" role="alert">
+                    <p className="muted m-0">{activationError === "promo" ? t("auth.promoError") : t("auth.registerError")}</p>
+                  </div>
+                ) : null}
+
+                {!canFinishOnboarding ? (
+                  <div className="status-card status-card--warning" role="alert">
+                    <p className="muted m-0">{t("onboarding.completeBeforeActivation")}</p>
+                  </div>
+                ) : null}
+
+                {activationAction ? (
+                  <form action={activationAction} className={styles.activationForm}>
+                    <input type="hidden" name="next" value={nextUrl ?? "/app"} />
+                    <input type="hidden" name="profileDraft" value={serializedDraft} />
+                    <input type="hidden" name="source" value="onboarding" />
+                    <input type="hidden" name="name" value={profile.name} />
+                    <Input
+                      variant="premium"
+                      name="email"
+                      type="email"
+                      label={t("auth.email")}
+                      helperText={t("auth.emailHelper")}
+                      value={activationEmail}
+                      onChange={(e) => setActivationEmail(e.target.value)}
+                      required
+                    />
+                    <Input
+                      variant="premium"
+                      name="password"
+                      type="password"
+                      label={t("auth.password")}
+                      helperText={t("auth.passwordHelper")}
+                      value={activationPassword}
+                      onChange={(e) => setActivationPassword(e.target.value)}
+                      minLength={8}
+                      required
+                    />
+                    <Input
+                      variant="premium"
+                      name="promoCode"
+                      type="text"
+                      label={t("auth.promoCode")}
+                      helperText={t("auth.promoHelper")}
+                      value={activationPromoCode}
+                      onChange={(e) => setActivationPromoCode(e.target.value)}
+                      required
+                    />
+                    <button type="submit" className="btn" disabled={!canActivateGuest}>
+                      {t("auth.activateBetaSubmit")}
+                    </button>
+                  </form>
+                ) : (
+                  <button type="button" className="btn" onClick={() => void saveProfile()}>
+                    {finishLabel}
+                  </button>
+                )}
+              </div>
             </div>
           ) : null}
         </section>
 
-        <section className={`card ${styles.footerCard}`}>
-          {saveState === "error" ? (
-            <div className="status-card status-card--warning" role="alert">
-              <p className="muted m-0">{t("onboarding.saveError")}</p>
-              <div className="inline-actions-sm mt-8">
-                <button type="button" className="btn secondary fit-content" onClick={() => void saveProfile()}>
-                  {t("onboarding.retry")}
-                </button>
+        {!(isGuestMode && step === GUEST_LAST_STEP) ? (
+          <section className={`card ${styles.footerCard}`}>
+            {saveState === "error" ? (
+              <div className="status-card status-card--warning" role="alert">
+                <p className="muted m-0">{t("onboarding.saveError")}</p>
+                <div className="inline-actions-sm mt-8">
+                  <button type="button" className="btn secondary fit-content" onClick={() => void saveProfile()}>
+                    {t("onboarding.retry")}
+                  </button>
+                </div>
               </div>
-            </div>
-          ) : null}
-          <div className={styles.footerActions}>
-            {step < LAST_STEP ? (
-              <button type="button" className="btn" onClick={goToNext} disabled={!isStepValid || saveState === "saving"}>
-                {t("onboarding.next")}
-              </button>
-            ) : !isGuestMode ? (
-              <button type="button" className="btn" onClick={() => void saveProfile()} disabled={!isStepValid || saveState === "saving"}>
-                {saveState === "saving" ? t("onboarding.saving") : finishLabel}
-              </button>
             ) : null}
-          </div>
-        </section>
+            <div className={styles.footerActions}>
+              {step < lastStep ? (
+                <button type="button" className="btn" onClick={goToNext} disabled={!isStepValid || saveState === "saving"}>
+                  {t("onboarding.next")}
+                </button>
+              ) : !isGuestMode ? (
+                <button type="button" className="btn" onClick={() => void saveProfile()} disabled={!isStepValid || saveState === "saving"}>
+                  {saveState === "saving" ? t("onboarding.saving") : finishLabel}
+                </button>
+              ) : null}
+            </div>
+          </section>
+        ) : null}
       </div>
     </div>
   );

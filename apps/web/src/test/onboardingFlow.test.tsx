@@ -87,7 +87,7 @@ describe("Onboarding flow MVP", () => {
     fireEvent.change(screen.getByLabelText("Altura (cm) *"), { target: { value: "178" } });
     fireEvent.change(screen.getByLabelText("Peso actual (kg) *"), { target: { value: "84" } });
 
-    for (let index = 0; index < 9; index += 1) {
+    for (let index = 0; index < 10; index += 1) {
       fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
     }
 

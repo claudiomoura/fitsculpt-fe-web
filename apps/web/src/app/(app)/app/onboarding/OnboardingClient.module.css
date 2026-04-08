@@ -16,11 +16,12 @@
   margin: 0 auto;
   display: grid;
   gap: 12px;
+  width: 100%;
 }
 
 .viewportLocked .container {
   height: 100%;
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-rows: var(--onb-top-rail, 108px) minmax(0, 1fr) var(--onb-bottom-rail, 88px);
 }
 
 .topChrome {
@@ -29,8 +30,11 @@
   z-index: 5;
   display: grid;
   gap: 10px;
-  padding-top: 2px;
+  min-height: var(--onb-top-rail, 108px);
+  padding-top: max(2px, env(safe-area-inset-top));
   background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 82%, black 18%) 0%, transparent 100%);
+  align-content: start;
+  justify-self: stretch;
 }
 
 .topBar {
@@ -38,12 +42,14 @@
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
+  min-height: 46px;
 }
 
 .topBarCenter {
   display: grid;
   gap: 6px;
   text-align: center;
+  align-content: center;
 }
 
 .navButton,
@@ -93,6 +99,8 @@
 .metaRow {
   display: flex;
   justify-content: flex-end;
+  min-height: 44px;
+  align-items: center;
 }
 
 .betaBadge {
@@ -109,6 +117,9 @@
 }
 
 .stageCard {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
   padding: 18px 14px 24px;
   border-radius: 24px;
   border: 1px solid color-mix(in srgb, var(--surface-border-default) 70%, transparent);
@@ -116,6 +127,7 @@
     radial-gradient(circle at top center, color-mix(in srgb, var(--accent) 11%, transparent) 0%, transparent 45%),
     color-mix(in srgb, var(--surface) 86%, black 14%);
   box-shadow: 0 26px 46px rgba(0, 0, 0, 0.34);
+  justify-self: stretch;
 }
 
 .viewportLocked .stageCard {
@@ -197,6 +209,10 @@
 
 .choiceGridPills {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.choiceGridPills > .choiceCard:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
 }
 
 .choiceCard {
@@ -357,6 +373,10 @@
   position: sticky;
   bottom: 0;
   z-index: 4;
+  min-height: var(--onb-bottom-rail, 88px);
+  display: grid;
+  align-items: end;
+  justify-self: stretch;
   padding: 12px 0 calc(12px + env(safe-area-inset-bottom));
   border: 0;
   border-radius: 0;
@@ -375,6 +395,29 @@
 
 .footerActions :global(.btn) {
   width: 100%;
+  min-height: 52px;
+}
+
+@media (max-width: 720px) {
+  .pageShell {
+    --onb-top-rail: 108px;
+    --onb-bottom-rail: 88px;
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  .container {
+    height: 100%;
+    grid-template-rows: var(--onb-top-rail) minmax(0, 1fr) var(--onb-bottom-rail);
+  }
+
+  .choiceGridThree {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .choiceGridThree > .choiceCard:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
 }
 
 @media (min-width: 721px) {
@@ -390,6 +433,7 @@
     position: static;
     background: transparent;
     gap: 12px;
+    padding-top: 0;
   }
 
   .topBarCenter {
@@ -488,6 +532,7 @@
 
   .footerCard {
     border-radius: 0;
+    min-height: 0;
     padding: 14px 0 0;
     position: static;
     backdrop-filter: none;
