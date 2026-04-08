@@ -84,7 +84,7 @@ async function assertDatabaseBaseline(prisma: PrismaClient, logger: BootLogger, 
     {
       ...context,
       nonMigrationTableCount,
-      hint: "Banco sem baseline Prisma. Gere baseline antes de subir a API",
+      hint: "Banco sem baseline Prisma. Rode `npm run db:baseline:init` (DEV) ou siga o runbook de baseline no README.",
     },
     "Database preflight failed: baseline necessário (_prisma_migrations não existe)",
   );

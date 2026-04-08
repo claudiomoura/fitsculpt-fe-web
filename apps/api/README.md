@@ -74,6 +74,7 @@ npm run build
 npm run start
 npm run start:prod
 npm run db:deploy
+npm run db:baseline:init   # DEV: cria/alinha histórico _prisma_migrations em banco já populado
 npm run db:generate
 npm run db:dump             # backup manual (Postgres via pg_dump)
 npm run db:push:emergency   # somente para desbloqueio quando deploy estiver bloqueado por drift
@@ -253,6 +254,15 @@ $env:DATABASE_URL = "postgresql://USER:PASSWORD@ep-xxx-xxx.sa-east-1.aws.neon.te
 > Recomendação: para `migrate`/`diff`, evite URL pooled/proxy quando houver opção de conexão direta.
 
 ### Passo a passo oficial (baseline sem perda de dados)
+
+Atalho para DEV local (quando você só precisa desbloquear boot da API em banco já populado):
+
+```powershell
+npm run db:baseline:init
+```
+
+Esse comando marca as migrations locais como aplicadas para reconstruir `_prisma_migrations` sem reset.
+Em seguida, rode `npm run db:deploy` para validar pendências reais.
 
 1. Gere o SQL mínimo de alinhamento entre o estado esperado (schema Prisma) e o banco atual:
 

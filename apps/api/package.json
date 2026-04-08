@@ -16,6 +16,7 @@
     "db:migrate": "npm run db:deploy",
     "db:doctor": "node scripts/prisma-runner.mjs doctor",
     "db:repair": "node scripts/prisma-runner.mjs repair",
+    "db:baseline:init": "node scripts/db-baseline-init.mjs",
     "db:reset": "node scripts/prisma-runner.mjs reset:safe --force --skip-seed --schema prisma/schema.prisma",
     "db:generate": "prisma generate",
     "db:push:emergency": "prisma db push",
