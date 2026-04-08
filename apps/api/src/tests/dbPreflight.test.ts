@@ -16,6 +16,58 @@ function assert(condition: boolean, message: string) {
   }
 }
 
+async function withPreflightEnv<T>(
+  overrides: Partial<Record<"CI" | "FS_CI_DB_MODE" | "SKIP_DB_PREFLIGHT", string | undefined>>,
+  run: () => Promise<T>
+): Promise<T> {
+  const previous = {
+    CI: process.env.CI,
+    FS_CI_DB_MODE: process.env.FS_CI_DB_MODE,
+    SKIP_DB_PREFLIGHT: process.env.SKIP_DB_PREFLIGHT,
+  };
+
+  const next = { ...previous, ...overrides };
+  if (next.CI === undefined) {
+    delete process.env.CI;
+  } else {
+    process.env.CI = next.CI;
+  }
+
+  if (next.FS_CI_DB_MODE === undefined) {
+    delete process.env.FS_CI_DB_MODE;
+  } else {
+    process.env.FS_CI_DB_MODE = next.FS_CI_DB_MODE;
+  }
+
+  if (next.SKIP_DB_PREFLIGHT === undefined) {
+    delete process.env.SKIP_DB_PREFLIGHT;
+  } else {
+    process.env.SKIP_DB_PREFLIGHT = next.SKIP_DB_PREFLIGHT;
+  }
+
+  try {
+    return await run();
+  } finally {
+    if (previous.CI === undefined) {
+      delete process.env.CI;
+    } else {
+      process.env.CI = previous.CI;
+    }
+
+    if (previous.FS_CI_DB_MODE === undefined) {
+      delete process.env.FS_CI_DB_MODE;
+    } else {
+      process.env.FS_CI_DB_MODE = previous.FS_CI_DB_MODE;
+    }
+
+    if (previous.SKIP_DB_PREFLIGHT === undefined) {
+      delete process.env.SKIP_DB_PREFLIGHT;
+    } else {
+      process.env.SKIP_DB_PREFLIGHT = previous.SKIP_DB_PREFLIGHT;
+    }
+  }
+}
+
 async function testP1000LogsFriendlyError() {
   const entries: LoggerEntry[] = [];
   const logger = createLogger(entries);
@@ -26,11 +78,13 @@ async function testP1000LogsFriendlyError() {
   };
 
   let thrown = false;
-  try {
-    await runDatabasePreflight(prisma as never, logger, { source: "DATABASE_URL", host: "db.example.com", database: "app" });
-  } catch {
-    thrown = true;
-  }
+  await withPreflightEnv({ CI: undefined, FS_CI_DB_MODE: undefined, SKIP_DB_PREFLIGHT: undefined }, async () => {
+    try {
+      await runDatabasePreflight(prisma as never, logger, { source: "DATABASE_URL", host: "db.example.com", database: "app" });
+    } catch {
+      thrown = true;
+    }
+  });
 
   assert(thrown, "Expected preflight to fail on P1000");
   const authLog = entries.find((entry) => entry.msg.includes("credenciais inválidas"));
@@ -46,11 +100,13 @@ async function testMissingMigrationsWithTablesFails() {
   };
 
   let thrown = false;
-  try {
-    await runDatabasePreflight(prisma as never, logger, { source: "DATABASE_URL", host: "db.example.com", database: "app" });
-  } catch (error) {
-    thrown = (error as Error).message === "DATABASE_BASELINE_REQUIRED";
-  }
+  await withPreflightEnv({ CI: undefined, FS_CI_DB_MODE: undefined, SKIP_DB_PREFLIGHT: undefined }, async () => {
+    try {
+      await runDatabasePreflight(prisma as never, logger, { source: "DATABASE_URL", host: "db.example.com", database: "app" });
+    } catch (error) {
+      thrown = (error as Error).message === "DATABASE_BASELINE_REQUIRED";
+    }
+  });
 
   assert(thrown, "Expected baseline-required error when schema has tables but no _prisma_migrations");
   const baselineLog = entries.find((entry) => entry.msg.includes("baseline necessário"));
@@ -66,11 +122,13 @@ async function testMissingRequiredMigrationsFails() {
   };
 
   let thrown = false;
-  try {
-    await runDatabasePreflight(prisma as never, logger, { source: "DATABASE_URL", host: "db.example.com", database: "app" });
-  } catch (error) {
-    thrown = (error as Error).message === "DATABASE_MIGRATIONS_REQUIRED";
-  }
+  await withPreflightEnv({ CI: undefined, FS_CI_DB_MODE: undefined, SKIP_DB_PREFLIGHT: undefined }, async () => {
+    try {
+      await runDatabasePreflight(prisma as never, logger, { source: "DATABASE_URL", host: "db.example.com", database: "app" });
+    } catch (error) {
+      thrown = (error as Error).message === "DATABASE_MIGRATIONS_REQUIRED";
+    }
+  });
 
   assert(thrown, "Expected DATABASE_MIGRATIONS_REQUIRED when required migrations are missing");
   const missingMigrationLog = entries.find((entry) => entry.msg.includes("required migrations are missing"));
@@ -86,15 +144,9 @@ async function testCiPushModeSkipsMigrationPreflight() {
     $queryRaw: async () => responses.shift(),
   };
 
-  process.env.CI = "true";
-  process.env.FS_CI_DB_MODE = "push";
-
-  try {
+  await withPreflightEnv({ CI: "true", FS_CI_DB_MODE: "push", SKIP_DB_PREFLIGHT: undefined }, async () => {
     await runDatabasePreflight(prisma as never, logger, { source: "DATABASE_URL", host: "db.example.com", database: "app" });
-  } finally {
-    delete process.env.FS_CI_DB_MODE;
-    delete process.env.CI;
-  }
+  });
 
   const skipLog = entries.find((entry) => entry.msg.includes("Skipping DB preflight (CI push mode)"));
   assert(Boolean(skipLog), "Expected CI db push skip log");
@@ -109,13 +161,9 @@ async function testSkipDbPreflightTruthyFlagSkipsMigrationPreflight() {
     $queryRaw: async () => responses.shift(),
   };
 
-  process.env.SKIP_DB_PREFLIGHT = "yes";
-
-  try {
+  await withPreflightEnv({ SKIP_DB_PREFLIGHT: "yes", CI: undefined, FS_CI_DB_MODE: undefined }, async () => {
     await runDatabasePreflight(prisma as never, logger, { source: "DATABASE_URL", host: "db.example.com", database: "app" });
-  } finally {
-    delete process.env.SKIP_DB_PREFLIGHT;
-  }
+  });
 
   const skipLog = entries.find((entry) => entry.msg.includes("Skipping DB preflight (CI push mode)"));
   assert(Boolean(skipLog), "Expected skip log when SKIP_DB_PREFLIGHT is truthy");
@@ -136,7 +184,9 @@ async function testHappyPathPasses() {
     $queryRaw: async () => responses.shift(),
   };
 
-  await runDatabasePreflight(prisma as never, logger, { source: "DIRECT_URL", host: "db.internal", database: "app" });
+  await withPreflightEnv({ CI: undefined, FS_CI_DB_MODE: undefined, SKIP_DB_PREFLIGHT: undefined }, async () => {
+    await runDatabasePreflight(prisma as never, logger, { source: "DIRECT_URL", host: "db.internal", database: "app" });
+  });
 
   const completionLog = entries.find((entry) => entry.msg.includes("preflight completed"));
   assert(Boolean(completionLog), "Expected completion log in happy path");
