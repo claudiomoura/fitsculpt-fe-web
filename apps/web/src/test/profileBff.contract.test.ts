@@ -30,8 +30,15 @@ function jsonResponse(status: number, payload: unknown): Response {
 describe("/api/profile BFF contract", () => {
   beforeEach(() => {
     cookiesMock.mockReset();
+    const values: Record<string, string> = {
+      fs_token: "token_123",
+      "fs_token.sig": "sig_456",
+    };
     cookiesMock.mockResolvedValue({
-      get: () => ({ value: "token_123" }),
+      get: (name) => {
+        const value = values[name];
+        return value ? { value } : undefined;
+      },
     });
   });
 
@@ -103,6 +110,9 @@ describe("/api/profile BFF contract", () => {
 
     const getResponse = await GET(new Request("http://localhost/api/profile"));
     const getBody = await getResponse.json();
+
+    const getRequest = fetchMock.mock.calls[0]?.[1] as { headers?: Record<string, string> };
+    expect(getRequest.headers?.cookie).toBe("fs_token=token_123; fs_token.sig=sig_456");
 
     expect(getBody).toMatchObject({
       goal: "bulk",

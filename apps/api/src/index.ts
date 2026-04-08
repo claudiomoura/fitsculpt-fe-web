@@ -1227,7 +1227,7 @@ async function getOrCreateProfile(userId: string) {
       create: {
         userId,
         profile: Prisma.DbNull,
-        tracking: Prisma.DbNull,
+        tracking: {},
       },
     });
   } catch (error) {
@@ -1249,6 +1249,7 @@ const registerSchema = z.object({
   password: z.string().min(8),
   name: z.string().min(2).optional(),
   promoCode: z.string().optional(),
+  profileDraft: z.unknown().optional(),
 });
 
 const loginSchema = z.object({
@@ -1360,6 +1361,43 @@ const profileUpdateSchema = profileSchema.partial().extend({
   macroPreferences: macroPreferencesSchema.partial().optional(),
   measurements: profileSchema.shape.measurements.partial().optional(),
 });
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function flattenProfileDraftEnvelope(value: unknown): Record<string, unknown> {
+  if (!isPlainRecord(value)) {
+    return {};
+  }
+
+  const flattened: Record<string, unknown> = { ...value };
+  const nestedProfile = flattened.profile;
+  delete flattened.profile;
+
+  if (!isPlainRecord(nestedProfile)) {
+    return flattened;
+  }
+
+  return {
+    ...flattened,
+    ...flattenProfileDraftEnvelope(nestedProfile),
+  };
+}
+
+function normalizeSignupProfileDraft(value: unknown): Prisma.InputJsonObject | null {
+  const flattenedDraft = flattenProfileDraftEnvelope(value);
+  if (Object.keys(flattenedDraft).length === 0) {
+    return null;
+  }
+
+  const parsedDraft = profileUpdateSchema.safeParse(flattenedDraft);
+  if (!parsedDraft.success) {
+    return null;
+  }
+
+  return parsedDraft.data as Prisma.InputJsonObject;
+}
 
 function normalizeInvalidPositiveMetric(value: unknown): number | null | undefined {
   if (value === undefined) return undefined;
@@ -7061,6 +7099,7 @@ async function seedAdmin() {
 async function handleSignup(request: FastifyRequest, reply: FastifyReply) {
   const data = registerSchema.parse(request.body);
   const ipAddress = getRequestIp(request);
+  const profileDraft = normalizeSignupProfileDraft(data.profileDraft);
 
   // Promo code is now optional for beta launch — still validated if provided for tracking
   if (data.promoCode && !isPromoCodeValid(data.promoCode)) {
@@ -7076,13 +7115,30 @@ async function handleSignup(request: FastifyRequest, reply: FastifyReply) {
   }
 
   const passwordHash = await bcrypt.hash(data.password, 10);
-  const user = await prisma.user.create({
-    data: {
-      email: data.email,
-      passwordHash,
-      name: data.name?.trim() ? data.name : null,
-      provider: "email",
-    },
+  const user = await prisma.$transaction(async (tx) => {
+    const createdUser = await tx.user.create({
+      data: {
+        email: data.email,
+        passwordHash,
+        name: data.name?.trim() ? data.name : null,
+        provider: "email",
+      },
+    });
+
+    await tx.userProfile.upsert({
+      where: { userId: createdUser.id },
+      update: {
+        tracking: {},
+        ...(profileDraft ? { profile: profileDraft } : {}),
+      },
+      create: {
+        userId: createdUser.id,
+        profile: profileDraft ?? Prisma.DbNull,
+        tracking: {},
+      },
+    });
+
+    return createdUser;
   });
 
   await logSignupAttempt({ email: data.email, ipAddress, success: true });

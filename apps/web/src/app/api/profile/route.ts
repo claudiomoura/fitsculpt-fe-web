@@ -6,8 +6,11 @@ import { defaultProfile } from "@/lib/profile";
 const PROFILE_KEYS = new Set(Object.keys(defaultProfile));
 
 async function getAuthCookie() {
-  const token = (await cookies()).get("fs_token")?.value;
-  return token ? `fs_token=${token}` : null;
+  const cookieStore = await cookies();
+  const token = cookieStore.get("fs_token")?.value;
+  const tokenSig = cookieStore.get("fs_token.sig")?.value;
+  if (!token) return null;
+  return tokenSig ? `fs_token=${token}; fs_token.sig=${tokenSig}` : `fs_token=${token}`;
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {

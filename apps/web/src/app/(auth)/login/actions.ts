@@ -3,7 +3,6 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getBackendUrl } from "@/lib/backend";
-import { clearOnboardingDraft } from "@/lib/onboardingDraft";
 
 function getResponseSetCookies(response: Response) {
   const setCookieHeader = response.headers.get("set-cookie");
@@ -12,10 +11,6 @@ function getResponseSetCookies(response: Response) {
     : setCookieHeader
       ? setCookieHeader.split(/,(?=[^;]+?=)/)
       : [];
-}
-
-function buildCookieHeader(setCookies: string[]) {
-  return setCookies.map((cookie) => cookie.split(";")[0] ?? "").filter(Boolean).join("; ");
 }
 
 async function storeAuthCookie(response: Response) {
@@ -42,15 +37,22 @@ async function storeAuthCookie(response: Response) {
   }
 }
 
-async function syncProfileDraft(profileDraft: string, authCookie: string) {
-  if (!profileDraft || !authCookie) return;
+function parseProfileDraft(profileDraft: string): Record<string, unknown> | null {
+  if (!profileDraft) return null;
 
-  let payload: unknown;
   try {
-    payload = JSON.parse(profileDraft) as unknown;
+    const parsed = JSON.parse(profileDraft) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return null;
+    }
+    return parsed as Record<string, unknown>;
   } catch {
-    return;
+    return null;
   }
+}
+
+async function syncProfileDraft(profileDraft: Record<string, unknown> | null, authCookie: string) {
+  if (!profileDraft || !authCookie) return;
 
   const response = await fetch(`${getBackendUrl()}/profile`, {
     method: "PUT",
@@ -58,7 +60,7 @@ async function syncProfileDraft(profileDraft: string, authCookie: string) {
       "Content-Type": "application/json",
       cookie: authCookie,
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(profileDraft),
   });
 
   if (!response.ok) {
@@ -102,6 +104,7 @@ export async function registerAction(formData: FormData) {
   const promoCode = String(formData.get("promoCode") || "");
   const next = String(formData.get("next") || "/app");
   const profileDraft = String(formData.get("profileDraft") || "");
+  const parsedProfileDraft = parseProfileDraft(profileDraft);
   const source = String(formData.get("source") || "");
   const fromOnboardingFlow = source === "onboarding";
   const registerParams = new URLSearchParams({ next });
@@ -129,6 +132,7 @@ export async function registerAction(formData: FormData) {
         password,
         name: name.trim() ? name : undefined,
         promoCode,
+        profileDraft: parsedProfileDraft ?? undefined,
       }),
     });
   } catch {
@@ -158,13 +162,26 @@ export async function registerAction(formData: FormData) {
 
   await storeAuthCookie(loginResponse);
 
-  const authCookie = buildCookieHeader(getResponseSetCookies(loginResponse));
-  const syncResult = await syncProfileDraft(profileDraft, authCookie);
+  const cookieStore = await cookies();
+  const tokenCookie = cookieStore.get("fs_token")?.value;
+  const tokenSigCookie = cookieStore.get("fs_token.sig")?.value;
+  const authCookie = tokenCookie
+    ? tokenSigCookie
+      ? `fs_token=${tokenCookie}; fs_token.sig=${tokenSigCookie}`
+      : `fs_token=${tokenCookie}`
+    : "";
+  let syncResult: unknown = null;
+  try {
+    syncResult = await syncProfileDraft(parsedProfileDraft, authCookie);
+  } catch {
+    if (fromOnboardingFlow) {
+      redirect(`/app/onboarding?next=${encodeURIComponent(next)}`);
+    }
+  }
   if (!syncResult) {
     console.warn("[registerAction] Profile draft sync failed, user will need to complete onboarding manually");
   } else {
     console.log("[registerAction] Profile draft synced successfully");
-    clearOnboardingDraft();
   }
 
   redirect(next);
