@@ -29,6 +29,7 @@ async function storeAuthCookie(response: Response) {
       sameSite: "lax",
       path: "/",
       secure,
+      maxAge: 30 * 24 * 60 * 60, // 30 days
     });
   }
 }

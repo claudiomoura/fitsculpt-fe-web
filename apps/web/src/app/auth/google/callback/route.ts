@@ -32,6 +32,7 @@ export async function GET(req: Request) {
     sameSite: "lax",
     secure: true,
     path: "/",
+    maxAge: 30 * 24 * 60 * 60, // 30 days
   });
 
   return response;
