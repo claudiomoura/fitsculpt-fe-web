@@ -102,7 +102,7 @@ export default function PricingPage() {
 
               <CardFooter className="mt-auto">
                 <ButtonLink
-                  href="/register"
+                  href="/onboarding"
                   variant={plan.tone === "highlight" ? "primary" : "secondary"}
                   className="w-full justify-center pricing-card__cta"
                 >

@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getServerT } from "@/lib/serverI18n";
 import Link from "next/link";
+import Image from "next/image";
 import ResendVerificationButton from "./ResendVerificationButton";
 import LoginForm from "./LoginForm";
 import GoogleLoginButton from "./GoogleLoginButton";
@@ -32,25 +33,37 @@ export default async function LoginPage({
   if (hasSession) redirect("/app");
 
   return (
-    <main className="auth-login-page">
-      <section className="auth-login-hero card" aria-label={t("auth.loginHeroEyebrow")}>
-        <Badge variant="muted">{t("auth.loginHeroEyebrow")}</Badge>
-        <h1 className="section-title">{t("auth.loginHeroTitle")}</h1>
-        <p className="section-subtitle">{t("auth.loginHeroSubtitle")}</p>
-        <ul className="auth-login-hero-list" aria-label={t("auth.loginHeroListAria")}>
-          <li className="auth-login-hero-item">
-            <Icon name="sparkles" />
-            <span>{t("auth.loginHeroPointOne")}</span>
-          </li>
-          <li className="auth-login-hero-item">
-            <Icon name="check" />
-            <span>{t("auth.loginHeroPointTwo")}</span>
-          </li>
-          <li className="auth-login-hero-item">
-            <Icon name="dumbbell" />
-            <span>{t("auth.loginHeroPointThree")}</span>
-          </li>
-        </ul>
+    <main className="auth-login-page auth-login-page--premium">
+      <section className="auth-login-stage" aria-label={t("auth.loginHeroEyebrow")}>
+        <div className="auth-login-stage-visual">
+          <Image src="/branding/background.png" alt="FitSculpt" fill priority className="auth-login-stage-image" />
+        </div>
+
+        <div className="auth-login-stage-copy">
+          <div className="auth-login-brand-lockup">
+            <Image src="/branding/logo.png" alt="FitSculpt" width={42} height={42} />
+            <span>FitSculpt</span>
+          </div>
+
+          <Badge variant="muted">{t("auth.loginHeroEyebrow")}</Badge>
+          <h1 className="auth-login-stage-title">{t("auth.loginHeroTitle")}</h1>
+          <p className="auth-login-stage-subtitle">{t("auth.loginHeroSubtitle")}</p>
+
+          <ul className="auth-login-hero-list" aria-label={t("auth.loginHeroListAria")}>
+            <li className="auth-login-hero-item">
+              <Icon name="sparkles" />
+              <span>{t("auth.loginHeroPointOne")}</span>
+            </li>
+            <li className="auth-login-hero-item">
+              <Icon name="check" />
+              <span>{t("auth.loginHeroPointTwo")}</span>
+            </li>
+            <li className="auth-login-hero-item">
+              <Icon name="dumbbell" />
+              <span>{t("auth.loginHeroPointThree")}</span>
+            </li>
+          </ul>
+        </div>
       </section>
 
       <section className="auth-card card auth-login-panel">
@@ -121,7 +134,7 @@ export default async function LoginPage({
 
           <p className="muted">
             {t("auth.noAccount")}{" "}
-            <Link href="/register" className="link">
+            <Link href="/onboarding" className="link">
               {t("auth.createAccount")}
             </Link>
           </p>

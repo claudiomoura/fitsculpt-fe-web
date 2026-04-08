@@ -195,7 +195,7 @@ export function LandingHomePage({ copy = defaultCopy }: { copy?: LandingCopy }) 
             <h1 className="lp-hero-v2__title">{copy.hero.title}</h1>
             <p className="lp-hero-v2__subtitle">{copy.hero.subtitle}</p>
             <div className="lp-hero-v2__ctas">
-              <Link href="/register" className="lp-btn-v2 lp-btn-v2--primary">
+              <Link href="/onboarding" className="lp-btn-v2 lp-btn-v2--primary">
                 {copy.hero.primaryCta}
               </Link>
               <Link href="/demo" className="lp-btn-v2 lp-btn-v2--secondary">
@@ -306,7 +306,7 @@ export function LandingHomePage({ copy = defaultCopy }: { copy?: LandingCopy }) 
                   ))}
                 </ul>
                 <Link
-                  href="/register"
+                  href="/onboarding"
                   className={`lp-pricing-card-v2__cta ${tier.popular ? "lp-btn-v2--primary" : "lp-btn-v2--secondary"}`}
                 >
                   {tier.cta}
@@ -358,7 +358,7 @@ export function LandingHomePage({ copy = defaultCopy }: { copy?: LandingCopy }) 
         <div className="lp-cta-v2__inner">
           <h2 className="lp-cta-v2__title">{copy.finalCta.title}</h2>
           <p className="lp-cta-v2__subtitle">{copy.finalCta.subtitle}</p>
-          <form className="lp-cta-v2__form" action="/register" method="get">
+          <form className="lp-cta-v2__form" action="/onboarding" method="get">
             <input
               className="lp-input-v2"
               type="email"

@@ -84,7 +84,7 @@ export default function PricingPage() {
                 ))}
               </ul>
 
-              <Link className={`plan-cta ${p.highlight ? "plan-cta--primary" : ""}`} href="/register">
+              <Link className={`plan-cta ${p.highlight ? "plan-cta--primary" : ""}`} href="/onboarding">
                 {p.cta}
               </Link>
             </div>

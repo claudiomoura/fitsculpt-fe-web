@@ -1,12 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { Button } from "@/design-system/components/Button";
 import { Input } from "@/design-system/components/Input";
+import { readSerializedOnboardingDraft } from "@/lib/onboardingDraft";
 
 type RegisterFormProps = {
   action: (formData: FormData) => void;
+  next?: string;
+  captureOnboardingDraft?: boolean;
   labels: {
     name: string;
     nameHelper: string;
@@ -32,11 +35,19 @@ function SubmitButton({ label, loadingLabel }: { label: string; loadingLabel: st
   );
 }
 
-export default function RegisterForm({ action, labels }: RegisterFormProps) {
+export default function RegisterForm({ action, next, captureOnboardingDraft = false, labels }: RegisterFormProps) {
   const [showPassword, setShowPassword] = useState(false);
+  const [profileDraft, setProfileDraft] = useState("");
+
+  useEffect(() => {
+    setProfileDraft(readSerializedOnboardingDraft());
+  }, []);
 
   return (
     <form action={action} className="form-stack">
+      <input type="hidden" name="next" value={next ?? "/app"} />
+      <input type="hidden" name="profileDraft" value={captureOnboardingDraft ? profileDraft : ""} />
+
       <Input
         name="name"
         type="text"

@@ -2,7 +2,23 @@
 
 import { useLanguage } from "@/context/LanguageProvider";
 import { LandingHomePage, type LandingCopy } from "@/components/landing/LandingHomePage";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+
+function isNativeShell() {
+  if (typeof window === "undefined") return false;
+
+  const params = new URLSearchParams(window.location.search);
+  if (["fs_app", "fsApp", "nativeApp", "capacitor"].some((param) => {
+    const value = params.get(param)?.toLowerCase();
+    return value === "1" || value === "true" || value === "yes" || value === "on";
+  })) {
+    return true;
+  }
+
+  const ua = window.navigator.userAgent.toLowerCase();
+  return ua.includes("capacitor") || ua.includes("com.fitsculpt.beta") || (ua.includes("android") && ua.includes("; wv)"));
+}
 
 function useHomeCopy(): LandingCopy {
   const { t, locale } = useLanguage();
@@ -162,6 +178,17 @@ function useHomeCopy(): LandingCopy {
 }
 
 export default function HomePage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const copy = useHomeCopy();
+
+  useEffect(() => {
+    if (!isNativeShell()) return;
+
+    const params = new URLSearchParams(searchParams?.toString());
+    params.set("nativeApp", "1");
+    router.replace(`/login?${params.toString()}`);
+  }, [router, searchParams]);
+
   return <LandingHomePage copy={copy} />;
 }

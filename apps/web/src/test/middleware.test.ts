@@ -87,6 +87,12 @@ describe("middleware trainer landing redirects", () => {
     expect(response.headers.get("location")).toBe("http://localhost/login");
   });
 
+  it("redirects fitsculpt native user-agent traffic at root to login when no session", () => {
+    const response = middleware(makeRequest("/", { headers: { "user-agent": "FitSculpt/1.0 Android" } }));
+
+    expect(response.headers.get("location")).toBe("http://localhost/login");
+  });
+
   it("redirects app entry at root to app when session exists", () => {
     const response = middleware(
       makeRequest("/", {

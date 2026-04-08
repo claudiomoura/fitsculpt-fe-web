@@ -4,14 +4,21 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getBackendUrl } from "@/lib/backend";
 
-async function storeAuthCookie(response: Response) {
+function getResponseSetCookies(response: Response) {
   const setCookieHeader = response.headers.get("set-cookie");
-  const setCookies =
-    typeof response.headers.getSetCookie === "function"
-      ? response.headers.getSetCookie()
-      : setCookieHeader
-        ? setCookieHeader.split(/,(?=[^;]+?=)/)
-        : [];
+  return typeof response.headers.getSetCookie === "function"
+    ? response.headers.getSetCookie()
+    : setCookieHeader
+      ? setCookieHeader.split(/,(?=[^;]+?=)/)
+      : [];
+}
+
+function buildCookieHeader(setCookies: string[]) {
+  return setCookies.map((cookie) => cookie.split(";")[0] ?? "").filter(Boolean).join("; ");
+}
+
+async function storeAuthCookie(response: Response) {
+  const setCookies = getResponseSetCookies(response);
 
   if (setCookies.length === 0) return;
 
@@ -34,11 +41,31 @@ async function storeAuthCookie(response: Response) {
   }
 }
 
+async function syncProfileDraft(profileDraft: string, authCookie: string) {
+  if (!profileDraft || !authCookie) return;
+
+  let payload: unknown;
+  try {
+    payload = JSON.parse(profileDraft) as unknown;
+  } catch {
+    return;
+  }
+
+  await fetch(`${getBackendUrl()}/profile`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      cookie: authCookie,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function loginAction(formData: FormData) {
   const email = String(formData.get("email") || "");
   const password = String(formData.get("password") || "");
 
-  let response: Response;
+  let response!: Response;
   try {
     response = await fetch(`${getBackendUrl()}/auth/login`, {
       method: "POST",
@@ -66,8 +93,26 @@ export async function registerAction(formData: FormData) {
   const password = String(formData.get("password") || "");
   const name = String(formData.get("name") || "");
   const promoCode = String(formData.get("promoCode") || "");
+  const next = String(formData.get("next") || "/app");
+  const profileDraft = String(formData.get("profileDraft") || "");
+  const source = String(formData.get("source") || "");
+  const fromOnboardingFlow = source === "onboarding";
+  const registerParams = new URLSearchParams({ next });
+  if (profileDraft) registerParams.set("onboarding", "1");
 
-  let response: Response;
+  const redirectToRegisterError = (error: string) => {
+    if (fromOnboardingFlow) {
+      const onboardingParams = new URLSearchParams();
+      if (error) onboardingParams.set("error", error);
+      if (next) onboardingParams.set("next", next);
+      redirect(`/onboarding?${onboardingParams.toString()}`);
+    }
+
+    registerParams.set("error", error);
+    redirect(`/register?${registerParams.toString()}`);
+  };
+
+  let response!: Response;
   try {
     response = await fetch(`${getBackendUrl()}/auth/signup`, {
       method: "POST",
@@ -80,16 +125,40 @@ export async function registerAction(formData: FormData) {
       }),
     });
   } catch {
-    redirect("/register?error=backend");
+    redirectToRegisterError("backend");
   }
 
   if (!response.ok) {
     const data = (await response.json().catch(() => null)) as { error?: string } | null;
     const error = data?.error === "INVALID_PROMO_CODE" ? "promo" : "1";
-    redirect(`/register?error=${error}`);
+    redirectToRegisterError(error);
   }
 
-  redirect("/login?registered=1");
+  let loginResponse: Response;
+  try {
+    loginResponse = await fetch(`${getBackendUrl()}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+  } catch {
+    redirect(`/login?registered=1&next=${encodeURIComponent(next)}`);
+  }
+
+  if (!loginResponse.ok) {
+    redirect(`/login?registered=1&next=${encodeURIComponent(next)}`);
+  }
+
+  await storeAuthCookie(loginResponse);
+
+  const authCookie = buildCookieHeader(getResponseSetCookies(loginResponse));
+  try {
+    await syncProfileDraft(profileDraft, authCookie);
+  } catch {
+    // If the draft sync fails, keep the user signed in and let the app continue.
+  }
+
+  redirect(next);
 }
 
 export async function logoutAction() {

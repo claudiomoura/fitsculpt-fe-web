@@ -34,7 +34,12 @@ function isMobileAppRequest(req: NextRequest) {
   }
 
   const userAgent = req.headers.get("user-agent")?.toLowerCase() ?? "";
-  return userAgent.includes("capacitor") || (userAgent.includes("android") && userAgent.includes("; wv)"));
+  return (
+    userAgent.includes("capacitor") ||
+    userAgent.includes("com.fitsculpt.beta") ||
+    userAgent.includes("fitsculpt") ||
+    (userAgent.includes("android") && (userAgent.includes("; wv)") || userAgent.includes(" wv")))
+  );
 }
 
 function startsWithAny(pathname: string, prefixes: string[]) {

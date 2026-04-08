@@ -25,14 +25,29 @@ import {
 import { mergeProfileData, updateUserProfilePreferences } from "@/lib/profileService";
 import { isProfileComplete } from "@/lib/profileCompletion";
 import { normalizeGoalWeightForGoal } from "@/lib/profileGoal";
+import { readOnboardingDraft, writeOnboardingDraft } from "@/lib/onboardingDraft";
 
 type Props = {
   nextUrl?: string;
   ai?: string;
+  mode?: "authenticated" | "guest";
+  activationAction?: (formData: FormData) => void | Promise<void>;
+  activationError?: "promo" | "generic" | null;
 };
 
 type LoadState = "loading" | "ready" | "empty" | "error";
 type SaveState = "idle" | "saving" | "success" | "error";
+type StepDefinition = {
+  eyebrow: string;
+  title: string;
+  description: string;
+};
+
+type ChoiceOption<T extends string | number> = {
+  value: T;
+  label: string;
+  hint?: string;
+};
 
 const FIRST_STEP = 0;
 const LAST_STEP = 5;
@@ -50,6 +65,11 @@ const FORMULA_DEFAULTS: Record<MacroFormula, { proteinGPerKg: number; fatGPerKg:
 
 const parseNumberInput = (value: string) => (value.trim() === "" ? null : Number(value));
 const hasPositiveNumber = (value: number | null | undefined) => Number.isFinite(value) && (value ?? 0) > 0;
+const joinSummaryParts = (parts: Array<string | null | undefined>) => parts.filter(Boolean).join(" · ");
+const formatWeight = (value: number | null | undefined, fallback: string) =>
+  Number.isFinite(value) ? `${value} kg` : fallback;
+const resolveOptionLabel = <T extends string>(value: T | "", options: Array<{ value: T; label: string }>, fallback: string) =>
+  options.find((option) => option.value === value)?.label ?? fallback;
 const renderFieldLabel = (label: string, required = false) => (
   <>
     {label}
@@ -106,19 +126,29 @@ const applyOnboardingDefaults = (profile: ProfileData, sex: Sex | "", age: numbe
   };
 };
 
-export default function OnboardingClient({ nextUrl, ai }: Props) {
+export default function OnboardingClient({
+  nextUrl,
+  ai,
+  mode = "authenticated",
+  activationAction,
+  activationError = null,
+}: Props) {
   const { t } = useLanguage();
   const router = useRouter();
+  const isGuestMode = mode === "guest";
 
   const [profile, setProfile] = useState<ProfileData>(defaultProfile);
   const [loadState, setLoadState] = useState<LoadState>("loading");
-  const [step, setStep] = useState<number>(FIRST_STEP);
+  const [step, setStep] = useState<number>(isGuestMode && activationError ? LAST_STEP : FIRST_STEP);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [showAdvancedMacros, setShowAdvancedMacros] = useState(false);
   const [isProteinTouched, setIsProteinTouched] = useState(false);
   const [isFatTouched, setIsFatTouched] = useState(false);
   const [isCutTouched, setIsCutTouched] = useState(false);
   const [isBulkTouched, setIsBulkTouched] = useState(false);
+  const [activationEmail, setActivationEmail] = useState("");
+  const [activationPassword, setActivationPassword] = useState("");
+  const [activationPromoCode, setActivationPromoCode] = useState("");
 
   const updateProfile = useCallback(<K extends keyof ProfileData>(key: K, value: ProfileData[K]) => {
     setProfile((prev) => {
@@ -178,6 +208,19 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
 
   const loadProfile = useCallback(async () => {
     setLoadState("loading");
+
+    if (isGuestMode) {
+      const draft = readOnboardingDraft();
+      const merged = applyOnboardingDefaults(draft ?? defaultProfile, draft?.sex ?? "", draft?.age ?? null);
+      setProfile(merged);
+      setIsProteinTouched(merged.macroPreferences.proteinGPerKg !== null);
+      setIsFatTouched(merged.macroPreferences.fatGPerKg !== null);
+      setIsCutTouched(merged.macroPreferences.cutPercent !== null);
+      setIsBulkTouched(merged.macroPreferences.bulkPercent !== null);
+      setLoadState("ready");
+      return;
+    }
+
     try {
       const response = await fetch("/api/profile", { cache: "no-store", credentials: "include" });
       if (!response.ok) {
@@ -200,12 +243,17 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
     } catch {
       setLoadState("error");
     }
-  }, []);
+  }, [isGuestMode]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadProfile();
   }, [loadProfile]);
+
+  useEffect(() => {
+    if (!isGuestMode || loadState !== "ready") return;
+    writeOnboardingDraft(profile);
+  }, [isGuestMode, loadState, profile]);
 
 
   const objectiveOptions: Array<{ value: Goal; label: string }> = useMemo(
@@ -305,10 +353,158 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
     [t]
   );
 
+  const trainingDaysOptions: Array<ChoiceOption<number>> = useMemo(
+    () => [
+      { value: 3, label: t("onboarding.trainingDays3") },
+      { value: 4, label: t("onboarding.trainingDays4") },
+      { value: 5, label: t("onboarding.trainingDays5") },
+      { value: 6, label: t("onboarding.trainingDays6") },
+    ],
+    [t]
+  );
+
+  const mealsPerDayOptions: Array<ChoiceOption<number>> = useMemo(
+    () => [
+      { value: 3, label: t("onboarding.mealsPerDay3") },
+      { value: 4, label: t("onboarding.mealsPerDay4") },
+      { value: 5, label: t("onboarding.mealsPerDay5") },
+    ],
+    [t]
+  );
+
+  const stepDefinitions: StepDefinition[] = useMemo(
+    () => [
+      {
+        eyebrow: t("onboarding.stepTransformation"),
+        title: t("onboarding.objectiveTitle"),
+        description: t("onboarding.objectiveDescription"),
+      },
+      {
+        eyebrow: t("onboarding.stepIntro"),
+        title: t("profile.basicsTitle"),
+        description: t("onboarding.basicsDescription"),
+      },
+      {
+        eyebrow: t("onboarding.stepTraining"),
+        title: t("onboarding.trainingTitle"),
+        description: t("onboarding.trainingDescription"),
+      },
+      {
+        eyebrow: t("onboarding.stepNutrition"),
+        title: t("onboarding.nutritionTitle"),
+        description: t("onboarding.nutritionDescription"),
+      },
+      {
+        eyebrow: t("onboarding.stepAdherence"),
+        title: t("profile.macroTitle"),
+        description: t("onboarding.macroDescription"),
+      },
+      {
+        eyebrow: t("onboarding.stepPreview"),
+        title: t("onboarding.previewTitle"),
+        description: t("onboarding.previewDescription"),
+      },
+    ],
+    [t]
+  );
+  const currentStepDefinition = stepDefinitions[step] ?? stepDefinitions[FIRST_STEP];
+  const pendingSummaryLabel = t("onboarding.summaryPending");
+  const finishLabel = isGuestMode
+    ? t("onboarding.activateBeta")
+    : nextUrl || ai
+      ? t("onboarding.finishAndContinue")
+      : t("onboarding.finish");
+  const returnHint = isGuestMode
+    ? t("onboarding.returnHintGuest")
+    : ai
+      ? t("onboarding.returnHintAi")
+      : nextUrl
+        ? t("onboarding.returnHintNext")
+        : t("onboarding.returnHintDefault");
+  const goalLabel = resolveOptionLabel(profile.goal, objectiveOptions, pendingSummaryLabel);
+  const focusLabel = resolveOptionLabel(profile.trainingPreferences.focus, trainingFocusOptions, pendingSummaryLabel);
+  const equipmentLabel = resolveOptionLabel(profile.trainingPreferences.equipment, trainingEquipmentOptions, pendingSummaryLabel);
+  const dietLabel = resolveOptionLabel(profile.nutritionPreferences.dietType, dietOptions, pendingSummaryLabel);
+  const cookingTimeLabel = resolveOptionLabel(profile.nutritionPreferences.cookingTime, cookingTimeOptions, pendingSummaryLabel);
+  const mealDistributionLabel = resolveOptionLabel(
+    profile.nutritionPreferences.mealDistribution.preset,
+    mealDistributionOptions,
+    pendingSummaryLabel
+  );
+  const macroFormulaLabel = resolveOptionLabel(profile.macroPreferences.formula, macroFormulaOptions, pendingSummaryLabel);
+  const sessionTimeLabel = resolveOptionLabel(profile.trainingPreferences.sessionTime, sessionTimeOptions, pendingSummaryLabel);
+  const goalSummary = joinSummaryParts([
+    goalLabel,
+    hasPositiveNumber(profile.goalWeightKg)
+      ? t("onboarding.summaryGoalTarget", { value: profile.goalWeightKg ?? 0 })
+      : formatWeight(profile.weightKg, pendingSummaryLabel),
+  ]);
+  const trainingSummary = joinSummaryParts([
+    hasPositiveNumber(profile.trainingPreferences.daysPerWeek)
+      ? t("onboarding.summaryTrainingDays", { value: profile.trainingPreferences.daysPerWeek ?? 0 })
+      : null,
+    focusLabel !== pendingSummaryLabel ? focusLabel : null,
+    equipmentLabel !== pendingSummaryLabel ? equipmentLabel : null,
+  ]);
+  const nutritionSummary = joinSummaryParts([
+    hasPositiveNumber(profile.nutritionPreferences.mealsPerDay)
+      ? t("onboarding.summaryMealsPerDay", { value: profile.nutritionPreferences.mealsPerDay ?? 0 })
+      : null,
+    dietLabel !== pendingSummaryLabel ? dietLabel : null,
+    cookingTimeLabel !== pendingSummaryLabel ? cookingTimeLabel : null,
+  ]);
+  const adherenceSummary = joinSummaryParts([
+    macroFormulaLabel !== pendingSummaryLabel ? macroFormulaLabel : null,
+    sessionTimeLabel !== pendingSummaryLabel ? sessionTimeLabel : null,
+    mealDistributionLabel !== pendingSummaryLabel ? mealDistributionLabel : null,
+  ]);
+  const serializedDraft = useMemo(
+    () =>
+      JSON.stringify({
+        ...profile,
+        goalWeightKg: normalizeGoalWeightForGoal(profile.goal, profile.weightKg, profile.goalWeightKg),
+        macroPreferences: {
+          ...profile.macroPreferences,
+          formula: profile.macroPreferences.formula || "mifflin",
+        },
+      }),
+    [profile]
+  );
+  const canActivateGuest =
+    activationEmail.trim().length > 3 && activationPassword.trim().length >= 8 && activationPromoCode.trim().length > 0;
+
+  const renderChoiceGroup = <T extends string | number,>(
+    label: string,
+    value: T | "",
+    options: Array<ChoiceOption<T>>,
+    onSelect: (next: T) => void,
+    columns: "two" | "three" = "two"
+  ) => (
+    <div className={styles.choiceGroup}>
+      <span className={styles.choiceLabel}>{label}</span>
+      <div className={`${styles.choiceGrid} ${columns === "three" ? styles.choiceGridThree : ""}`}>
+        {options.map((option) => {
+          const isActive = value === option.value;
+          return (
+            <button
+              key={`${label}-${option.value}`}
+              type="button"
+              className={`${styles.choiceCard} ${isActive ? styles.choiceCardActive : ""}`}
+              onClick={() => onSelect(option.value)}
+            >
+              <strong>{option.label}</strong>
+              {option.hint ? <span>{option.hint}</span> : null}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+
   const goToNext = () => setStep((current) => Math.min(current + 1, LAST_STEP));
   const goToBack = () => {
     if (step === FIRST_STEP) {
-      router.push("/app/hoy");
+      router.push(isGuestMode ? "/" : "/app/hoy");
       return;
     }
     setStep((current) => Math.max(current - 1, FIRST_STEP));
@@ -331,7 +527,6 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
   };
 
   const saveProfile = useCallback(async () => {
-    setSaveState("saving");
     const profileToSave: ProfileData = {
       ...profile,
       goalWeightKg: normalizeGoalWeightForGoal(profile.goal, profile.weightKg, profile.goalWeightKg),
@@ -340,6 +535,14 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
         formula: profile.macroPreferences.formula || "mifflin",
       },
     };
+
+    if (isGuestMode) {
+      writeOnboardingDraft(profileToSave);
+      router.push(`/register?onboarding=1&next=${encodeURIComponent(nextUrl || "/app")}`);
+      return;
+    }
+
+    setSaveState("saving");
     try {
       const savedProfile = await updateUserProfilePreferences(profileToSave);
       setProfile(savedProfile);
@@ -348,7 +551,7 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
     } catch {
       setSaveState("error");
     }
-  }, [profile]);
+  }, [isGuestMode, nextUrl, profile, router]);
 
   const hasValidBasics =
     hasPositiveNumber(profile.age) &&
@@ -363,20 +566,22 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
   });
   const isStepValid =
     step === 0
-      ? hasValidBasics
-      : step === LAST_STEP
-        ? canFinishOnboarding
-        : true;
+      ? Boolean(profile.goal)
+      : step === 1
+        ? hasValidBasics
+        : step === LAST_STEP
+          ? canFinishOnboarding
+          : true;
   const isMaintainGoal = profile.goal === "maintain";
 
   if (loadState === "loading") {
     return (
-      <div className={`page ${styles.onboardingScope}`}>
+        <div className={`page ${styles.pageShell}`}>
         <LoadingState
           title={t("onboarding.title")}
           ariaLabel={t("onboarding.loadingState")}
           lines={4}
-          cardClassName="onboarding-step-card"
+          cardClassName={styles.stageCard}
         />
       </div>
     );
@@ -384,14 +589,14 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
 
   if (loadState === "error") {
     return (
-      <div className={`page ${styles.onboardingScope}`}>
+        <div className={`page ${styles.pageShell}`}>
         <ErrorState
           title={t("onboarding.errorTitle")}
           description={t("onboarding.errorSubtitle")}
           retryLabel={t("onboarding.retry")}
           onRetry={() => void loadProfile()}
           wrapInCard
-          cardClassName="onboarding-step-card"
+          cardClassName={styles.stageCard}
           actions={[{ label: t("onboarding.back"), onClick: () => router.push("/app/hoy"), variant: "ghost" }]}
         />
       </div>
@@ -400,12 +605,12 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
 
   if (loadState === "empty") {
     return (
-      <div className={`page ${styles.onboardingScope}`}>
+        <div className={`page ${styles.pageShell}`}>
         <EmptyState
           title={t("onboarding.emptyTitle")}
           description={t("onboarding.emptySubtitle")}
           wrapInCard
-          cardClassName="onboarding-step-card"
+          cardClassName={styles.stageCard}
           actions={[
             { label: t("onboarding.emptyAction"), onClick: () => setLoadState("ready") },
             { label: t("onboarding.retry"), onClick: () => void loadProfile(), variant: "secondary" },
@@ -417,13 +622,13 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
 
   if (saveState === "success") {
     return (
-      <div className={`page ${styles.onboardingScope}`}>
+        <div className={`page ${styles.pageShell}`}>
         <EmptyState
           title={t("onboarding.successTitle")}
           description={t("onboarding.successSubtitle")}
           icon="check"
           wrapInCard
-          cardClassName="onboarding-step-card"
+          cardClassName={styles.stageCard}
           actions={[{ label: t("onboarding.continue"), onClick: continueAfterSuccess }]}
         />
       </div>
@@ -431,335 +636,377 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
   }
 
   return (
-    <div className={`page onboarding-shell ${styles.onboardingScope}`}>
-      <section className="card onboarding-shell-hero premium-hero-card">
-        <div className="onboarding-shell-brand">
-          <div className="onboarding-shell-logo">FS</div>
+    <div className={`page ${styles.pageShell}`}>
+      <div className={styles.container}>
+        <header className={styles.topBar}>
           <div>
-            <h2 className="section-title">{t("onboarding.title")}</h2>
-            <p className="section-subtitle">{t("onboarding.subtitle")}</p>
+            <p className={styles.brandLabel}>{t("onboarding.title")}</p>
+            <p className={styles.progressCopy}>{t("onboarding.stepCounter", { current: step + 1, total: LAST_STEP + 1 })}</p>
           </div>
-        </div>
-        <div className="onboarding-shell-progress" aria-label={t("onboarding.stepCounter", { current: step + 1, total: LAST_STEP + 1 })}>
+          {isGuestMode ? <span className={styles.betaBadge}>{t("auth.activateBetaBadge")}</span> : null}
+        </header>
+
+        <div className={styles.progressTrack} aria-label={t("onboarding.stepCounter", { current: step + 1, total: LAST_STEP + 1 })}>
           {Array.from({ length: LAST_STEP + 1 }).map((_, index) => (
-            <span key={index} className={`onboarding-shell-progress-bar ${index <= step ? "is-active" : ""} ${index === step ? "is-current" : ""}`} />
+            <span key={index} className={`${styles.progressBar} ${index <= step ? styles.progressBarActive : ""}`} />
           ))}
         </div>
-        <p className="muted onboarding-shell-counter">{t("onboarding.stepCounter", { current: step + 1, total: LAST_STEP + 1 })}</p>
-      </section>
 
-      {step === 0 ? (
-        <section className="card form-stack onboarding-step-card premium-step-card">
-          <h3 className="section-title">{t("profile.basicsTitle")}</h3>
-          <Input
-            variant="premium"
-            label={t("profile.name")}
-            value={profile.name}
-            onChange={(e) => updateProfile("name", e.target.value)}
-          />
-          <label className="form-stack">
-            {t("profile.sex")}
-            <select
-              value={profile.sex}
-              onChange={(e) => {
-                const nextSex = e.target.value as Sex | "";
-                setProfile((prev) => applyOnboardingDefaults({ ...prev, sex: nextSex }, nextSex, prev.age));
-              }}
-            >
-              <option value="">{t("profile.selectPlaceholder")}</option>
-              <option value="male">{t("profile.sexMale")}</option>
-              <option value="female">{t("profile.sexFemale")}</option>
-            </select>
-          </label>
-          <Input
-            variant="premium"
-            type="number"
-            label={`${t("profile.age")} *`}
-            value={profile.age ?? ""}
-            onChange={(e) => {
-              const nextAge = parseNumberInput(e.target.value);
-              setProfile((prev) => applyOnboardingDefaults({ ...prev, age: nextAge }, prev.sex, nextAge));
-            }}
-          />
-          <Input
-            variant="premium"
-            type="number"
-            label={`${t("profile.height")} *`}
-            value={profile.heightCm ?? ""}
-            onChange={(e) => updateProfile("heightCm", parseNumberInput(e.target.value))}
-          />
-          <Input
-            variant="premium"
-            type="number"
-            label={`${t("profile.weight")} *`}
-            value={profile.weightKg ?? ""}
-            onChange={(e) => updateProfile("weightKg", parseNumberInput(e.target.value))}
-          />
-          <p className="muted">{t("onboarding.defaultsHint")}</p>
-        </section>
-      ) : null}
-
-      {step === 1 ? (
-        <section className="card form-stack onboarding-step-card premium-step-card">
-          <h3 className="section-title">{t("onboarding.objectiveTitle")}</h3>
-          <label className="form-stack">
-            {t("profile.goal")}
-            <select value={profile.goal} onChange={(event) => updateProfile("goal", event.target.value as Goal | "")}> 
-              <option value="">{t("profile.selectPlaceholder")}</option>
-              {objectiveOptions.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-          </label>
-          <Input
-            variant="premium"
-            type="number"
-            label={t("profile.goalWeight")}
-            value={profile.goalWeightKg ?? ""}
-            onChange={(e) => updateProfile("goalWeightKg", parseNumberInput(e.target.value))}
-            disabled={isMaintainGoal}
-            helperText={isMaintainGoal ? t("profile.goalWeightMaintainHint") : undefined}
-          />
-        </section>
-      ) : null}
-
-      {step === 2 ? (
-        <section className="card form-stack onboarding-step-card premium-step-card">
-          <h3 className="section-title">{t("onboarding.levelTitle")}</h3>
-          <label className="form-stack">
-            {t("profile.activity")}
-            <select value={profile.activity} onChange={(e) => updateProfile("activity", e.target.value as Activity | "")}> 
-              <option value="">{t("profile.selectPlaceholder")}</option>
-              {activityOptions.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-          </label>
-          <label className="form-stack">
-            {t("profile.trainingLevel")}
-            <select
-              value={profile.trainingPreferences.level}
-              onChange={(e) => updateTrainingPreference("level", e.target.value as TrainingLevel | "")}
-            >
-              <option value="">{t("profile.selectPlaceholder")}</option>
-              {levelOptions.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-          </label>
-          <Input
-            variant="premium"
-            type="number"
-            label={t("profile.trainingDays")}
-            value={profile.trainingPreferences.daysPerWeek ?? ""}
-            onChange={(e) => updateTrainingPreference("daysPerWeek", parseNumberInput(e.target.value))}
-          />
-          <label className="form-stack">
-            {t("profile.trainingSessionTime")}
-            <select
-              value={profile.trainingPreferences.sessionTime}
-              onChange={(e) => updateTrainingPreference("sessionTime", e.target.value as SessionTime | "")}
-            >
-              <option value="">{t("profile.selectPlaceholder")}</option>
-              {sessionTimeOptions.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-          </label>
-          <label className="form-stack">
-            {t("profile.trainingFocus")}
-            <select
-              value={profile.trainingPreferences.focus}
-              onChange={(e) => updateTrainingPreference("focus", e.target.value as TrainingFocus | "")}
-            >
-              <option value="">{t("profile.selectPlaceholder")}</option>
-              {trainingFocusOptions.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-          </label>
-          <label className="form-stack">
-            {t("profile.trainingEquipment")}
-            <select
-              value={profile.trainingPreferences.equipment}
-              onChange={(e) => updateTrainingPreference("equipment", e.target.value as TrainingEquipment | "")}
-            >
-              <option value="">{t("profile.selectPlaceholder")}</option>
-              {trainingEquipmentOptions.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-          </label>
-        </section>
-      ) : null}
-
-      {step === 3 ? (
-        <section className="card form-stack onboarding-step-card premium-step-card">
-          <h3 className="section-title">{t("onboarding.preferencesTitle")}</h3>
-          <Input
-            variant="premium"
-            type="number"
-            label={t("profile.mealsPerDay")}
-            value={profile.nutritionPreferences.mealsPerDay ?? ""}
-            onChange={(e) => updateNutritionPreference("mealsPerDay", parseNumberInput(e.target.value))}
-          />
-          <label className="form-stack">
-            {t("profile.dietTypeLabel")}
-            <select
-              value={profile.nutritionPreferences.dietType}
-              onChange={(event) => updateNutritionPreference("dietType", event.target.value as NutritionDietType | "")}
-            >
-              <option value="">{t("profile.selectPlaceholder")}</option>
-              {dietOptions.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-          </label>
-          <label className="form-stack">
-            {t("profile.cookingTime")}
-            <select
-              value={profile.nutritionPreferences.cookingTime}
-              onChange={(e) => updateNutritionPreference("cookingTime", e.target.value as NutritionCookingTime | "")}
-            >
-              <option value="">{t("profile.selectPlaceholder")}</option>
-              {cookingTimeOptions.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-          </label>
-          <label className="form-stack">
-            {t("profile.mealDistributionLabel")}
-            <select
-              value={profile.nutritionPreferences.mealDistribution.preset}
-              onChange={(event) => updateNutritionPreference("mealDistribution", { preset: event.target.value as MealDistributionPreset | "" })}
-            >
-              <option value="">{t("profile.selectPlaceholder")}</option>
-              {mealDistributionOptions.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-          </label>
-        </section>
-      ) : null}
-
-      {step === 4 ? (
-        <section className="card form-stack onboarding-step-card premium-step-card">
-          <h3 className="section-title">{t("profile.macroTitle")}</h3>
-          <label className="form-stack">
-            {renderFieldLabel(t("profile.macroFormula"), true)}
-            <select
-              value={profile.macroPreferences.formula}
-              onChange={(e) => {
-                const nextFormula = e.target.value as MacroFormula | "";
-                updateMacroPreference("formula", nextFormula);
-                if (!nextFormula) {
-                  return;
-                }
-                const defaults = FORMULA_DEFAULTS[nextFormula];
-                if (!isProteinTouched) {
-                  updateMacroPreference("proteinGPerKg", defaults.proteinGPerKg);
-                }
-                if (!isFatTouched) {
-                  updateMacroPreference("fatGPerKg", defaults.fatGPerKg);
-                }
-                if (!isCutTouched) {
-                  updateMacroPreference("cutPercent", defaults.cutPercent);
-                }
-                if (!isBulkTouched) {
-                  updateMacroPreference("bulkPercent", defaults.bulkPercent);
-                }
-              }}
-            >
-              <option value="">{t("profile.selectPlaceholder")}</option>
-              {macroFormulaOptions.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-          </label>
-          <label className="checkbox-row">
-            <input type="checkbox" checked={showAdvancedMacros} onChange={(e) => setShowAdvancedMacros(e.target.checked)} />
-            {t("profile.macroAdvancedToggle")}
-          </label>
-          {!showAdvancedMacros ? <p className="muted m-0 text-xs">{t("profile.macroAdvancedToggle")}</p> : null}
-          <Input
-            variant="premium"
-            type="number"
-            disabled={!showAdvancedMacros}
-            label={t("profile.macroProtein")}
-            helperText={t("profile.macroProteinPlaceholder")}
-            value={profile.macroPreferences.proteinGPerKg ?? ""}
-            onChange={(e) => {
-              setIsProteinTouched(true);
-              updateMacroPreference("proteinGPerKg", parseNumberInput(e.target.value));
-            }}
-          />
-          <Input
-            variant="premium"
-            type="number"
-            disabled={!showAdvancedMacros}
-            label={t("profile.macroFat")}
-            helperText={t("profile.macroFatPlaceholder")}
-            value={profile.macroPreferences.fatGPerKg ?? ""}
-            onChange={(e) => {
-              setIsFatTouched(true);
-              updateMacroPreference("fatGPerKg", parseNumberInput(e.target.value));
-            }}
-          />
-          <Input
-            variant="premium"
-            type="number"
-            disabled={!showAdvancedMacros}
-            label={t("profile.macroCutPercent")}
-            helperText={t("profile.macroCutPercentPlaceholder")}
-            value={profile.macroPreferences.cutPercent ?? ""}
-            onChange={(e) => {
-              setIsCutTouched(true);
-              updateMacroPreference("cutPercent", parseNumberInput(e.target.value));
-            }}
-          />
-          <Input
-            variant="premium"
-            type="number"
-            disabled={!showAdvancedMacros}
-            label={t("profile.macroBulkPercent")}
-            helperText={t("profile.macroBulkPercentPlaceholder")}
-            value={profile.macroPreferences.bulkPercent ?? ""}
-            onChange={(e) => {
-              setIsBulkTouched(true);
-              updateMacroPreference("bulkPercent", parseNumberInput(e.target.value));
-            }}
-          />
-        </section>
-      ) : null}
-
-      {step === 5 ? (
-        <section className="card form-stack onboarding-step-card premium-step-card">
-          <h3 className="section-title">{t("profile.notes")}</h3>
-          <label className="form-stack">
-            {t("profile.injuriesLabel")}
-            <textarea value={profile.injuries} onChange={(e) => updateProfile("injuries", e.target.value)} />
-          </label>
-          <label className="form-stack">
-            {t("profile.notes")}
-            <textarea value={profile.notes} onChange={(e) => updateProfile("notes", e.target.value)} />
-          </label>
-        </section>
-      ) : null}
-
-      <section className="card form-stack onboarding-footer-card">
-        {saveState === "error" ? (
-          <div className="status-card status-card--warning" role="alert">
-            <p className="muted m-0">{t("onboarding.saveError")}</p>
-            <div className="inline-actions-sm mt-8">
-              <button type="button" className="btn secondary fit-content" onClick={() => void saveProfile()}>{t("onboarding.retry")}</button>
-            </div>
+        <section className={`card ${styles.stageCard}`}>
+          <div className={styles.stageIntro}>
+            <p className={styles.stageEyebrow}>{currentStepDefinition.eyebrow}</p>
+            <h1 className={styles.stageTitle}>{currentStepDefinition.title}</h1>
+            <p className={styles.stageSubtitle}>{currentStepDefinition.description}</p>
+            <p className={styles.returnHint}>{returnHint}</p>
           </div>
-        ) : null}
-        <div className="inline-actions-sm">
-          <button type="button" className="btn secondary" onClick={goToBack} disabled={saveState === "saving"}>{t("onboarding.back")}</button>
-          {step < LAST_STEP ? <button type="button" className="btn" onClick={goToNext} disabled={!isStepValid || saveState === "saving"}>{t("onboarding.next")}</button> : <button type="button" className="btn" onClick={() => void saveProfile()} disabled={!isStepValid || saveState === "saving"}>{saveState === "saving" ? t("onboarding.saving") : t("onboarding.finish")}</button>}
-        </div>
-      </section>
+
+          {step === 0 ? (
+            <div className={styles.stageContent}>
+              {renderChoiceGroup(t("profile.goal"), profile.goal, objectiveOptions, (next) => updateProfile("goal", next as Goal), "three")}
+              <Input
+                variant="premium"
+                type="number"
+                label={t("profile.goalWeight")}
+                value={profile.goalWeightKg ?? ""}
+                onChange={(e) => updateProfile("goalWeightKg", parseNumberInput(e.target.value))}
+                disabled={isMaintainGoal}
+                helperText={isMaintainGoal ? t("profile.goalWeightMaintainHint") : t("onboarding.goalWeightHint")}
+              />
+            </div>
+          ) : null}
+
+          {step === 1 ? (
+            <div className={styles.stageContent}>
+              <Input variant="premium" label={t("profile.name")} value={profile.name} onChange={(e) => updateProfile("name", e.target.value)} />
+              {renderChoiceGroup(
+                t("profile.sex"),
+                profile.sex,
+                [
+                  { value: "male", label: t("profile.sexMale") },
+                  { value: "female", label: t("profile.sexFemale") },
+                ],
+                (next) => {
+                  const nextSex = next as Sex;
+                  setProfile((prev) => applyOnboardingDefaults({ ...prev, sex: nextSex }, nextSex, prev.age));
+                }
+              )}
+              <div className={styles.metricGrid}>
+                <Input
+                  variant="premium"
+                  type="number"
+                  label={`${t("profile.age")} *`}
+                  value={profile.age ?? ""}
+                  onChange={(e) => {
+                    const nextAge = parseNumberInput(e.target.value);
+                    setProfile((prev) => applyOnboardingDefaults({ ...prev, age: nextAge }, prev.sex, nextAge));
+                  }}
+                />
+                <Input
+                  variant="premium"
+                  type="number"
+                  label={`${t("profile.height")} *`}
+                  value={profile.heightCm ?? ""}
+                  onChange={(e) => updateProfile("heightCm", parseNumberInput(e.target.value))}
+                />
+                <Input
+                  variant="premium"
+                  type="number"
+                  label={`${t("profile.weight")} *`}
+                  value={profile.weightKg ?? ""}
+                  onChange={(e) => updateProfile("weightKg", parseNumberInput(e.target.value))}
+                />
+              </div>
+            </div>
+          ) : null}
+
+          {step === 2 ? (
+            <div className={styles.stageContent}>
+              {renderChoiceGroup(
+                t("profile.trainingDays"),
+                profile.trainingPreferences.daysPerWeek ?? "",
+                trainingDaysOptions,
+                (next) => updateTrainingPreference("daysPerWeek", next as number),
+                "three"
+              )}
+              {renderChoiceGroup(
+                t("profile.trainingLevel"),
+                profile.trainingPreferences.level,
+                levelOptions,
+                (next) => updateTrainingPreference("level", next as TrainingLevel),
+                "three"
+              )}
+              {renderChoiceGroup(
+                t("profile.trainingSessionTime"),
+                profile.trainingPreferences.sessionTime,
+                sessionTimeOptions,
+                (next) => updateTrainingPreference("sessionTime", next as SessionTime),
+                "three"
+              )}
+              {renderChoiceGroup(
+                t("profile.trainingEquipment"),
+                profile.trainingPreferences.equipment,
+                trainingEquipmentOptions,
+                (next) => updateTrainingPreference("equipment", next as TrainingEquipment)
+              )}
+              {renderChoiceGroup(
+                t("profile.trainingFocus"),
+                profile.trainingPreferences.focus,
+                trainingFocusOptions,
+                (next) => updateTrainingPreference("focus", next as TrainingFocus),
+                "three"
+              )}
+            </div>
+          ) : null}
+
+          {step === 3 ? (
+            <div className={styles.stageContent}>
+              {renderChoiceGroup(
+                t("profile.mealsPerDay"),
+                profile.nutritionPreferences.mealsPerDay ?? "",
+                mealsPerDayOptions,
+                (next) => updateNutritionPreference("mealsPerDay", next as number),
+                "three"
+              )}
+              {renderChoiceGroup(
+                t("profile.dietTypeLabel"),
+                profile.nutritionPreferences.dietType,
+                dietOptions,
+                (next) => updateNutritionPreference("dietType", next as NutritionDietType),
+                "three"
+              )}
+              {renderChoiceGroup(
+                t("profile.cookingTime"),
+                profile.nutritionPreferences.cookingTime,
+                cookingTimeOptions,
+                (next) => updateNutritionPreference("cookingTime", next as NutritionCookingTime),
+                "three"
+              )}
+              {renderChoiceGroup(
+                t("profile.mealDistributionLabel"),
+                profile.nutritionPreferences.mealDistribution.preset,
+                mealDistributionOptions,
+                (next) => updateNutritionPreference("mealDistribution", { preset: next as MealDistributionPreset }),
+                "three"
+              )}
+            </div>
+          ) : null}
+
+          {step === 4 ? (
+            <div className={styles.stageContent}>
+              {renderChoiceGroup(
+                t("profile.macroFormula"),
+                profile.macroPreferences.formula,
+                macroFormulaOptions,
+                (next) => {
+                  const nextFormula = next as MacroFormula;
+                  updateMacroPreference("formula", nextFormula);
+                  const defaults = FORMULA_DEFAULTS[nextFormula];
+                  if (!isProteinTouched) updateMacroPreference("proteinGPerKg", defaults.proteinGPerKg);
+                  if (!isFatTouched) updateMacroPreference("fatGPerKg", defaults.fatGPerKg);
+                  if (!isCutTouched) updateMacroPreference("cutPercent", defaults.cutPercent);
+                  if (!isBulkTouched) updateMacroPreference("bulkPercent", defaults.bulkPercent);
+                }
+              )}
+              <label className={styles.toggleRow}>
+                <input type="checkbox" checked={showAdvancedMacros} onChange={(e) => setShowAdvancedMacros(e.target.checked)} />
+                <span>{t("profile.macroAdvancedToggle")}</span>
+              </label>
+              {showAdvancedMacros ? (
+                <div className={styles.metricGrid}>
+                  <Input
+                    variant="premium"
+                    type="number"
+                    label={t("profile.macroProtein")}
+                    helperText={t("profile.macroProteinPlaceholder")}
+                    value={profile.macroPreferences.proteinGPerKg ?? ""}
+                    onChange={(e) => {
+                      setIsProteinTouched(true);
+                      updateMacroPreference("proteinGPerKg", parseNumberInput(e.target.value));
+                    }}
+                  />
+                  <Input
+                    variant="premium"
+                    type="number"
+                    label={t("profile.macroFat")}
+                    helperText={t("profile.macroFatPlaceholder")}
+                    value={profile.macroPreferences.fatGPerKg ?? ""}
+                    onChange={(e) => {
+                      setIsFatTouched(true);
+                      updateMacroPreference("fatGPerKg", parseNumberInput(e.target.value));
+                    }}
+                  />
+                  <Input
+                    variant="premium"
+                    type="number"
+                    label={t("profile.macroCutPercent")}
+                    helperText={t("profile.macroCutPercentPlaceholder")}
+                    value={profile.macroPreferences.cutPercent ?? ""}
+                    onChange={(e) => {
+                      setIsCutTouched(true);
+                      updateMacroPreference("cutPercent", parseNumberInput(e.target.value));
+                    }}
+                  />
+                  <Input
+                    variant="premium"
+                    type="number"
+                    label={t("profile.macroBulkPercent")}
+                    helperText={t("profile.macroBulkPercentPlaceholder")}
+                    value={profile.macroPreferences.bulkPercent ?? ""}
+                    onChange={(e) => {
+                      setIsBulkTouched(true);
+                      updateMacroPreference("bulkPercent", parseNumberInput(e.target.value));
+                    }}
+                  />
+                </div>
+              ) : (
+                <p className={styles.microHint}>{t("onboarding.macroHint")}</p>
+              )}
+            </div>
+          ) : null}
+
+          {step === 5 ? (
+            <div className={styles.stageContent}>
+              <div className={styles.previewHero}>
+                <div>
+                  <p className={styles.previewEyebrow}>{t("onboarding.stepPreview")}</p>
+                  <h2 className={styles.previewTitle}>{t("onboarding.previewTitle")}</h2>
+                </div>
+                <p className={styles.previewSubtitle}>{t("onboarding.previewSubtitle")}</p>
+              </div>
+
+              <div className={styles.summaryGrid}>
+                <article className={styles.summaryCard}>
+                  <span>{t("onboarding.summaryGoalLabel")}</span>
+                  <strong>{goalSummary || pendingSummaryLabel}</strong>
+                  <small>{t("onboarding.summaryGoalSupport")}</small>
+                </article>
+                <article className={styles.summaryCard}>
+                  <span>{t("onboarding.summaryTrainingLabel")}</span>
+                  <strong>{trainingSummary || pendingSummaryLabel}</strong>
+                  <small>{t("onboarding.summaryTrainingSupport")}</small>
+                </article>
+                <article className={styles.summaryCard}>
+                  <span>{t("onboarding.summaryNutritionLabel")}</span>
+                  <strong>{nutritionSummary || pendingSummaryLabel}</strong>
+                  <small>{t("onboarding.summaryNutritionSupport")}</small>
+                </article>
+                <article className={styles.summaryCard}>
+                  <span>{t("onboarding.summaryAdherenceLabel")}</span>
+                  <strong>{adherenceSummary || pendingSummaryLabel}</strong>
+                  <small>{t("onboarding.summaryAdherenceSupport")}</small>
+                </article>
+              </div>
+
+              <div className={styles.notesBlock}>
+                <h3>{t("onboarding.notesTitle")}</h3>
+                <p>{t("onboarding.notesSubtitle")}</p>
+                <label className="form-stack">
+                  {t("profile.injuriesLabel")}
+                  <textarea value={profile.injuries} onChange={(e) => updateProfile("injuries", e.target.value)} />
+                </label>
+                <label className="form-stack">
+                  {t("profile.notes")}
+                  <textarea value={profile.notes} onChange={(e) => updateProfile("notes", e.target.value)} />
+                </label>
+              </div>
+
+              {isGuestMode ? (
+                <div className={styles.activationPanel}>
+                  <div className={styles.activationHeader}>
+                    <span className={styles.betaBadge}>{t("auth.activateBetaBadge")}</span>
+                    <h3>{t("auth.activateBetaTitle")}</h3>
+                    <p>{t("auth.activateBetaSubtitle")}</p>
+                  </div>
+
+                  {activationError ? (
+                    <div className="status-card status-card--warning" role="alert">
+                      <p className="muted m-0">{activationError === "promo" ? t("auth.promoError") : t("auth.registerError")}</p>
+                    </div>
+                  ) : null}
+
+                  {activationAction ? (
+                    <form action={activationAction} className={styles.activationForm}>
+                      <input type="hidden" name="next" value={nextUrl ?? "/app"} />
+                      <input type="hidden" name="profileDraft" value={serializedDraft} />
+                      <input type="hidden" name="source" value="onboarding" />
+                      <input type="hidden" name="name" value={profile.name} />
+                      <Input
+                        variant="premium"
+                        name="email"
+                        type="email"
+                        label={t("auth.email")}
+                        helperText={t("auth.emailHelper")}
+                        value={activationEmail}
+                        onChange={(e) => setActivationEmail(e.target.value)}
+                        required
+                      />
+                      <Input
+                        variant="premium"
+                        name="password"
+                        type="password"
+                        label={t("auth.password")}
+                        helperText={t("auth.passwordHelper")}
+                        value={activationPassword}
+                        onChange={(e) => setActivationPassword(e.target.value)}
+                        minLength={8}
+                        required
+                      />
+                      <Input
+                        variant="premium"
+                        name="promoCode"
+                        type="text"
+                        label={t("auth.promoCode")}
+                        helperText={t("auth.promoHelper")}
+                        value={activationPromoCode}
+                        onChange={(e) => setActivationPromoCode(e.target.value)}
+                        required
+                      />
+                      <button type="submit" className="btn" disabled={!canActivateGuest}>
+                        {t("auth.activateBetaSubmit")}
+                      </button>
+                    </form>
+                  ) : (
+                    <button type="button" className="btn" onClick={() => void saveProfile()}>
+                      {finishLabel}
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className={styles.previewBanner}>
+                  <p>{t("onboarding.previewBanner")}</p>
+                </div>
+              )}
+            </div>
+          ) : null}
+        </section>
+
+        <section className={`card ${styles.footerCard}`}>
+          {saveState === "error" ? (
+            <div className="status-card status-card--warning" role="alert">
+              <p className="muted m-0">{t("onboarding.saveError")}</p>
+              <div className="inline-actions-sm mt-8">
+                <button type="button" className="btn secondary fit-content" onClick={() => void saveProfile()}>
+                  {t("onboarding.retry")}
+                </button>
+              </div>
+            </div>
+          ) : null}
+          <div className={styles.footerActions}>
+            <button type="button" className="btn secondary" onClick={goToBack} disabled={saveState === "saving"}>
+              {t("onboarding.back")}
+            </button>
+            {step < LAST_STEP ? (
+              <button type="button" className="btn" onClick={goToNext} disabled={!isStepValid || saveState === "saving"}>
+                {t("onboarding.next")}
+              </button>
+            ) : !isGuestMode ? (
+              <button type="button" className="btn" onClick={() => void saveProfile()} disabled={!isStepValid || saveState === "saving"}>
+                {saveState === "saving" ? t("onboarding.saving") : finishLabel}
+              </button>
+            ) : null}
+          </div>
+        </section>
+      </div>
     </div>
   );
 }
