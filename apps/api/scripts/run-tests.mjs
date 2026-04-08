@@ -20,6 +20,17 @@ if (testFiles.length === 0) {
   process.exit(1);
 }
 
+function buildTestEnv() {
+  return {
+    ...process.env,
+    NODE_ENV: process.env.NODE_ENV || 'test',
+    JWT_SECRET: process.env.JWT_SECRET || 'test-jwt-secret-32-chars-minimum',
+    COOKIE_SECRET: process.env.COOKIE_SECRET || 'test-cookie-secret-32chars-min',
+    APP_BASE_URL: process.env.APP_BASE_URL || 'https://fitsculpt.app',
+    CORS_ORIGIN: process.env.CORS_ORIGIN || 'http://127.0.0.1:3000',
+  };
+}
+
 function runSingleTest(file) {
   return new Promise((resolve, reject) => {
     const runnerCommand = hasPnpmBinary() ? 'pnpm exec tsx' : 'npm exec -- tsx';
@@ -27,7 +38,7 @@ function runSingleTest(file) {
       cwd: apiRoot,
       stdio: 'inherit',
       shell: true,
-      env: process.env,
+      env: buildTestEnv(),
     });
 
     child.on('error', reject);
