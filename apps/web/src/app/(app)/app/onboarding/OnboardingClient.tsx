@@ -697,44 +697,46 @@ export default function OnboardingClient({
   return (
     <div className={`page ${styles.pageShell} ${lockViewport ? styles.viewportLocked : ""}`}>
       <div className={styles.container}>
-        <header className={styles.topBar}>
-          <button
-            type="button"
-            className={`btn secondary fit-content ${styles.navButton}`}
-            onClick={goToBack}
-            aria-label={t("onboarding.back")}
-          >
-            <span aria-hidden="true">&lt;</span>
-          </button>
-          <div className={styles.topBarCenter}>
-            <p className={styles.brandLabel}>{t("onboarding.title")}</p>
-            <div
-              className={styles.progressPill}
-              role="progressbar"
-              aria-valuemin={1}
-              aria-valuemax={LAST_STEP + 1}
-              aria-valuenow={step + 1}
-              aria-label={t("onboarding.stepCounter", { current: step + 1, total: LAST_STEP + 1 })}
+        <div className={styles.topChrome}>
+          <header className={styles.topBar}>
+            <button
+              type="button"
+              className={`btn secondary fit-content ${styles.navButton}`}
+              onClick={goToBack}
+              aria-label={t("onboarding.back")}
             >
-              <span style={{ width: `${progressPercent}%` }} />
+              <span aria-hidden="true">&lt;</span>
+            </button>
+            <div className={styles.topBarCenter}>
+              <p className={styles.brandLabel}>{t("onboarding.title")}</p>
+              <div
+                className={styles.progressPill}
+                role="progressbar"
+                aria-valuemin={1}
+                aria-valuemax={LAST_STEP + 1}
+                aria-valuenow={step + 1}
+                aria-label={t("onboarding.stepCounter", { current: step + 1, total: LAST_STEP + 1 })}
+              >
+                <span style={{ width: `${progressPercent}%` }} />
+              </div>
+              <p className={styles.progressCopy}>{t("onboarding.stepCounter", { current: step + 1, total: LAST_STEP + 1 })}</p>
             </div>
-            <p className={styles.progressCopy}>{t("onboarding.stepCounter", { current: step + 1, total: LAST_STEP + 1 })}</p>
-          </div>
-          <button
-            type="button"
-            className={`btn secondary fit-content ${styles.closeButton}`}
-            onClick={() => router.push("/login")}
-            aria-label={closeLabel}
-          >
-            <span aria-hidden="true">x</span>
-          </button>
-        </header>
+            <button
+              type="button"
+              className={`btn secondary fit-content ${styles.closeButton}`}
+              onClick={() => router.push("/login")}
+              aria-label={closeLabel}
+            >
+              <span aria-hidden="true">x</span>
+            </button>
+          </header>
 
-        {isGuestMode ? (
-          <div className={styles.metaRow}>
-            <span className={styles.betaBadge}>{t("auth.activateBetaBadge")}</span>
-          </div>
-        ) : null}
+          {isGuestMode ? (
+            <div className={styles.metaRow}>
+              <span className={styles.betaBadge}>{t("auth.activateBetaBadge")}</span>
+            </div>
+          ) : null}
+        </div>
 
         <section className={`card ${styles.stageCard}`}>
           <div className={styles.stageIntro}>
@@ -1120,9 +1122,6 @@ export default function OnboardingClient({
             </div>
           ) : null}
           <div className={styles.footerActions}>
-            <button type="button" className="btn secondary" onClick={goToBack} disabled={saveState === "saving"}>
-              {t("onboarding.back")}
-            </button>
             {step < LAST_STEP ? (
               <button type="button" className="btn" onClick={goToNext} disabled={!isStepValid || saveState === "saving"}>
                 {t("onboarding.next")}

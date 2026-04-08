@@ -23,6 +23,16 @@
   grid-template-rows: auto auto minmax(0, 1fr) auto;
 }
 
+.topChrome {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: grid;
+  gap: 10px;
+  padding-top: 2px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 82%, black 18%) 0%, transparent 100%);
+}
+
 .topBar {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
@@ -347,11 +357,12 @@
   position: sticky;
   bottom: 0;
   z-index: 4;
-  padding: 12px;
-  border-radius: 16px 16px 0 0;
-  border: 1px solid color-mix(in srgb, var(--surface-border-default) 72%, transparent);
-  background: color-mix(in srgb, var(--surface) 90%, black 10%);
-  backdrop-filter: blur(14px);
+  padding: 12px 0 calc(12px + env(safe-area-inset-bottom));
+  border: 0;
+  border-radius: 0;
+  background: linear-gradient(180deg, transparent 0%, color-mix(in srgb, var(--surface) 86%, black 14%) 30%);
+  box-shadow: none;
+  backdrop-filter: none;
 }
 
 .viewportLocked .footerCard {
@@ -359,9 +370,7 @@
 }
 
 .footerActions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  display: block;
 }
 
 .footerActions :global(.btn) {
@@ -375,6 +384,12 @@
 
   .container {
     gap: 16px;
+  }
+
+  .topChrome {
+    position: static;
+    background: transparent;
+    gap: 12px;
   }
 
   .topBarCenter {
@@ -472,20 +487,19 @@
   }
 
   .footerCard {
-    border-radius: 18px;
-    padding: 14px;
+    border-radius: 0;
+    padding: 14px 0 0;
     position: static;
     backdrop-filter: none;
+    background: transparent;
   }
 
   .footerActions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 12px;
+    display: block;
   }
 
   .footerActions :global(.btn) {
-    width: auto;
-    min-width: 132px;
+    width: 100%;
+    min-width: 0;
   }
 }
