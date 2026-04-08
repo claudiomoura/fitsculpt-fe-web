@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import dotenv from 'dotenv';
@@ -273,7 +274,7 @@ async function runPrismaWithRetryDetailed(args, envVars, maxAttempts = 4) {
 
 function runPrisma(args, envVars) {
   return new Promise((resolve, reject) => {
-    const command = `pnpm exec prisma ${args.join(' ')}`;
+    const command = getPrismaCommand(args);
     const child = spawn(command, [], {
       cwd: API_ROOT,
       env: envVars,
@@ -301,6 +302,34 @@ function runPrisma(args, envVars) {
       resolve({ code, combinedOutput });
     });
   });
+}
+
+function getPrismaCommand(args) {
+  const commandArgs = args.join(' ');
+
+  if (hasPnpmBinary()) {
+    return `pnpm exec prisma ${commandArgs}`;
+  }
+
+  return `npm exec -- prisma ${commandArgs}`;
+}
+
+function hasPnpmBinary() {
+  const pathValue = process.env.PATH || '';
+  const pathEntries = pathValue.split(path.delimiter).filter(Boolean);
+  const candidates = process.platform === 'win32'
+    ? ['pnpm.cmd', 'pnpm.exe', 'pnpm.ps1']
+    : ['pnpm'];
+
+  for (const entry of pathEntries) {
+    for (const candidate of candidates) {
+      if (existsSync(path.join(entry, candidate))) {
+        return true;
+      }
+    }
+  }
+
+  return false;
 }
 
 function isTransientPrismaError(output) {
