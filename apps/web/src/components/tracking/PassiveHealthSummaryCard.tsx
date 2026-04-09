@@ -13,10 +13,11 @@ type Props = {
   endDate: string;
   onSaveSnapshot: (snapshot: PassiveHealthSnapshot) => Promise<void>;
   onLoadDemo: (snapshots: PassiveHealthSnapshot[]) => Promise<void>;
+  onSyncDevice?: () => Promise<void>;
   disabled?: boolean;
 };
 
-export default function PassiveHealthSummaryCard({ passiveData, overview, endDate, onSaveSnapshot, onLoadDemo, disabled = false }: Props) {
+export default function PassiveHealthSummaryCard({ passiveData, overview, endDate, onSaveSnapshot, onLoadDemo, onSyncDevice, disabled = false }: Props) {
   const { t } = useLanguage();
   const [steps, setSteps] = useState("8500");
   const [activeMinutes, setActiveMinutes] = useState("35");
@@ -114,6 +115,11 @@ export default function PassiveHealthSummaryCard({ passiveData, overview, endDat
             <Button type="button" size="sm" variant="primary" onClick={() => void handleSave()} disabled={disabled || pending !== null}>
               {pending === "save" ? t("tracking.passiveSaving") : t("tracking.passiveSaveManual")}
             </Button>
+            {onSyncDevice ? (
+              <Button type="button" size="sm" variant="secondary" onClick={() => void onSyncDevice()} disabled={disabled || pending !== null}>
+                Sincronizar Android
+              </Button>
+            ) : null}
             <Button type="button" size="sm" variant="ghost" onClick={() => void handleDemoLoad()} disabled={disabled || pending !== null}>
               {pending === "demo" ? t("tracking.passiveSaving") : t("tracking.passiveLoadDemo")}
             </Button>

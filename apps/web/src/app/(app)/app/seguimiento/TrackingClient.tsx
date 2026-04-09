@@ -57,9 +57,11 @@ import {
   type CheckinEntry,
   type FoodEntry,
   type MealLogEntry,
+  type PassiveHealthSnapshot,
   type WorkoutEntry,
 } from "@/services/tracking";
 import { fetchAuthMe } from "@/lib/authDedup";
+import { syncAndroidHealthSnapshots } from "@/lib/nativeHealthSync";
 import styles from "./TrackingClient.module.css";
 
 type CheckinMetrics = {
@@ -930,6 +932,50 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
     showMessage(t("tracking.passiveDemoSuccess"));
   }
 
+  function mergePassiveSnapshots(
+    current: PassiveHealthSnapshot[],
+    incoming: PassiveHealthSnapshot[],
+  ): PassiveHealthSnapshot[] {
+    const map = new Map<string, PassiveHealthSnapshot>();
+
+    [...current, ...incoming].forEach((entry) => {
+      const idKey = `${entry.source}:${entry.id}`;
+      const fallbackKey = `${entry.source}:${entry.date}:${entry.provider ?? ""}`;
+      map.set(entry.id ? idKey : fallbackKey, entry);
+    });
+
+    return Array.from(map.values())
+      .sort((a, b) => {
+        if (a.date !== b.date) return b.date.localeCompare(a.date);
+        return (b.syncedAt ?? "").localeCompare(a.syncedAt ?? "");
+      })
+      .slice(0, 180);
+  }
+
+  async function syncPassiveFromAndroidDevice() {
+    const result = await syncAndroidHealthSnapshots(30);
+
+    if (result.status === "unsupported") {
+      showMessage("Health Connect no disponible en este dispositivo.");
+      return;
+    }
+
+    if (result.status === "permissions") {
+      showMessage("Activa permisos de salud para sincronizar.");
+      return;
+    }
+
+    if (!result.snapshots.length) {
+      showMessage("Sin datos recientes para sincronizar.");
+      return;
+    }
+
+    await replacePassiveSync(
+      mergePassiveSnapshots(passiveData.snapshots, result.snapshots),
+    );
+    showMessage("Sincronizacion Android completada.");
+  }
+
   const userFoodMap = useMemo(
     () => new Map(userFoods.map((food) => [food.id, food])),
     [userFoods],
@@ -1736,6 +1782,7 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
           endDate={passiveRangeEnd}
           onSaveSnapshot={savePassiveSnapshot}
           onLoadDemo={replacePassiveSync}
+          onSyncDevice={syncPassiveFromAndroidDevice}
           disabled={trackingStatus === "loading"}
         />
       ) : null}
