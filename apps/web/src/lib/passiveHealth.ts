@@ -92,6 +92,8 @@ export function buildDemoPassiveSnapshots(endDate: string): PassiveHealthSnapsho
       activeMinutes: seed.activeMinutes,
       sleepHours: seed.sleepHours,
       restingHeartRate: seed.restingHeartRate,
+      bodyWeightKg: null,
+      bodyFatPercent: null,
       exerciseSessions: seed.exerciseSessions,
       note: "Demo sync",
       syncedAt: `${isoDate}T08:00:00.000Z`,
@@ -105,6 +107,14 @@ export function getPassiveSourceLabel(source: PassiveHealthSource): string {
       return "Apple Health";
     case "google_fit":
       return "Google Fit";
+    case "health_connect":
+      return "Health Connect";
+    case "fitbit":
+      return "Fitbit";
+    case "garmin":
+      return "Garmin";
+    case "smart_scale":
+      return "Smart Scale";
     case "wearable":
       return "Wearable";
     case "demo":

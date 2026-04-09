@@ -1,6 +1,16 @@
 export type TrackingCollection = "checkins" | "foodLog" | "workoutLog" | "mealLog";
 
-export type PassiveHealthSource = "manual" | "demo" | "apple_health" | "google_fit" | "wearable" | "other";
+export type PassiveHealthSource =
+  | "manual"
+  | "demo"
+  | "apple_health"
+  | "google_fit"
+  | "health_connect"
+  | "fitbit"
+  | "garmin"
+  | "smart_scale"
+  | "wearable"
+  | "other";
 
 export type CheckinEntry = {
   id: string;
@@ -60,6 +70,8 @@ export type PassiveHealthSnapshot = {
   activeMinutes: number | null;
   sleepHours: number | null;
   restingHeartRate: number | null;
+  bodyWeightKg?: number | null;
+  bodyFatPercent?: number | null;
   exerciseSessions: number;
   note: string;
   syncedAt: string;

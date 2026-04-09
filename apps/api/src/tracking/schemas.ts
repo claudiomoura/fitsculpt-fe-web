@@ -48,7 +48,18 @@ export const mealLogEntrySchema = z.object({
   completedAt: z.string().min(1),
 });
 
-export const passiveHealthSourceSchema = z.enum(["manual", "demo", "apple_health", "google_fit", "wearable", "other"]);
+export const passiveHealthSourceSchema = z.enum([
+  "manual",
+  "demo",
+  "apple_health",
+  "google_fit",
+  "health_connect",
+  "fitbit",
+  "garmin",
+  "smart_scale",
+  "wearable",
+  "other",
+]);
 
 export const passiveHealthSnapshotSchema = z.object({
   id: z.string().min(1),
@@ -60,6 +71,8 @@ export const passiveHealthSnapshotSchema = z.object({
   activeMinutes: z.number().int().min(0).max(1440).nullable(),
   sleepHours: z.number().min(0).max(24).nullable(),
   restingHeartRate: z.number().int().min(20).max(240).nullable(),
+  bodyWeightKg: z.number().min(20).max(400).nullable().optional(),
+  bodyFatPercent: z.number().min(2).max(80).nullable().optional(),
   exerciseSessions: z.number().int().min(0).max(20),
   note: z.string().max(240),
   syncedAt: z.string().datetime(),

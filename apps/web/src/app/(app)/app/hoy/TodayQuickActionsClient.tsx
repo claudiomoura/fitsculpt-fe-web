@@ -96,6 +96,13 @@ type TodaySignals = {
 
 type TrackingPayload = {
   checkins?: Array<{ date?: string | null; weightKg?: number | null }>;
+  passiveData?: {
+    snapshots?: Array<{
+      date?: string | null;
+      syncedAt?: string | null;
+      bodyWeightKg?: number | null;
+    }>;
+  };
   mealLog?: Array<{
     id?: string;
     date?: string;
@@ -387,6 +394,35 @@ const getPreviousWeight = (payload?: TrackingPayload | null) => {
   return Number(validEntries[1]?.entry.weightKg);
 };
 
+export const getLatestPassiveWeight = (payload?: TrackingPayload | null) => {
+  const latest =
+    payload?.passiveData?.snapshots
+      ?.map((entry) => {
+        const date = parseDate(entry.date);
+        if (!date) return null;
+        const syncedAt =
+          typeof entry.syncedAt === "string" ? new Date(entry.syncedAt) : null;
+        const syncedAtMs =
+          syncedAt && Number.isFinite(syncedAt.getTime())
+            ? syncedAt.getTime()
+            : date.getTime();
+        return {
+          weightKg: Number(entry.bodyWeightKg),
+          dateMs: date.getTime(),
+          syncedAtMs,
+        };
+      })
+      .filter(
+        (item): item is { weightKg: number; dateMs: number; syncedAtMs: number } =>
+          item !== null,
+      )
+      .filter((item) => Number.isFinite(item.weightKg) && item.weightKg > 0)
+      .sort((a, b) => b.dateMs - a.dateMs || b.syncedAtMs - a.syncedAtMs)?.[0] ??
+    null;
+
+  return latest ? Number(latest.weightKg) : null;
+};
+
 const getCheckinTrend = (payload?: TrackingPayload | null) => {
   const points =
     payload?.checkins
@@ -612,6 +648,9 @@ export default function TodayQuickActionsClient() {
         nextSignals.checkinDoneThisWeek = hasWeeklyCheckin(trackingPayload);
         nextSignals.currentWeightKg = getLatestWeight(trackingPayload);
         nextSignals.previousWeightKg = getPreviousWeight(trackingPayload);
+        if (!isPositiveNumber(nextSignals.currentWeightKg)) {
+          nextSignals.currentWeightKg = getLatestPassiveWeight(trackingPayload);
+        }
         const earliestCheckin = [...(trackingPayload.checkins ?? [])]
           .filter(
             (entry) =>

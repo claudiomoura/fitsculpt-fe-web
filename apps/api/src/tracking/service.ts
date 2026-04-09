@@ -116,6 +116,10 @@ function toPassiveSource(value: unknown): PassiveHealthSource {
     value === "demo" ||
     value === "apple_health" ||
     value === "google_fit" ||
+    value === "health_connect" ||
+    value === "fitbit" ||
+    value === "garmin" ||
+    value === "smart_scale" ||
     value === "wearable" ||
     value === "other"
   ) {
@@ -145,6 +149,8 @@ function normalizePassiveHealthSnapshot(entry: unknown, index: number): PassiveH
     activeMinutes: toNullableNumber(entry.activeMinutes),
     sleepHours: toNullableNumber(entry.sleepHours),
     restingHeartRate: toNullableNumber(entry.restingHeartRate),
+    bodyWeightKg: toNullableNumber(entry.bodyWeightKg),
+    bodyFatPercent: toNullableNumber(entry.bodyFatPercent),
     exerciseSessions: Math.max(0, Math.round(toNumber(entry.exerciseSessions))),
     note: toText(entry.note),
     syncedAt: toText(entry.syncedAt, `${date}T00:00:00.000Z`),

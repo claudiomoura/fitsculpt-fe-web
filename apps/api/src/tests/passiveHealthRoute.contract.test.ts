@@ -50,15 +50,16 @@ const createResponse = await app.inject({
   payload: {
     id: "manual-2026-02-22",
     date: "2026-02-22",
-    source: "manual",
-    provider: "Manual sync",
+    source: "health_connect",
+    provider: "Health Connect",
     steps: 8400,
     activeCalories: 310,
     activeMinutes: 36,
     sleepHours: 7.4,
     restingHeartRate: 60,
+    bodyWeightKg: 84.6,
     exerciseSessions: 0,
-    note: "Manual sync",
+    note: "Auto sync",
     syncedAt: "2026-02-22T08:00:00.000Z",
   },
 });
@@ -69,6 +70,7 @@ assert.equal(createResponse.json().snapshots.length, 1);
 const readResponse = await app.inject({ method: "GET", url: "/tracking/health" });
 assert.equal(readResponse.statusCode, 200);
 assert.equal(readResponse.json().snapshots[0].steps, 8400);
+assert.equal(readResponse.json().snapshots[0].bodyWeightKg, 84.6);
 
 const replaceResponse = await app.inject({
   method: "PUT",
@@ -85,6 +87,7 @@ const replaceResponse = await app.inject({
         activeMinutes: 52,
         sleepHours: 7.9,
         restingHeartRate: 58,
+        bodyWeightKg: 84.1,
         exerciseSessions: 1,
         note: "Demo sync",
         syncedAt: "2026-02-21T08:00:00.000Z",

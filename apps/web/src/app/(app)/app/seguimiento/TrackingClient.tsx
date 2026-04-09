@@ -99,6 +99,10 @@ type TrackingPayload = {
         | "demo"
         | "apple_health"
         | "google_fit"
+        | "health_connect"
+        | "fitbit"
+        | "garmin"
+        | "smart_scale"
         | "wearable"
         | "other";
       provider: string | null;
@@ -107,6 +111,8 @@ type TrackingPayload = {
       activeMinutes: number | null;
       sleepHours: number | null;
       restingHeartRate: number | null;
+      bodyWeightKg?: number | null;
+      bodyFatPercent?: number | null;
       exerciseSessions: number;
       note: string;
       syncedAt: string;
@@ -117,6 +123,10 @@ type TrackingPayload = {
       | "demo"
       | "apple_health"
       | "google_fit"
+      | "health_connect"
+      | "fitbit"
+      | "garmin"
+      | "smart_scale"
       | "wearable"
       | "other"
       | null;
