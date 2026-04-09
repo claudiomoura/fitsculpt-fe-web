@@ -8,6 +8,7 @@ import {
 } from "../tracking/schemas.js";
 import {
   normalizeTrackingSnapshot,
+  parseWeeklyCoachTrackingState,
   upsertTrackingEntry,
 } from "../tracking/service.js";
 import {
@@ -62,12 +63,15 @@ export function registerTrackingRoutes(
         typeof request.body === "object" &&
         request.body !== null &&
         Object.prototype.hasOwnProperty.call(request.body, "weeklyCoach");
+      const nextWeeklyCoach = hasWeeklyCoach
+        ? parseWeeklyCoachTrackingState((request.body as { weeklyCoach?: unknown }).weeklyCoach)
+        : currentTracking.weeklyCoach;
       const data = trackingSchema.parse({
         ...normalizedBody,
         passiveData: hasPassiveData
           ? normalizedBody.passiveData
           : currentTracking.passiveData,
-        weeklyCoach: hasWeeklyCoach ? normalizedBody.weeklyCoach : currentTracking.weeklyCoach,
+        weeklyCoach: nextWeeklyCoach,
       });
       const updated = await deps.prisma.userProfile.upsert({
         where: { userId: user.id },

@@ -84,8 +84,79 @@ export const passiveHealthDataSchema = z.object({
   lastSyncSource: passiveHealthSourceSchema.nullable(),
 });
 
+const weeklyCoachIsoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const weeklyCoachIsoDatetimeSchema = z.string().datetime({ offset: true });
+const weeklyCoachNonEmptyStringSchema = z.string().trim().min(1);
+const weeklyCoachBoundedScoreSchema = z.number().int().min(1).max(5);
+const weeklyCoachNonNegativeIntegerSchema = z.number().int().min(0);
+
+export const weeklyCoachPlanWeekStateSchema = z.enum([
+  "draft",
+  "active",
+  "check_in_due",
+  "adaptation_ready",
+  "accepted",
+  "expired",
+]);
+
+export const weeklyCoachCheckInStateSchema = z.enum(["draft", "submitted", "processed", "flagged"]);
+
+export const weeklyCoachCheckInAnswersSchema = z.object({
+  trainingSessionsCompleted: weeklyCoachNonNegativeIntegerSchema.optional(),
+  trainingSessionsPlanned: weeklyCoachNonNegativeIntegerSchema.optional(),
+  nutritionAdherenceScore: weeklyCoachBoundedScoreSchema.optional(),
+  progressMode: z.enum(["weight", "perceived_progress"]).optional(),
+  currentWeightKg: z.number().positive().nullable().optional(),
+  perceivedProgress: weeklyCoachNonEmptyStringSchema.nullable().optional(),
+  energyScore: weeklyCoachBoundedScoreSchema.optional(),
+  hungerScore: weeklyCoachBoundedScoreSchema.optional(),
+  recoveryScore: weeklyCoachBoundedScoreSchema.optional(),
+  stressScore: weeklyCoachBoundedScoreSchema.optional(),
+  painLevel: weeklyCoachNonEmptyStringSchema.optional(),
+  frictionPrimary: weeklyCoachNonEmptyStringSchema.optional(),
+  frictionNote: z.string().trim().max(600).nullable().optional(),
+  contextChangeFlag: z.boolean().optional(),
+  contextChangeType: weeklyCoachNonEmptyStringSchema.nullable().optional(),
+  nextWeekConfidenceScore: weeklyCoachBoundedScoreSchema.optional(),
+});
+
+export const weeklyCoachWeekContextSchema = z.object({
+  planWeekId: weeklyCoachNonEmptyStringSchema,
+  weekIndex: z.number().int().min(1),
+  state: weeklyCoachPlanWeekStateSchema,
+  validFrom: weeklyCoachIsoDateSchema,
+  validTo: weeklyCoachIsoDateSchema,
+  weeklyObjective: weeklyCoachNonEmptyStringSchema.nullable(),
+});
+
+export const weeklyCoachPersistedCheckInSchema = z.object({
+  checkInId: weeklyCoachNonEmptyStringSchema.nullable(),
+  checkInState: weeklyCoachCheckInStateSchema,
+  weekContext: weeklyCoachWeekContextSchema,
+  draftAnswers: weeklyCoachCheckInAnswersSchema,
+  requiredFields: z.array(weeklyCoachNonEmptyStringSchema),
+  completionState: z.object({
+    completedFields: z.array(weeklyCoachNonEmptyStringSchema),
+    missingRequiredFields: z.array(weeklyCoachNonEmptyStringSchema),
+    isComplete: z.boolean(),
+  }),
+  deadline: weeklyCoachIsoDatetimeSchema.nullable(),
+  nextCta: weeklyCoachNonEmptyStringSchema.nullable(),
+  updatedAt: weeklyCoachIsoDatetimeSchema.nullable(),
+});
+
 export const weeklyCoachTrackingSchema = z.object({
-  checkIns: z.record(z.string().min(1), z.unknown()),
+  checkIns: z.record(weeklyCoachNonEmptyStringSchema, weeklyCoachPersistedCheckInSchema),
+}).superRefine((value, ctx) => {
+  for (const [planWeekId, checkIn] of Object.entries(value.checkIns)) {
+    if (checkIn.weekContext.planWeekId !== planWeekId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["checkIns", planWeekId, "weekContext", "planWeekId"],
+        message: "weekly coach persisted check-in key must match weekContext.planWeekId",
+      });
+    }
+  }
 });
 
 export const trackingSchema = z.object({
@@ -125,6 +196,7 @@ export type MealLogEntry = z.infer<typeof mealLogEntrySchema>;
 export type PassiveHealthSource = z.infer<typeof passiveHealthSourceSchema>;
 export type PassiveHealthSnapshot = z.infer<typeof passiveHealthSnapshotSchema>;
 export type PassiveHealthData = z.infer<typeof passiveHealthDataSchema>;
+export type WeeklyCoachPersistedCheckIn = z.infer<typeof weeklyCoachPersistedCheckInSchema>;
 export type WeeklyCoachTrackingState = z.infer<typeof weeklyCoachTrackingSchema>;
 export type TrackingSnapshot = z.infer<typeof trackingSchema>;
 export type TrackingEntryCreateInput = z.infer<typeof trackingEntryCreateSchema>;

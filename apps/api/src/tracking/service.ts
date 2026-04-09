@@ -8,10 +8,15 @@ import type {
   TrackingCollection,
   TrackingEntryCreateInput,
   TrackingSnapshot,
+  WeeklyCoachPersistedCheckIn,
   WeeklyCoachTrackingState,
   WorkoutEntry,
 } from "./schemas.js";
-import { defaultTracking } from "./schemas.js";
+import {
+  defaultTracking,
+  weeklyCoachPersistedCheckInSchema,
+  weeklyCoachTrackingSchema,
+} from "./schemas.js";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object";
@@ -174,16 +179,44 @@ export function normalizePassiveHealthData(value: unknown): PassiveHealthData {
   };
 }
 
-function normalizeWeeklyCoachTrackingState(value: unknown): WeeklyCoachTrackingState | undefined {
+function normalizeWeeklyCoachPersistedCheckIn(
+  planWeekId: string,
+  value: unknown,
+): WeeklyCoachPersistedCheckIn | null {
+  const result = weeklyCoachPersistedCheckInSchema.safeParse(value);
+  if (!result.success) {
+    return null;
+  }
+
+  return result.data.weekContext.planWeekId === planWeekId ? result.data : null;
+}
+
+export function normalizeWeeklyCoachTrackingState(value: unknown): WeeklyCoachTrackingState | undefined {
   if (!isRecord(value) || !isRecord(value.checkIns)) {
     return undefined;
   }
 
   const checkIns = Object.fromEntries(
-    Object.entries(value.checkIns).filter(([planWeekId]) => typeof planWeekId === "string" && planWeekId.trim().length > 0),
+    Object.entries(value.checkIns).flatMap(([planWeekId, checkIn]) => {
+      if (typeof planWeekId !== "string") {
+        return [];
+      }
+
+      const normalizedPlanWeekId = planWeekId.trim();
+      if (!normalizedPlanWeekId) {
+        return [];
+      }
+
+      const normalizedCheckIn = normalizeWeeklyCoachPersistedCheckIn(normalizedPlanWeekId, checkIn);
+      return normalizedCheckIn ? [[normalizedPlanWeekId, normalizedCheckIn] as const] : [];
+    }),
   );
 
-  return { checkIns };
+  return weeklyCoachTrackingSchema.parse({ checkIns });
+}
+
+export function parseWeeklyCoachTrackingState(value: unknown): WeeklyCoachTrackingState {
+  return weeklyCoachTrackingSchema.parse(value);
 }
 
 function normalizeCollection<T>(value: unknown, normalizeEntry: (entry: unknown, index: number) => T | null): T[] {

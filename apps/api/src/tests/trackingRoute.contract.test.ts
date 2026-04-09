@@ -37,6 +37,28 @@ function createApp() {
               "weekly_coach_2026-04-13": {
                 checkInId: "weekly_coach_2026-04-13:req_1",
                 checkInState: "submitted",
+                weekContext: {
+                  planWeekId: "weekly_coach_2026-04-13",
+                  weekIndex: 1,
+                  state: "check_in_due",
+                  validFrom: "2026-04-13",
+                  validTo: "2026-04-19",
+                  weeklyObjective: "hit all planned sessions",
+                },
+                draftAnswers: {
+                  trainingSessionsCompleted: 3,
+                  trainingSessionsPlanned: 3,
+                  nutritionAdherenceScore: 4,
+                },
+                requiredFields: ["trainingSessionsCompleted"],
+                completionState: {
+                  completedFields: ["trainingSessionsCompleted"],
+                  missingRequiredFields: [],
+                  isComplete: true,
+                },
+                deadline: "2026-04-19T03:00:00.000Z",
+                nextCta: "awaiting_adaptation_generation",
+                updatedAt: "2026-04-19T10:00:00.000Z",
               },
             },
           },
@@ -93,6 +115,45 @@ assert.equal(
   "submitted",
   "PUT /tracking should preserve weekly coach ownership when updating other tracking collections",
 );
+
+const invalidWeeklyCoachResponse = await app.inject({
+  method: "PUT",
+  url: "/tracking",
+  payload: {
+    checkins: [],
+    foodLog: [],
+    workoutLog: [],
+    mealLog: [],
+    weeklyCoach: {
+      checkIns: {
+        weekly_coach_2026_04_20: {
+          checkInId: null,
+          checkInState: "draft",
+          weekContext: {
+            planWeekId: "weekly_coach_2026-04-27",
+            weekIndex: 2,
+            state: "check_in_due",
+            validFrom: "2026-04-20",
+            validTo: "2026-04-26",
+            weeklyObjective: null,
+          },
+          draftAnswers: {},
+          requiredFields: [],
+          completionState: {
+            completedFields: [],
+            missingRequiredFields: [],
+            isComplete: false,
+          },
+          deadline: null,
+          nextCta: null,
+          updatedAt: null,
+        },
+      },
+    },
+  },
+});
+
+assert.equal(invalidWeeklyCoachResponse.statusCode, 400, "PUT /tracking should reject invalid weekly coach ownership payloads at the backend boundary");
 
 await app.close();
 console.log("tracking route contract test passed");

@@ -38,8 +38,55 @@ const normalizedLegacySnapshot = normalizeTrackingSnapshot({
   weeklyCoach: {
     checkIns: {
       "weekly_coach_2026-02-16": {
+        checkInId: null,
+        checkInState: "draft",
+        weekContext: {
+          planWeekId: "weekly_coach_2026-02-16",
+          weekIndex: 1,
+          state: "check_in_due",
+          validFrom: "2026-02-16",
+          validTo: "2026-02-22",
+          weeklyObjective: "keep adherence high",
+        },
+        draftAnswers: {
+          trainingSessionsPlanned: 3,
+          currentWeightKg: 81.2,
+        },
+        requiredFields: ["trainingSessionsCompleted"],
+        completionState: {
+          completedFields: ["trainingSessionsPlanned"],
+          missingRequiredFields: ["trainingSessionsCompleted"],
+          isComplete: false,
+        },
+        deadline: "2026-02-22T03:00:00.000Z",
+        nextCta: "submit_check_in",
+        updatedAt: "2026-02-20T10:00:00.000Z",
+      },
+      "weekly_coach_invalid": {
         checkInState: "draft",
         updatedAt: "2026-02-20T10:00:00.000Z",
+      },
+      "weekly_coach_2026-02-23": {
+        checkInId: null,
+        checkInState: "draft",
+        weekContext: {
+          planWeekId: "weekly_coach_2026-03-01",
+          weekIndex: 2,
+          state: "check_in_due",
+          validFrom: "2026-02-23",
+          validTo: "2026-03-01",
+          weeklyObjective: null,
+        },
+        draftAnswers: {},
+        requiredFields: [],
+        completionState: {
+          completedFields: [],
+          missingRequiredFields: [],
+          isComplete: false,
+        },
+        deadline: null,
+        nextCta: null,
+        updatedAt: null,
       },
     },
   },
@@ -52,6 +99,11 @@ assert.equal(
   normalizedLegacySnapshot.weeklyCoach?.checkIns["weekly_coach_2026-02-16"] && typeof normalizedLegacySnapshot.weeklyCoach.checkIns["weekly_coach_2026-02-16"],
   "object",
   "weekly coach check-in ownership should survive tracking normalization",
+);
+assert.equal(
+  Object.keys(normalizedLegacySnapshot.weeklyCoach?.checkIns ?? {}).length,
+  1,
+  "weekly coach normalization should drop malformed or mismatched persisted entries",
 );
 
 const updatePayload = trackingEntryCreateSchema.parse({
