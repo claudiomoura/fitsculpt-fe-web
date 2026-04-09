@@ -190,6 +190,16 @@ describe("weekly adaptive coach BFF contract", () => {
       nextCta: "awaiting_adaptation_generation",
     });
     expect(submitBody.checkInId).toContain("req_123");
+    expect(
+      (trackingPayload.weeklyCoach as {
+        adaptations: Record<string, { status: string; summary: string; source: string; basedOnCheckInId: string | null; acceptedAt: string | null }>;
+      }).adaptations[draftBody.weekContext.planWeekId],
+    ).toMatchObject({
+      status: "ready",
+      source: "scaffold",
+      basedOnCheckInId: submitBody.checkInId,
+      acceptedAt: null,
+    });
 
     const { GET } = await import("@/app/api/weekly-adaptive-coach/state/route");
     const stateResponse = await GET(new Request("http://localhost/api/weekly-adaptive-coach/state"));
@@ -197,10 +207,42 @@ describe("weekly adaptive coach BFF contract", () => {
 
     expect(stateResponse.status).toBe(200);
     expect(stateBody).toMatchObject({
-      loopState: "check_in_submitted",
+      loopState: "adaptation_generated",
       checkInDue: false,
-      nextAction: "await_adaptation_generation",
+      nextAction: "review_adaptation_summary",
+      currentWeek: {
+        state: "adaptation_ready",
+      },
+      featureFlags: {
+        adaptationEnabled: true,
+      },
     });
+    expect(stateBody.latestAdaptationSummary).toContain("2/3 planned sessions completed");
+
+    const reviewRouteModule = await import("@/app/api/weekly-adaptive-coach/adaptation-review/route");
+    const acknowledgeResponse = await reviewRouteModule.POST(
+      new Request("http://localhost/api/weekly-adaptive-coach/adaptation-review", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({}),
+      }),
+    );
+    const acknowledgeBody = await acknowledgeResponse.json();
+
+    expect(acknowledgeResponse.status).toBe(200);
+    expect(acknowledgeBody).toMatchObject({
+      loopState: "adaptation_accepted",
+      nextAction: "follow_current_week_plan",
+      currentWeek: {
+        state: "accepted",
+      },
+    });
+    expect(acknowledgeBody.currentWeek.acceptedAt).toBe("2026-04-19T10:00:00.000Z");
+    expect(
+      (trackingPayload.weeklyCoach as {
+        adaptations: Record<string, { acceptedAt: string | null }>;
+      }).adaptations[draftBody.weekContext.planWeekId]?.acceptedAt,
+    ).toBe("2026-04-19T10:00:00.000Z");
   });
 
   it("maps invalid submit payloads to validation error", async () => {

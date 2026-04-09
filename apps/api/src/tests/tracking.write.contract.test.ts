@@ -89,6 +89,19 @@ const normalizedLegacySnapshot = normalizeTrackingSnapshot({
         updatedAt: null,
       },
     },
+    adaptations: {
+      "weekly_coach_2026-02-16": {
+        status: "ready",
+        summary: "Keep the current weekly structure and repeat the core targets next week.",
+        generatedAt: "2026-02-20T10:05:00.000Z",
+        source: "scaffold",
+        basedOnCheckInId: null,
+        acceptedAt: "2026-02-20T12:00:00.000Z",
+      },
+      weekly_coach_invalid: {
+        status: "draft",
+      },
+    },
   },
 });
 trackingSchema.parse(normalizedLegacySnapshot);
@@ -104,6 +117,16 @@ assert.equal(
   Object.keys(normalizedLegacySnapshot.weeklyCoach?.checkIns ?? {}).length,
   1,
   "weekly coach normalization should drop malformed or mismatched persisted entries",
+);
+assert.equal(
+  Object.keys(normalizedLegacySnapshot.weeklyCoach?.adaptations ?? {}).length,
+  1,
+  "weekly coach normalization should preserve only valid persisted adaptation summaries",
+);
+assert.equal(
+  normalizedLegacySnapshot.weeklyCoach?.adaptations["weekly_coach_2026-02-16"]?.acceptedAt,
+  "2026-02-20T12:00:00.000Z",
+  "weekly coach normalization should preserve persisted adaptation acknowledgement",
 );
 
 const updatePayload = trackingEntryCreateSchema.parse({
@@ -142,7 +165,7 @@ trackingSchema.parse(snapshotAfterMeal);
 assert.deepEqual(
   snapshotAfterMeal.weeklyCoach,
   normalizedLegacySnapshot.weeklyCoach,
-  "collection upserts should preserve unrelated weekly coach ownership",
+  "collection upserts should preserve unrelated weekly coach ownership and summaries",
 );
 assert.equal(responseBody.foodLog.length, 0, "response should include non-written collections");
 assert.equal(responseBody.workoutLog.length, 0, "response should include non-written collections");

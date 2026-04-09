@@ -145,8 +145,18 @@ export const weeklyCoachPersistedCheckInSchema = z.object({
   updatedAt: weeklyCoachIsoDatetimeSchema.nullable(),
 });
 
+export const weeklyCoachPersistedAdaptationSchema = z.object({
+  status: z.literal("ready"),
+  summary: weeklyCoachNonEmptyStringSchema,
+  generatedAt: weeklyCoachIsoDatetimeSchema,
+  source: z.literal("scaffold"),
+  basedOnCheckInId: weeklyCoachNonEmptyStringSchema.nullable(),
+  acceptedAt: weeklyCoachIsoDatetimeSchema.nullable().optional().default(null),
+});
+
 export const weeklyCoachTrackingSchema = z.object({
   checkIns: z.record(weeklyCoachNonEmptyStringSchema, weeklyCoachPersistedCheckInSchema),
+  adaptations: z.record(weeklyCoachNonEmptyStringSchema, weeklyCoachPersistedAdaptationSchema).default({}),
 }).superRefine((value, ctx) => {
   for (const [planWeekId, checkIn] of Object.entries(value.checkIns)) {
     if (checkIn.weekContext.planWeekId !== planWeekId) {
@@ -197,6 +207,7 @@ export type PassiveHealthSource = z.infer<typeof passiveHealthSourceSchema>;
 export type PassiveHealthSnapshot = z.infer<typeof passiveHealthSnapshotSchema>;
 export type PassiveHealthData = z.infer<typeof passiveHealthDataSchema>;
 export type WeeklyCoachPersistedCheckIn = z.infer<typeof weeklyCoachPersistedCheckInSchema>;
+export type WeeklyCoachPersistedAdaptation = z.infer<typeof weeklyCoachPersistedAdaptationSchema>;
 export type WeeklyCoachTrackingState = z.infer<typeof weeklyCoachTrackingSchema>;
 export type TrackingSnapshot = z.infer<typeof trackingSchema>;
 export type TrackingEntryCreateInput = z.infer<typeof trackingEntryCreateSchema>;

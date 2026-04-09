@@ -5,6 +5,7 @@ import { contractDriftResponse } from "@/lib/runtimeContracts";
 import { parseWeeklyCoachCheckInAnswers, parseWeeklyCoachCheckInSubmitRequest } from "@/lib/weeklyAdaptiveCoachContracts";
 import {
   buildWeeklyCoachCheckInDraft,
+  buildWeeklyCoachPersistedAdaptationSummary,
   buildWeeklyCoachSavedCheckInDraft,
   buildWeeklyCoachSubmittedCheckIn,
 } from "@/lib/weeklyAdaptiveCoachScaffold";
@@ -30,6 +31,7 @@ function buildTrackingPayloadWithPersistedCheckIn(trackingPayload: unknown, payl
   const baseTracking = isRecord(trackingPayload) ? trackingPayload : {};
   const weeklyCoach = isRecord(baseTracking.weeklyCoach) ? baseTracking.weeklyCoach : {};
   const checkIns = isRecord(weeklyCoach.checkIns) ? weeklyCoach.checkIns : {};
+  const adaptations = isRecord(weeklyCoach.adaptations) ? weeklyCoach.adaptations : {};
 
   return {
     ...baseTracking,
@@ -37,6 +39,26 @@ function buildTrackingPayloadWithPersistedCheckIn(trackingPayload: unknown, payl
       ...weeklyCoach,
       checkIns: {
         ...checkIns,
+        [planWeekId]: payload,
+      },
+      adaptations,
+    },
+  };
+}
+
+function buildTrackingPayloadWithPersistedAdaptation(trackingPayload: unknown, payload: unknown, planWeekId: string) {
+  const baseTracking = isRecord(trackingPayload) ? trackingPayload : {};
+  const weeklyCoach = isRecord(baseTracking.weeklyCoach) ? baseTracking.weeklyCoach : {};
+  const checkIns = isRecord(weeklyCoach.checkIns) ? weeklyCoach.checkIns : {};
+  const adaptations = isRecord(weeklyCoach.adaptations) ? weeklyCoach.adaptations : {};
+
+  return {
+    ...baseTracking,
+    weeklyCoach: {
+      ...weeklyCoach,
+      checkIns,
+      adaptations: {
+        ...adaptations,
         [planWeekId]: payload,
       },
     },
@@ -49,11 +71,10 @@ function normalizeTrackingPersistenceError(status: number) {
   return jsonBffError({ status, type: "upstream" });
 }
 
-async function persistCheckInResponse(request: Request, trackingPayload: unknown, payload: ReturnType<typeof buildWeeklyCoachCheckInDraft>) {
-  const nextTrackingPayload = buildTrackingPayloadWithPersistedCheckIn(trackingPayload, payload, payload.weekContext.planWeekId);
+async function persistWeeklyCoachTracking(request: Request, trackingPayload: unknown) {
   const persistResult = await fetchBackend("/tracking", {
     method: "PUT",
-    body: nextTrackingPayload,
+    body: trackingPayload,
     request,
   });
 
@@ -102,7 +123,17 @@ export async function POST(request: Request) {
       trackingPayload,
     });
 
-    const persistError = await persistCheckInResponse(request, trackingPayload, payload);
+    const adaptationPayload = buildWeeklyCoachPersistedAdaptationSummary(submitRequest, {
+      profilePayload: profileResult.payload,
+      trackingPayload,
+    });
+    const nextTrackingPayload = buildTrackingPayloadWithPersistedAdaptation(
+      buildTrackingPayloadWithPersistedCheckIn(trackingPayload, payload, payload.weekContext.planWeekId),
+      adaptationPayload,
+      payload.weekContext.planWeekId,
+    );
+
+    const persistError = await persistWeeklyCoachTracking(request, nextTrackingPayload);
     if (persistError) return persistError;
 
     return NextResponse.json(payload, { status: 200 });
@@ -132,7 +163,10 @@ export async function PUT(request: Request) {
       trackingPayload,
     });
 
-    const persistError = await persistCheckInResponse(request, trackingPayload, payload);
+    const persistError = await persistWeeklyCoachTracking(
+      request,
+      buildTrackingPayloadWithPersistedCheckIn(trackingPayload, payload, payload.weekContext.planWeekId),
+    );
     if (persistError) return persistError;
 
     return NextResponse.json(payload, { status: 200 });

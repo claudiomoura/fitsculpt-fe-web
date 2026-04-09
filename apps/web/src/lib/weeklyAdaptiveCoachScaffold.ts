@@ -35,6 +35,15 @@ type ScaffoldInputs = {
 
 type CheckInResponseState = "draft" | "submitted";
 
+type PersistedAdaptation = {
+  status: "ready";
+  summary: string;
+  generatedAt: string;
+  source: "scaffold";
+  basedOnCheckInId: string | null;
+  acceptedAt: string | null;
+};
+
 type NormalizedScaffoldInputs = {
   profile: ProfileData;
   now: Date;
@@ -171,6 +180,52 @@ function getPersistedCheckIn(payload: unknown, planWeekId: string): WeeklyCoachC
   return persisted;
 }
 
+function getPersistedAdaptation(payload: unknown, planWeekId: string): PersistedAdaptation | null {
+  if (!isRecord(payload)) return null;
+  const weeklyCoach = payload.weeklyCoach;
+  if (!isRecord(weeklyCoach)) return null;
+  const adaptations = weeklyCoach.adaptations;
+  if (!isRecord(adaptations)) return null;
+
+  const persisted = adaptations[planWeekId];
+  if (!isRecord(persisted)) return null;
+  if (persisted.status !== "ready") return null;
+  if (typeof persisted.summary !== "string" || !persisted.summary.trim()) return null;
+  if (typeof persisted.generatedAt !== "string" || !persisted.generatedAt.trim()) return null;
+  if (persisted.source !== "scaffold") return null;
+
+  return {
+    status: "ready",
+    summary: persisted.summary.trim(),
+    generatedAt: persisted.generatedAt,
+    source: "scaffold",
+    basedOnCheckInId: typeof persisted.basedOnCheckInId === "string" && persisted.basedOnCheckInId.trim()
+      ? persisted.basedOnCheckInId.trim()
+      : null,
+    acceptedAt: typeof persisted.acceptedAt === "string" && persisted.acceptedAt.trim() ? persisted.acceptedAt.trim() : null,
+  };
+}
+
+function buildInitialAdaptationSummary(payload: WeeklyCoachCheckInSubmitRequest): string {
+  const completionSummary = `${payload.trainingSessionsCompleted}/${payload.trainingSessionsPlanned} planned sessions completed`;
+  const nutritionSummary = `nutrition adherence ${payload.nutritionAdherenceScore}/5`;
+  const recoveryNeedsSupport = payload.recoveryScore <= 2 || payload.energyScore <= 2 || payload.stressScore >= 4;
+  const consistencyNeedsSupport = payload.trainingSessionsCompleted < payload.trainingSessionsPlanned || payload.nextWeekConfidenceScore <= 2;
+  const painNeedsConstraint = payload.painLevel !== "expected_soreness";
+
+  let decision = "Keep the current weekly structure and repeat the core targets next week.";
+  if (painNeedsConstraint) {
+    decision = "Keep the current weekly structure, but protect recovery and avoid adding training load until pain settles.";
+  } else if (recoveryNeedsSupport) {
+    decision = "Keep the current weekly structure and bias the next week toward recovery-friendly execution before increasing load.";
+  } else if (!consistencyNeedsSupport && payload.nutritionAdherenceScore >= 4 && payload.nextWeekConfidenceScore >= 4) {
+    decision = "Current adherence supports a small progression next week while keeping the weekly structure stable.";
+  }
+
+  const friction = payload.frictionPrimary.replace(/_/g, " ");
+  return `${decision} This check-in recorded ${completionSummary} with ${nutritionSummary}. Primary friction to manage next week: ${friction}.`;
+}
+
 function buildWeek(date: Date, objective: string): WeeklyCoachCurrentWeek {
   const weekStart = startOfIsoWeek(date);
   const weekEnd = endOfIsoWeek(date);
@@ -273,23 +328,43 @@ export function buildWeeklyCoachWeeklyState(inputs: ScaffoldInputs = {}): Weekly
   const normalized = normalizeInputs(inputs);
   const onboardingReady = isOnboardingReady(normalized.profile);
   const persistedCheckIn = getPersistedCheckIn(inputs.trackingPayload, normalized.week.planWeekId);
+  const persistedAdaptation = getPersistedAdaptation(inputs.trackingPayload, normalized.week.planWeekId);
+  const currentWeek = persistedAdaptation
+    ? {
+        ...normalized.week,
+        state: persistedAdaptation.acceptedAt ? ("accepted" as const) : ("adaptation_ready" as const),
+        acceptedAt: persistedAdaptation.acceptedAt,
+      }
+    : normalized.week;
   const weeklyState: WeeklyCoachWeeklyStateResponse = onboardingReady
     ? {
-        loopState: persistedCheckIn?.checkInState === "submitted" ? "check_in_submitted" : normalized.week.state === "check_in_due" ? "check_in_due" : "plan_active",
-        currentWeek: normalized.week,
+        loopState: persistedAdaptation
+          ? persistedAdaptation.acceptedAt
+            ? "adaptation_accepted"
+            : "adaptation_generated"
+          : persistedCheckIn?.checkInState === "submitted"
+            ? "check_in_submitted"
+            : normalized.week.state === "check_in_due"
+              ? "check_in_due"
+              : "plan_active",
+        currentWeek,
         nextAction:
-          persistedCheckIn?.checkInState === "submitted"
+          persistedAdaptation
+            ? persistedAdaptation.acceptedAt
+              ? "follow_current_week_plan"
+              : "review_adaptation_summary"
+            : persistedCheckIn?.checkInState === "submitted"
             ? "await_adaptation_generation"
             : normalized.week.state === "check_in_due"
               ? "complete_weekly_check_in"
               : "follow_current_week_plan",
-        checkInDue: normalized.week.state === "check_in_due" && persistedCheckIn?.checkInState !== "submitted",
+        checkInDue: !persistedAdaptation && normalized.week.state === "check_in_due" && persistedCheckIn?.checkInState !== "submitted",
         planSummary: buildPlanSummary(normalized.profile, normalized.plannedSessions),
-        latestAdaptationSummary: null,
+        latestAdaptationSummary: persistedAdaptation?.summary ?? null,
         featureFlags: {
           weeklyCoachEnabled: true,
           weeklyCheckInEnabled: true,
-          adaptationEnabled: false,
+          adaptationEnabled: Boolean(persistedAdaptation),
         },
       }
     : {
@@ -407,4 +482,19 @@ export function buildWeeklyCoachSubmittedCheckIn(
     checkInState: "submitted",
     updatedAt: normalized.now.toISOString(),
   });
+}
+
+export function buildWeeklyCoachPersistedAdaptationSummary(
+  payload: WeeklyCoachCheckInSubmitRequest,
+  inputs: ScaffoldInputs = {},
+): PersistedAdaptation {
+  const normalized = normalizeInputs(inputs);
+  return {
+    status: "ready",
+    summary: buildInitialAdaptationSummary(payload),
+    generatedAt: normalized.now.toISOString(),
+    source: "scaffold",
+    basedOnCheckInId: `${normalized.week.planWeekId}:${payload.clientRequestId}`,
+    acceptedAt: null,
+  };
 }

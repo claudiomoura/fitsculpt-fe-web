@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import { WEEKLY_ADAPTIVE_COACH_CONTRACT_VERSION } from "@/types/weeklyAdaptiveCoach";
-import { getWeeklyCoachCheckInDraft, getWeeklyCoachState, saveWeeklyCoachCheckInDraft, submitWeeklyCoachCheckIn } from "@/services/weeklyAdaptiveCoach";
+import {
+  acknowledgeWeeklyCoachAdaptationSummary,
+  getWeeklyCoachCheckInDraft,
+  getWeeklyCoachState,
+  saveWeeklyCoachCheckInDraft,
+  submitWeeklyCoachCheckIn,
+} from "@/services/weeklyAdaptiveCoach";
 
 function jsonResponse(status: number, payload: unknown): Response {
   return {
@@ -202,6 +208,49 @@ describe("weeklyAdaptiveCoach service", () => {
     if (result.ok) {
       expect(result.data.checkInState).toBe("draft");
       expect(result.data.updatedAt).toBe("2026-04-19T10:00:00.000Z");
+    }
+  });
+
+  it("acknowledges the weekly coach adaptation summary through the BFF contract", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(200, {
+        loopState: "adaptation_accepted",
+        currentWeek: {
+          planWeekId: "weekly_coach_2026-04-13",
+          weekIndex: 16,
+          state: "accepted",
+          validFrom: "2026-04-13",
+          validTo: "2026-04-19",
+          weeklyObjective: "Support maintain with 3 training sessions and steady nutrition adherence.",
+          acceptedAt: "2026-04-19T10:00:00.000Z",
+        },
+        nextAction: "follow_current_week_plan",
+        checkInDue: false,
+        planSummary: {
+          trainingSummary: ["3 planned training sessions this week"],
+          nutritionSummary: ["4 meals per day target"],
+          assumptions: ["Goal remains maintain"],
+        },
+        latestAdaptationSummary: "Keep the current weekly structure and repeat the core targets next week.",
+        featureFlags: {
+          weeklyCoachEnabled: true,
+          weeklyCheckInEnabled: true,
+          adaptationEnabled: true,
+        },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await acknowledgeWeeklyCoachAdaptationSummary();
+
+    expect(result.ok).toBe(true);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/weekly-adaptive-coach/adaptation-review",
+      expect.objectContaining({ method: "POST" }),
+    );
+    if (result.ok) {
+      expect(result.data.loopState).toBe("adaptation_accepted");
+      expect(result.data.currentWeek?.acceptedAt).toBe("2026-04-19T10:00:00.000Z");
     }
   });
 });

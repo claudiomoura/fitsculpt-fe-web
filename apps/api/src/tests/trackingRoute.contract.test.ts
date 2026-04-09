@@ -61,6 +61,16 @@ function createApp() {
                 updatedAt: "2026-04-19T10:00:00.000Z",
               },
             },
+            adaptations: {
+              "weekly_coach_2026-04-13": {
+                status: "ready",
+                summary: "Keep the current weekly structure and repeat the core targets next week.",
+                generatedAt: "2026-04-19T10:05:00.000Z",
+                source: "scaffold",
+                basedOnCheckInId: "weekly_coach_2026-04-13:req_1",
+                acceptedAt: "2026-04-19T11:00:00.000Z",
+              },
+            },
           },
         },
     }),
@@ -114,6 +124,16 @@ assert.equal(
   replaceResponse.json().weeklyCoach.checkIns["weekly_coach_2026-04-13"].checkInState,
   "submitted",
   "PUT /tracking should preserve weekly coach ownership when updating other tracking collections",
+);
+assert.equal(
+  replaceResponse.json().weeklyCoach.adaptations["weekly_coach_2026-04-13"].status,
+  "ready",
+  "PUT /tracking should preserve persisted weekly coach adaptation summaries",
+);
+assert.equal(
+  replaceResponse.json().weeklyCoach.adaptations["weekly_coach_2026-04-13"].acceptedAt,
+  "2026-04-19T11:00:00.000Z",
+  "PUT /tracking should preserve persisted adaptation acknowledgement state",
 );
 
 const invalidWeeklyCoachResponse = await app.inject({

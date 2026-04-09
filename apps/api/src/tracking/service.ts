@@ -8,12 +8,14 @@ import type {
   TrackingCollection,
   TrackingEntryCreateInput,
   TrackingSnapshot,
+  WeeklyCoachPersistedAdaptation,
   WeeklyCoachPersistedCheckIn,
   WeeklyCoachTrackingState,
   WorkoutEntry,
 } from "./schemas.js";
 import {
   defaultTracking,
+  weeklyCoachPersistedAdaptationSchema,
   weeklyCoachPersistedCheckInSchema,
   weeklyCoachTrackingSchema,
 } from "./schemas.js";
@@ -191,6 +193,11 @@ function normalizeWeeklyCoachPersistedCheckIn(
   return result.data.weekContext.planWeekId === planWeekId ? result.data : null;
 }
 
+function normalizeWeeklyCoachPersistedAdaptation(value: unknown): WeeklyCoachPersistedAdaptation | null {
+  const result = weeklyCoachPersistedAdaptationSchema.safeParse(value);
+  return result.success ? result.data : null;
+}
+
 export function normalizeWeeklyCoachTrackingState(value: unknown): WeeklyCoachTrackingState | undefined {
   if (!isRecord(value) || !isRecord(value.checkIns)) {
     return undefined;
@@ -212,7 +219,25 @@ export function normalizeWeeklyCoachTrackingState(value: unknown): WeeklyCoachTr
     }),
   );
 
-  return weeklyCoachTrackingSchema.parse({ checkIns });
+  const adaptations = isRecord(value.adaptations)
+    ? Object.fromEntries(
+        Object.entries(value.adaptations).flatMap(([planWeekId, adaptation]) => {
+          if (typeof planWeekId !== "string") {
+            return [];
+          }
+
+          const normalizedPlanWeekId = planWeekId.trim();
+          if (!normalizedPlanWeekId) {
+            return [];
+          }
+
+          const normalizedAdaptation = normalizeWeeklyCoachPersistedAdaptation(adaptation);
+          return normalizedAdaptation ? [[normalizedPlanWeekId, normalizedAdaptation] as const] : [];
+        }),
+      )
+    : {};
+
+  return weeklyCoachTrackingSchema.parse({ checkIns, adaptations });
 }
 
 export function parseWeeklyCoachTrackingState(value: unknown): WeeklyCoachTrackingState {

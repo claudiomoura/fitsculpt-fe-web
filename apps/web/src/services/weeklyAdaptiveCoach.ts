@@ -6,6 +6,7 @@ import {
   parseWeeklyCoachWeeklyStateResponse,
 } from "@/lib/weeklyAdaptiveCoachContracts";
 import type {
+  WeeklyCoachAdaptationReviewResponse,
   WeeklyCoachCheckInAnswers,
   WeeklyCoachCheckInDraftResponse,
   WeeklyCoachCheckInSubmitRequest,
@@ -78,4 +79,20 @@ export async function submitWeeklyCoachCheckIn(
   }
 
   return { ok: true, data: responsePayload };
+}
+
+export async function acknowledgeWeeklyCoachAdaptationSummary(): Promise<ServiceResult<WeeklyCoachAdaptationReviewResponse>> {
+  const result = await requestJson<unknown>("/api/weekly-adaptive-coach/adaptation-review", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  if (!result.ok) return result;
+
+  const payload = parseWeeklyCoachWeeklyStateResponse(result.data);
+  if (!payload) {
+    return { ok: false, reason: "invalidResponse", message: "Weekly coach adaptation review response does not match expected contract." };
+  }
+
+  return { ok: true, data: payload };
 }

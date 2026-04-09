@@ -6,6 +6,7 @@ import { Button } from "@/design-system/components/Button";
 import { Input } from "@/design-system/components/Input";
 import { createAiRequestId } from "@/lib/aiRequestId";
 import {
+  acknowledgeWeeklyCoachAdaptationSummary,
   getWeeklyCoachCheckInDraft,
   getWeeklyCoachState,
   saveWeeklyCoachCheckInDraft,
@@ -20,7 +21,7 @@ import {
 } from "@/types/weeklyAdaptiveCoach";
 
 type LoadStatus = "loading" | "ready" | "error";
-type ActionStatus = "idle" | "saving" | "submitting";
+type ActionStatus = "idle" | "saving" | "submitting" | "accepting";
 
 type SubmittedDecisionSurface = {
   title: string;
@@ -252,7 +253,9 @@ function getSubmittedDecisionSurface(
   return {
     title: "Current decision",
     body: latestAdaptationSummary,
-    detail: "Keep following the current plan unless this summary says otherwise.",
+    detail: weeklyState.currentWeek?.acceptedAt
+      ? `Summary acknowledged at ${weeklyState.currentWeek.acceptedAt}. Full plan application stays out of scope in this slice.`
+      : "Keep following the current plan unless this summary says otherwise.",
     tone: "success",
   };
 }
@@ -368,6 +371,8 @@ export default function WeeklyCoachCheckInCard() {
   const isSubmitted = draft.checkInState === "submitted";
   const isBusy = actionStatus !== "idle";
   const submittedDecisionSurface = getSubmittedDecisionSurface(weeklyState, draft);
+  const isAdaptationAccepted = Boolean(weeklyState.currentWeek?.acceptedAt);
+  const canAcknowledgeAdaptation = Boolean(canUseWeeklyCoach && submittedDecisionSurface && weeklyState.latestAdaptationSummary && !isAdaptationAccepted);
 
   async function handleSaveDraft() {
     if (!form) return;
@@ -411,14 +416,39 @@ export default function WeeklyCoachCheckInCard() {
 
     setDraft(result.data);
     setForm(createFormState(result.data));
-    setWeeklyState((current) => current ? {
-      ...current,
-      loopState: "check_in_submitted",
-      nextAction: "await_adaptation_generation",
-      checkInDue: false,
-    } : current);
+
+    const refreshedState = await getWeeklyCoachState();
+    if (refreshedState.ok) {
+      setWeeklyState(refreshedState.data);
+    } else {
+      setWeeklyState((current) => current ? {
+        ...current,
+        loopState: "check_in_submitted",
+        nextAction: "await_adaptation_generation",
+        checkInDue: false,
+      } : current);
+    }
+
     setActionStatus("idle");
-    setActionMessage("Weekly check-in submitted. Adaptation remains scaffolded until the next slice lands.");
+    setActionMessage("Weekly check-in submitted. Reloaded the persisted coach summary.");
+  }
+
+  async function handleAcknowledgeAdaptation() {
+    setActionStatus("accepting");
+    setActionMessage(null);
+    setErrorMessage(null);
+
+    const result = await acknowledgeWeeklyCoachAdaptationSummary();
+
+    if (!result.ok) {
+      setActionStatus("idle");
+      setErrorMessage(formatError(result.message));
+      return;
+    }
+
+    setWeeklyState(result.data);
+    setActionStatus("idle");
+    setActionMessage("Adaptation summary acknowledged and persisted.");
   }
 
   return (
@@ -594,6 +624,17 @@ export default function WeeklyCoachCheckInCard() {
             <p className="m-0"><strong>{submittedDecisionSurface.title}:</strong> {submittedDecisionSurface.body}</p>
             <p className="muted m-0 mt-2">{submittedDecisionSurface.detail}</p>
           </div>
+        ) : null}
+        {submittedDecisionSurface ? (
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => void handleAcknowledgeAdaptation()}
+            loading={actionStatus === "accepting"}
+            disabled={!canAcknowledgeAdaptation || isBusy}
+          >
+            {isAdaptationAccepted ? "Summary acknowledged" : "Acknowledge summary"}
+          </Button>
         ) : null}
 
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>

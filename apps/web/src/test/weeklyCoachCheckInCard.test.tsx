@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import WeeklyCoachCheckInCard from "@/components/weekly-adaptive-coach/WeeklyCoachCheckInCard";
 
 const serviceMocks = vi.hoisted(() => ({
+  acknowledgeWeeklyCoachAdaptationSummary: vi.fn(),
   getWeeklyCoachState: vi.fn(),
   getWeeklyCoachCheckInDraft: vi.fn(),
   saveWeeklyCoachCheckInDraft: vi.fn(),
@@ -38,6 +39,40 @@ const weeklyStateResponse = {
       weeklyCheckInEnabled: true,
       adaptationEnabled: false,
     },
+  },
+};
+
+const adaptationReadyWeeklyStateResponse = {
+  ok: true as const,
+  data: {
+    ...weeklyStateResponse.data,
+    loopState: "adaptation_generated",
+    currentWeek: {
+      ...weeklyStateResponse.data.currentWeek,
+      state: "adaptation_ready",
+    },
+    nextAction: "review_adaptation_summary",
+    checkInDue: false,
+    latestAdaptationSummary:
+      "Keep the current weekly structure and repeat the core targets next week. This check-in recorded 3/3 planned sessions completed with nutrition adherence 4/5. Primary friction to manage next week: time.",
+    featureFlags: {
+      ...weeklyStateResponse.data.featureFlags,
+      adaptationEnabled: true,
+    },
+  },
+};
+
+const adaptationAcceptedWeeklyStateResponse = {
+  ok: true as const,
+  data: {
+    ...adaptationReadyWeeklyStateResponse.data,
+    loopState: "adaptation_accepted",
+    currentWeek: {
+      ...adaptationReadyWeeklyStateResponse.data.currentWeek,
+      state: "accepted",
+      acceptedAt: "2026-04-19T10:00:00.000Z",
+    },
+    nextAction: "follow_current_week_plan",
   },
 };
 
@@ -89,6 +124,7 @@ describe("WeeklyCoachCheckInCard", () => {
     serviceMocks.getWeeklyCoachState.mockResolvedValue(weeklyStateResponse);
     serviceMocks.getWeeklyCoachCheckInDraft.mockResolvedValue(draftResponse);
     serviceMocks.saveWeeklyCoachCheckInDraft.mockResolvedValue(draftResponse);
+    serviceMocks.acknowledgeWeeklyCoachAdaptationSummary.mockResolvedValue(adaptationAcceptedWeeklyStateResponse);
     serviceMocks.submitWeeklyCoachCheckIn.mockResolvedValue({
       ok: true as const,
       data: {
@@ -100,6 +136,10 @@ describe("WeeklyCoachCheckInCard", () => {
   });
 
   it("loads weekly state and submits the thin check-in form", async () => {
+    serviceMocks.getWeeklyCoachState
+      .mockResolvedValueOnce(weeklyStateResponse)
+      .mockResolvedValueOnce(adaptationReadyWeeklyStateResponse);
+
     render(<WeeklyCoachCheckInCard />);
 
     expect(screen.getByLabelText("Loading weekly coach check-in")).toBeInTheDocument();
@@ -121,14 +161,40 @@ describe("WeeklyCoachCheckInCard", () => {
       );
     });
 
-    expect(await screen.findByText(/Weekly check-in submitted/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Weekly check-in submitted\. Reloaded the persisted coach summary\./i)).toBeInTheDocument();
     expect(
-      screen.getByText(/Keep following the current weekly plan\. Adaptation is not enabled for this account yet\./i),
+      screen.getByText(/Keep the current weekly structure and repeat the core targets next week\./i),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/Your check-in has been recorded and no automatic changes were applied\./i),
+      screen.getByText(/Keep following the current plan unless this summary says otherwise\./i),
     ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Acknowledge summary" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Already submitted" })).toBeDisabled();
+  });
+
+  it("acknowledges the persisted adaptation summary", async () => {
+    serviceMocks.getWeeklyCoachState.mockResolvedValue(adaptationReadyWeeklyStateResponse);
+    serviceMocks.getWeeklyCoachCheckInDraft.mockResolvedValue({
+      ok: true as const,
+      data: {
+        ...draftResponse.data,
+        checkInId: "checkin-1",
+        checkInState: "submitted",
+      },
+    });
+
+    render(<WeeklyCoachCheckInCard />);
+
+    expect(await screen.findByText(/Keep the current weekly structure and repeat the core targets next week\./i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Acknowledge summary" }));
+
+    await waitFor(() => {
+      expect(serviceMocks.acknowledgeWeeklyCoachAdaptationSummary).toHaveBeenCalledTimes(1);
+    });
+
+    expect(await screen.findByText("Adaptation summary acknowledged and persisted.")).toBeInTheDocument();
+    expect(screen.getByText(/Summary acknowledged at 2026-04-19T10:00:00.000Z\./i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Summary acknowledged" })).toBeDisabled();
   });
 
   it("shows an error state and retries loading", async () => {

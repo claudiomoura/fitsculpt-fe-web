@@ -53,6 +53,8 @@ export type WeeklyCoachWeeklyStateResponse = {
   };
 };
 
+export type WeeklyCoachAdaptationReviewResponse = WeeklyCoachWeeklyStateResponse;
+
 export type WeeklyCoachWeekContext = {
   planWeekId: string;
   weekIndex: number;
