@@ -8,6 +8,8 @@ import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.records.WeightRecord
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
+import android.content.Intent
+import android.net.Uri
 import com.getcapacitor.JSArray
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
@@ -47,6 +49,14 @@ class HealthSyncPlugin : Plugin() {
     return HealthConnectClient.getOrCreate(context)
   }
 
+  private fun resolveSdkStatusLabel(status: Int): String {
+    return when (status) {
+      HealthConnectClient.SDK_AVAILABLE -> "available"
+      HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED -> "provider_update_required"
+      else -> "unavailable"
+    }
+  }
+
   @PluginMethod
   fun getSdkStatus(call: PluginCall) {
     val context = context
@@ -59,14 +69,25 @@ class HealthSyncPlugin : Plugin() {
     val data = JSObject()
     data.put("sdkStatus", status)
     data.put("isAvailable", status == HealthConnectClient.SDK_AVAILABLE)
+    data.put("status", resolveSdkStatusLabel(status))
     call.resolve(data)
   }
 
   @PluginMethod
   fun getPermissionsStatus(call: PluginCall) {
+    val currentContext = context
+    if (currentContext == null) {
+      call.reject("CONTEXT_UNAVAILABLE")
+      return
+    }
+
+    val sdkStatus = HealthConnectClient.getSdkStatus(currentContext)
     val client = getClientOrNull()
     if (client == null) {
-      call.reject("HEALTH_CONNECT_UNAVAILABLE")
+      val data = JSObject()
+      data.put("granted", false)
+      data.put("reason", resolveSdkStatusLabel(sdkStatus))
+      call.resolve(data)
       return
     }
 
@@ -75,6 +96,9 @@ class HealthSyncPlugin : Plugin() {
         val granted = client.permissionController.getGrantedPermissions()
         val data = JSObject()
         data.put("granted", granted.containsAll(requiredPermissions))
+        if (!granted.containsAll(requiredPermissions)) {
+          data.put("reason", "permissions_missing")
+        }
         withContext(Dispatchers.Main) {
           call.resolve(data)
         }
@@ -84,6 +108,59 @@ class HealthSyncPlugin : Plugin() {
         }
       }
     }
+  }
+
+  @PluginMethod
+  fun openHealthConnectSettings(call: PluginCall) {
+    val currentActivity = activity
+    val currentContext = context
+    if (currentActivity == null || currentContext == null) {
+      call.reject("ACTIVITY_UNAVAILABLE")
+      return
+    }
+
+    try {
+      val healthIntent = Intent("androidx.health.ACTION_HEALTH_CONNECT_SETTINGS")
+      healthIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+      currentActivity.startActivity(healthIntent)
+
+      val data = JSObject()
+      data.put("opened", true)
+      data.put("destination", "health_connect_settings")
+      call.resolve(data)
+      return
+    } catch (_: Exception) {
+      // Fallback below.
+    }
+
+    try {
+      val marketIntent = Intent(
+        Intent.ACTION_VIEW,
+        Uri.parse("market://details?id=com.google.android.apps.healthdata"),
+      )
+      marketIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+      currentContext.startActivity(marketIntent)
+
+      val data = JSObject()
+      data.put("opened", true)
+      data.put("destination", "play_store")
+      call.resolve(data)
+      return
+    } catch (_: Exception) {
+      // Fallback below.
+    }
+
+    val webIntent = Intent(
+      Intent.ACTION_VIEW,
+      Uri.parse("https://play.google.com/store/apps/details?id=com.google.android.apps.healthdata"),
+    )
+    webIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    currentContext.startActivity(webIntent)
+
+    val data = JSObject()
+    data.put("opened", true)
+    data.put("destination", "play_store_web")
+    call.resolve(data)
   }
 
   @PluginMethod

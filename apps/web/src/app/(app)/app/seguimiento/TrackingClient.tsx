@@ -61,7 +61,10 @@ import {
   type WorkoutEntry,
 } from "@/services/tracking";
 import { fetchAuthMe } from "@/lib/authDedup";
-import { syncAndroidHealthSnapshots } from "@/lib/nativeHealthSync";
+import {
+  openAndroidHealthConnectSettings,
+  syncAndroidHealthSnapshots,
+} from "@/lib/nativeHealthSync";
 import styles from "./TrackingClient.module.css";
 
 type CheckinMetrics = {
@@ -426,6 +429,7 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
     brand: "",
   });
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [isAndroidSyncing, setIsAndroidSyncing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isEnergySubmitting, setIsEnergySubmitting] = useState(false);
@@ -953,27 +957,60 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
   }
 
   async function syncPassiveFromAndroidDevice() {
-    const result = await syncAndroidHealthSnapshots(30);
+    if (isAndroidSyncing) return;
 
-    if (result.status === "unsupported") {
-      showMessage("Health Connect no disponible en este dispositivo.");
-      return;
+    setIsAndroidSyncing(true);
+    showMessage("Sincronizando datos de Health Connect...");
+
+    try {
+      const result = await syncAndroidHealthSnapshots(30);
+
+      if (result.status === "unsupported") {
+        if (result.reason === "HEALTH_CONNECT_PROVIDER_UPDATE_REQUIRED") {
+          const opened = await openAndroidHealthConnectSettings();
+          showMessage(
+            opened
+              ? "Actualiza Health Connect para continuar. Abrimos la app de salud."
+              : "Health Connect necesita una actualizacion para funcionar.",
+          );
+          return;
+        }
+
+        showMessage("Health Connect no esta disponible en este dispositivo.");
+        return;
+      }
+
+      if (result.status === "permissions") {
+        const opened = await openAndroidHealthConnectSettings();
+        showMessage(
+          opened
+            ? "Activa permisos de Health Connect y vuelve a sincronizar."
+            : "Faltan permisos de Health Connect para sincronizar.",
+        );
+        return;
+      }
+
+      if (result.status === "error") {
+        showMessage(
+          `No pudimos sincronizar con Health Connect (${result.reason}).`,
+        );
+        return;
+      }
+
+      if (!result.snapshots.length) {
+        showMessage("Sin datos recientes para sincronizar.");
+        return;
+      }
+
+      await replacePassiveSync(
+        mergePassiveSnapshots(passiveData.snapshots, result.snapshots),
+      );
+      showMessage(
+        `Sincronizacion Android completada (${result.snapshots.length} dias).`,
+      );
+    } finally {
+      setIsAndroidSyncing(false);
     }
-
-    if (result.status === "permissions") {
-      showMessage("Activa permisos de salud para sincronizar.");
-      return;
-    }
-
-    if (!result.snapshots.length) {
-      showMessage("Sin datos recientes para sincronizar.");
-      return;
-    }
-
-    await replacePassiveSync(
-      mergePassiveSnapshots(passiveData.snapshots, result.snapshots),
-    );
-    showMessage("Sincronizacion Android completada.");
   }
 
   const userFoodMap = useMemo(
@@ -1008,7 +1045,7 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
 
   function showMessage(message: string) {
     setActionMessage(message);
-    window.setTimeout(() => setActionMessage(null), 2000);
+    window.setTimeout(() => setActionMessage(null), 3500);
   }
 
   async function persistCheckin(
@@ -1783,6 +1820,7 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
           onSaveSnapshot={savePassiveSnapshot}
           onLoadDemo={replacePassiveSync}
           onSyncDevice={syncPassiveFromAndroidDevice}
+          syncPending={isAndroidSyncing}
           disabled={trackingStatus === "loading"}
         />
       ) : null}
