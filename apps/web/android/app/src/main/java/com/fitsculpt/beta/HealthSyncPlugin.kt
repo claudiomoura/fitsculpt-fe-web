@@ -12,8 +12,8 @@ import com.getcapacitor.JSArray
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
+import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
-import com.getcapacitor.annotation.PluginMethod
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -63,29 +63,32 @@ class HealthSyncPlugin : Plugin() {
   }
 
   @PluginMethod
-  fun requestPermissions(call: PluginCall) {
+  fun getPermissionsStatus(call: PluginCall) {
     val client = getClientOrNull()
     if (client == null) {
       call.reject("HEALTH_CONNECT_UNAVAILABLE")
       return
     }
 
-    CoroutineScope(Dispatchers.Main).launch {
+    CoroutineScope(Dispatchers.IO).launch {
       try {
-        client.permissionController.requestPermissions(requiredPermissions)
         val granted = client.permissionController.getGrantedPermissions()
         val data = JSObject()
         data.put("granted", granted.containsAll(requiredPermissions))
-        call.resolve(data)
+        withContext(Dispatchers.Main) {
+          call.resolve(data)
+        }
       } catch (_: Exception) {
-        call.reject("HEALTH_CONNECT_PERMISSION_FAILED")
+        withContext(Dispatchers.Main) {
+          call.reject("HEALTH_CONNECT_PERMISSION_CHECK_FAILED")
+        }
       }
     }
   }
 
   @PluginMethod
   fun syncLastDays(call: PluginCall) {
-    val days = call.getInt("days", 30).coerceIn(1, 90)
+    val days = (call.getInt("days") ?: 30).coerceIn(1, 90)
     val client = getClientOrNull()
     if (client == null) {
       call.reject("HEALTH_CONNECT_UNAVAILABLE")

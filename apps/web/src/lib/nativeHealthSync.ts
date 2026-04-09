@@ -3,7 +3,7 @@ import type { PassiveHealthSnapshot } from "@/services/tracking";
 
 type HealthSyncPlugin = {
   getSdkStatus: () => Promise<{ sdkStatus: number; isAvailable: boolean }>;
-  requestPermissions: () => Promise<{ granted: boolean }>;
+  getPermissionsStatus: () => Promise<{ granted: boolean }>;
   syncLastDays: (options: { days: number }) => Promise<{ snapshots: PassiveHealthSnapshot[] }>;
 };
 
@@ -25,7 +25,7 @@ export async function syncAndroidHealthSnapshots(days = 30): Promise<NativeHealt
       return { status: "unsupported", reason: "HEALTH_CONNECT_UNAVAILABLE" };
     }
 
-    const granted = await HealthSync.requestPermissions();
+    const granted = await HealthSync.getPermissionsStatus();
     if (!granted.granted) {
       return { status: "permissions", reason: "PERMISSIONS_DENIED" };
     }
