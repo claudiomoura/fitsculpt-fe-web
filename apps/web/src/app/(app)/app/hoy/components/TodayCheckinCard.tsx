@@ -1,7 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Button } from "@/design-system/components/Button";
+import { Button, ButtonLink } from "@/design-system/components/Button";
+
+const weeklyCoachHref = "/app/hoy/weekly-review#weekly-coach-checkin";
 
 type CheckinTrendItem = {
   label: string;
@@ -13,6 +15,7 @@ type TodayCheckinCardProps = {
   previousWeightKg?: number | null;
   goalWeightKg?: number | null;
   checkinDoneThisWeek?: boolean;
+  weeklyCoachCheckInDue?: boolean;
   checkinTrend?: CheckinTrendItem[];
   className?: string;
 };
@@ -32,6 +35,7 @@ export function TodayCheckinCard({
   previousWeightKg = null,
   goalWeightKg = null,
   checkinDoneThisWeek = false,
+  weeklyCoachCheckInDue = false,
   checkinTrend = [],
   className,
 }: TodayCheckinCardProps) {
@@ -176,7 +180,7 @@ export function TodayCheckinCard({
       </div>
 
       {/* Right side - Action */}
-      <div>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "stretch", gap: "12px" }}>
         {checkinDoneThisWeek ? (
           <div
             style={{
@@ -213,6 +217,16 @@ export function TodayCheckinCard({
             Registrar peso
           </Button>
         )}
+
+        {weeklyCoachCheckInDue ? (
+          <p style={{ fontSize: "14px", fontWeight: 600, color: "rgba(234, 179, 8, 0.95)", margin: 0 }}>
+            Check-in semanal pendiente
+          </p>
+        ) : null}
+
+        <ButtonLink href={weeklyCoachHref} variant={weeklyCoachCheckInDue ? "primaryGlow" : "secondary"}>
+          {weeklyCoachCheckInDue ? "Completar check-in semanal" : "Ver check-in semanal"}
+        </ButtonLink>
       </div>
     </article>
   );

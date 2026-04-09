@@ -23,6 +23,7 @@ import { useAuthEntitlements } from "@/hooks/useAuthEntitlements";
 import { trackEvent } from "@/lib/analytics";
 import { differenceInDays, parseDate, toDateKey } from "@/lib/calendar";
 import { canAccessFeature } from "@/lib/entitlements";
+import { parseWeeklyCoachWeeklyStateResponse } from "@/lib/weeklyAdaptiveCoachContracts";
 import type {
   AuthMeResponse,
   NutritionPlanDetail,
@@ -63,6 +64,7 @@ type ModuleStatus = "ready" | "empty" | "error";
 
 type TodaySignals = {
   checkinDoneThisWeek: boolean;
+  weeklyCoachCheckInDue: boolean;
   userName: string;
   subscriptionPlan: string;
   aiTokenBalance: number;
@@ -138,6 +140,7 @@ type TodaySummaryPayload = {
   nutritionDetail?: SummaryEntry | null;
   authMe?: SummaryEntry;
   profile?: SummaryEntry;
+  weeklyCoach?: SummaryEntry | null;
 };
 
 type WorkoutLookupItem = {
@@ -489,6 +492,7 @@ export default function TodayQuickActionsClient() {
   const quickLogHubRef = useRef<QuickLogHubHandle>(null);
   const [signals, setSignals] = useState<TodaySignals>({
     checkinDoneThisWeek: false,
+    weeklyCoachCheckInDue: false,
     userName: "",
     subscriptionPlan: "FREE",
     aiTokenBalance: 0,
@@ -542,6 +546,7 @@ export default function TodayQuickActionsClient() {
       const nutritionDetailSummary = summary.nutritionDetail;
       const authMeSummary = summary.authMe;
       const profileSummary = summary.profile;
+      const weeklyCoachSummary = summary.weeklyCoach;
 
       const trackingResponse = {
         ok: trackingSummary?.ok ?? false,
@@ -572,6 +577,7 @@ export default function TodayQuickActionsClient() {
 
       const nextSignals: TodaySignals = {
         checkinDoneThisWeek: false,
+        weeklyCoachCheckInDue: false,
         userName: "",
         subscriptionPlan: "FREE",
         aiTokenBalance: 0,
@@ -602,6 +608,16 @@ export default function TodayQuickActionsClient() {
         checkinStatus: "empty",
         checkinTrend: [],
       };
+
+      if (weeklyCoachSummary?.ok) {
+        const weeklyCoachState = parseWeeklyCoachWeeklyStateResponse(weeklyCoachSummary.data);
+        if (
+          weeklyCoachState?.featureFlags.weeklyCoachEnabled &&
+          weeklyCoachState.featureFlags.weeklyCheckInEnabled
+        ) {
+          nextSignals.weeklyCoachCheckInDue = weeklyCoachState.checkInDue;
+        }
+      }
 
       let trackingPayload: TrackingPayload = {
         checkins: [],
@@ -1107,7 +1123,8 @@ export default function TodayQuickActionsClient() {
     status === "success" &&
     signals.trainingState === "no-plan" &&
     !signals.nutritionReady &&
-    !signals.checkinDoneThisWeek;
+    !signals.checkinDoneThisWeek &&
+    !signals.weeklyCoachCheckInDue;
   const isDailyProgressComplete = dailyProgressPercent >= 100;
   const trainingMeta =
     signals.trainingState === "workout"
@@ -1408,6 +1425,7 @@ export default function TodayQuickActionsClient() {
               previousWeightKg={signals.previousWeightKg}
               goalWeightKg={signals.goalWeightKg}
               checkinDoneThisWeek={signals.checkinDoneThisWeek}
+              weeklyCoachCheckInDue={signals.weeklyCoachCheckInDue}
               checkinTrend={signals.checkinTrend}
             />
 

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { fetchBackend } from "@/app/api/gyms/_proxy";
+import { buildWeeklyCoachWeeklyState } from "@/lib/weeklyAdaptiveCoachScaffold";
 
 export const dynamic = "force-dynamic";
 
@@ -40,10 +41,25 @@ export async function GET(request: Request) {
 
   const nutritionPlanId = getNutritionPlanId(nutritionList.payload);
   let nutritionDetail: SummaryEntry | null = null;
+  let weeklyCoach: SummaryEntry | null = null;
 
   if (nutritionPlanId) {
     const detailResult = await fetchBackend(`/nutrition-plans/${nutritionPlanId}`, { request });
     nutritionDetail = toEntry(detailResult.status, detailResult.payload);
+  }
+
+  if (profile.status >= 200 && profile.status < 300) {
+    try {
+      weeklyCoach = toEntry(
+        200,
+        buildWeeklyCoachWeeklyState({
+          profilePayload: profile.payload,
+          trackingPayload: tracking.status >= 200 && tracking.status < 300 ? tracking.payload : undefined,
+        }),
+      );
+    } catch {
+      weeklyCoach = toEntry(502, null);
+    }
   }
 
   return NextResponse.json(
@@ -54,6 +70,7 @@ export async function GET(request: Request) {
       nutritionDetail,
       authMe: toEntry(authMe.status, authMe.payload),
       profile: toEntry(profile.status, profile.payload),
+      weeklyCoach,
     },
     { status: 200 },
   );

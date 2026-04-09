@@ -103,7 +103,7 @@ describe("WeeklyCoachCheckInCard", () => {
     render(<WeeklyCoachCheckInCard />);
 
     expect(screen.getByLabelText("Loading weekly coach check-in")).toBeInTheDocument();
-    expect(await screen.findByTestId("weekly-coach-checkin-card")).toBeInTheDocument();
+    expect(await screen.findByTestId("weekly-coach-checkin-card")).toHaveAttribute("id", "weekly-coach-checkin");
 
     fireEvent.change(screen.getByLabelText("Sessions completed"), { target: { value: "3" } });
     fireEvent.change(screen.getByLabelText("Current weight (kg)"), { target: { value: "79.8" } });
@@ -122,6 +122,12 @@ describe("WeeklyCoachCheckInCard", () => {
     });
 
     expect(await screen.findByText(/Weekly check-in submitted/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Keep following the current weekly plan\. Adaptation is not enabled for this account yet\./i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Your check-in has been recorded and no automatic changes were applied\./i),
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Already submitted" })).toBeDisabled();
   });
 

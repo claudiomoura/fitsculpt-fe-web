@@ -22,6 +22,13 @@ import {
 type LoadStatus = "loading" | "ready" | "error";
 type ActionStatus = "idle" | "saving" | "submitting";
 
+type SubmittedDecisionSurface = {
+  title: string;
+  body: string;
+  detail: string;
+  tone: "success" | "warning";
+};
+
 type FormState = {
   trainingSessionsCompleted: string;
   trainingSessionsPlanned: string;
@@ -215,6 +222,41 @@ function formatError(message?: string): string {
   return message?.trim() || "Unable to load the weekly check-in scaffold right now.";
 }
 
+function getSubmittedDecisionSurface(
+  weeklyState: WeeklyCoachWeeklyStateResponse,
+  draft: WeeklyCoachCheckInDraftResponse,
+): SubmittedDecisionSurface | null {
+  if (draft.checkInState !== "submitted") {
+    return null;
+  }
+
+  if (!weeklyState.featureFlags.adaptationEnabled) {
+    return {
+      title: "Current decision",
+      body: "Keep following the current weekly plan. Adaptation is not enabled for this account yet.",
+      detail: "Your check-in has been recorded and no automatic changes were applied.",
+      tone: "warning",
+    };
+  }
+
+  const latestAdaptationSummary = weeklyState.latestAdaptationSummary?.trim();
+  if (!latestAdaptationSummary) {
+    return {
+      title: "Current decision",
+      body: "Keep following the current weekly plan until a coach adaptation is available.",
+      detail: "This result is still scaffolded, so there are no plan changes to review yet.",
+      tone: "warning",
+    };
+  }
+
+  return {
+    title: "Current decision",
+    body: latestAdaptationSummary,
+    detail: "Keep following the current plan unless this summary says otherwise.",
+    tone: "success",
+  };
+}
+
 export default function WeeklyCoachCheckInCard() {
   const [loadStatus, setLoadStatus] = useState<LoadStatus>("loading");
   const [actionStatus, setActionStatus] = useState<ActionStatus>("idle");
@@ -325,6 +367,7 @@ export default function WeeklyCoachCheckInCard() {
   const submitPayload = buildSubmitPayload(form);
   const isSubmitted = draft.checkInState === "submitted";
   const isBusy = actionStatus !== "idle";
+  const submittedDecisionSurface = getSubmittedDecisionSurface(weeklyState, draft);
 
   async function handleSaveDraft() {
     if (!form) return;
@@ -368,12 +411,23 @@ export default function WeeklyCoachCheckInCard() {
 
     setDraft(result.data);
     setForm(createFormState(result.data));
+    setWeeklyState((current) => current ? {
+      ...current,
+      loopState: "check_in_submitted",
+      nextAction: "await_adaptation_generation",
+      checkInDue: false,
+    } : current);
     setActionStatus("idle");
     setActionMessage("Weekly check-in submitted. Adaptation remains scaffolded until the next slice lands.");
   }
 
   return (
-    <section className="card form-stack" data-testid="weekly-coach-checkin-card">
+    <section
+      id="weekly-coach-checkin"
+      className="card form-stack"
+      data-testid="weekly-coach-checkin-card"
+      style={{ scrollMarginTop: 24 }}
+    >
       <div className="form-stack">
         <div>
           <h2 className="section-title">Weekly coach check-in</h2>
@@ -529,6 +583,16 @@ export default function WeeklyCoachCheckInCard() {
         {actionMessage ? (
           <div className="status-card status-card--success" role="status" aria-live="polite">
             <p className="muted m-0">{actionMessage}</p>
+          </div>
+        ) : null}
+        {submittedDecisionSurface ? (
+          <div
+            className={`status-card ${submittedDecisionSurface.tone === "warning" ? "status-card--warning" : "status-card--success"}`}
+            role="status"
+            aria-live="polite"
+          >
+            <p className="m-0"><strong>{submittedDecisionSurface.title}:</strong> {submittedDecisionSurface.body}</p>
+            <p className="muted m-0 mt-2">{submittedDecisionSurface.detail}</p>
           </div>
         ) : null}
 
