@@ -35,11 +35,24 @@ const normalizedLegacySnapshot = normalizeTrackingSnapshot({
   checkins: [{ id: "legacy-1", date: "2026-02-20", weightKg: "81.2" }],
   workoutLog: [{ id: "workout-legacy", date: "2026-02-20", name: "Upper body" }],
   mealLog: [{ id: "meal-legacy", date: "2026-02-20", title: "Almuerzo", mealKey: "meal-legacy" }],
+  weeklyCoach: {
+    checkIns: {
+      "weekly_coach_2026-02-16": {
+        checkInState: "draft",
+        updatedAt: "2026-02-20T10:00:00.000Z",
+      },
+    },
+  },
 });
 trackingSchema.parse(normalizedLegacySnapshot);
 assert.equal(normalizedLegacySnapshot.checkins[0]?.notes, "", "legacy checkins should receive safe default strings");
 assert.equal(normalizedLegacySnapshot.mealLog[0]?.completedAt, "2026-02-20T00:00:00.000Z", "legacy meal log should receive a stable completion timestamp");
 assert.equal(normalizedLegacySnapshot.passiveData.lastSyncAt, null, "legacy tracking should normalize passive data safely");
+assert.equal(
+  normalizedLegacySnapshot.weeklyCoach?.checkIns["weekly_coach_2026-02-16"] && typeof normalizedLegacySnapshot.weeklyCoach.checkIns["weekly_coach_2026-02-16"],
+  "object",
+  "weekly coach check-in ownership should survive tracking normalization",
+);
 
 const updatePayload = trackingEntryCreateSchema.parse({
   collection: "checkins",
@@ -71,9 +84,14 @@ const mealPayload = trackingEntryCreateSchema.parse({
     completedAt: "2026-02-22T10:00:00.000Z",
   },
 });
-const snapshotAfterMeal = upsertTrackingEntry(snapshotAfterUpdate, mealPayload);
-assert.equal(snapshotAfterMeal.mealLog.length, 1, "meal log entry should persist in tracking");
+const snapshotAfterMeal = upsertTrackingEntry(normalizedLegacySnapshot, mealPayload);
+assert.equal(snapshotAfterMeal.mealLog.length, 2, "meal log entry should append without dropping legacy entries");
 trackingSchema.parse(snapshotAfterMeal);
+assert.deepEqual(
+  snapshotAfterMeal.weeklyCoach,
+  normalizedLegacySnapshot.weeklyCoach,
+  "collection upserts should preserve unrelated weekly coach ownership",
+);
 assert.equal(responseBody.foodLog.length, 0, "response should include non-written collections");
 assert.equal(responseBody.workoutLog.length, 0, "response should include non-written collections");
 assert.equal(responseBody.mealLog.length, 0, "response should include meal log collection");

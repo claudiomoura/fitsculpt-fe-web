@@ -25,7 +25,82 @@
 
 .trackingPageContent {
   display: grid;
-  gap: 14px;
+  gap: 16px;
+  padding-bottom: 8px;
+}
+
+.summaryIntro {
+  display: grid;
+  gap: 16px;
+}
+
+.summaryHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.summaryHeaderCopy {
+  display: grid;
+  gap: 8px;
+}
+
+.summaryHeaderMeta {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+}
+
+.summaryKpiGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.summaryKpiCard {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 78%, transparent);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--bg-card) 88%, transparent);
+}
+
+.summaryKpiValue {
+  font-size: clamp(1.15rem, 3vw, 1.6rem);
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.summaryInsightCard {
+  display: grid;
+  gap: 8px;
+  padding: 16px 18px;
+  border-radius: 20px;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 26%, var(--surface-border-default));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 10%, var(--bg-card)), color-mix(in srgb, var(--surface-secondary-bg) 85%, transparent));
+}
+
+.summaryInsightHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.summaryInsightChip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-primary) 16%, transparent);
+  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 600;
 }
 
 .checkinOnlyBody {
@@ -104,6 +179,83 @@
   gap: 16px;
 }
 
+.advancedSection {
+  display: grid;
+  gap: 10px;
+}
+
+.advancedDisclosure {
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 78%, transparent);
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--bg-card) 92%, transparent);
+  overflow: hidden;
+}
+
+.advancedDisclosure summary {
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 18px;
+  cursor: pointer;
+  background: color-mix(in srgb, var(--surface-secondary-bg) 58%, transparent);
+}
+
+.advancedDisclosure summary::-webkit-details-marker {
+  display: none;
+}
+
+.advancedDisclosureBody {
+  display: grid;
+  gap: 12px;
+  padding: 14px 18px 18px;
+  border-top: 1px solid
+    color-mix(in srgb, var(--surface-border-default) 72%, transparent);
+}
+
+.advancedDisclosureTitle {
+  display: grid;
+  gap: 4px;
+}
+
+.advancedDisclosureTitle :global(.muted) {
+  font-size: 0.86rem;
+}
+
+.advancedDisclosureIndicator {
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  border: 1px solid
+    color-mix(in srgb, var(--surface-border-default) 70%, transparent);
+  background: color-mix(in srgb, var(--bg-card) 84%, transparent);
+  padding: 5px 10px;
+}
+
+.stickyPrimaryCta {
+  position: sticky;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+  z-index: 5;
+  padding: 10px 4px 0;
+  margin-top: -4px;
+  background: linear-gradient(
+    180deg,
+    transparent,
+    color-mix(in srgb, var(--surface-app-bg) 92%, transparent) 35%
+  );
+}
+
+.stickyPrimaryCtaButton {
+  width: 100%;
+  min-height: 50px;
+  justify-content: center;
+  box-shadow: var(--shadow-lg);
+}
+
 .trackingOverviewCard {
   display: grid;
   gap: 18px;
@@ -164,6 +316,14 @@
 
   .heroPrimaryAction {
     width: auto;
+  }
+
+  .summaryKpiGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .stickyPrimaryCta {
+    display: none;
   }
 }
 
@@ -296,6 +456,11 @@
 
 
 @media (max-width: 640px) {
+  .trackingPageContent {
+    gap: 14px;
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 72px);
+  }
+
   .heroCard {
     padding: 16px;
     border-radius: 20px;
@@ -303,6 +468,14 @@
 
   .heroHeader {
     gap: 16px;
+  }
+
+  .summaryHeader {
+    gap: 14px;
+  }
+
+  .summaryHeaderMeta {
+    width: 100%;
   }
 
   .segmentedControl,
@@ -321,13 +494,17 @@
     grid-template-columns: 1fr;
   }
 
+  .summaryKpiGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+
   .overviewGrid {
     gap: 14px;
   }
 
   .trackingOverviewCard,
   .checkinShell {
-    padding: 16px;
+    padding: 15px;
     border-radius: 24px;
   }
 
@@ -354,6 +531,18 @@
   .checkinModeCard {
     padding: 18px;
     border-radius: 20px;
+  }
+
+  .heroPrimaryActionWrap {
+    display: none;
+  }
+
+  .advancedDisclosure summary {
+    padding: 14px 14px;
+  }
+
+  .advancedDisclosureBody {
+    padding: 12px 14px 14px;
   }
 
   .checkinFormGrid {

@@ -84,6 +84,10 @@ export const passiveHealthDataSchema = z.object({
   lastSyncSource: passiveHealthSourceSchema.nullable(),
 });
 
+export const weeklyCoachTrackingSchema = z.object({
+  checkIns: z.record(z.string().min(1), z.unknown()),
+});
+
 export const trackingSchema = z.object({
   checkins: z.array(checkinSchema),
   foodLog: z.array(foodEntrySchema),
@@ -94,6 +98,7 @@ export const trackingSchema = z.object({
     lastSyncAt: null,
     lastSyncSource: null,
   }),
+  weeklyCoach: weeklyCoachTrackingSchema.optional(),
 });
 
 export const trackingDeleteSchema = z.object({
@@ -120,6 +125,7 @@ export type MealLogEntry = z.infer<typeof mealLogEntrySchema>;
 export type PassiveHealthSource = z.infer<typeof passiveHealthSourceSchema>;
 export type PassiveHealthSnapshot = z.infer<typeof passiveHealthSnapshotSchema>;
 export type PassiveHealthData = z.infer<typeof passiveHealthDataSchema>;
+export type WeeklyCoachTrackingState = z.infer<typeof weeklyCoachTrackingSchema>;
 export type TrackingSnapshot = z.infer<typeof trackingSchema>;
 export type TrackingEntryCreateInput = z.infer<typeof trackingEntryCreateSchema>;
 

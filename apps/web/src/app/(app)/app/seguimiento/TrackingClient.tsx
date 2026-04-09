@@ -63,6 +63,7 @@ import {
 import { fetchAuthMe } from "@/lib/authDedup";
 import {
   openAndroidHealthConnectSettings,
+  isAndroidHealthSyncAvailable,
   syncAndroidHealthSnapshots,
 } from "@/lib/nativeHealthSync";
 import styles from "./TrackingClient.module.css";
@@ -429,7 +430,10 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
     brand: "",
   });
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [isAndroidDevice, setIsAndroidDevice] = useState(false);
   const [isAndroidSyncing, setIsAndroidSyncing] = useState(false);
+  const [isAdvancedAnalysisOpen, setIsAdvancedAnalysisOpen] = useState(false);
+  const [isPassiveDetailsOpen, setIsPassiveDetailsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isEnergySubmitting, setIsEnergySubmitting] = useState(false);
@@ -522,6 +526,10 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
   useEffect(() => {
     localStorage.setItem(CHECKIN_MODE_KEY, checkinMode);
   }, [checkinMode]);
+
+  useEffect(() => {
+    setIsAndroidDevice(isAndroidHealthSyncAvailable());
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -960,7 +968,7 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
     if (isAndroidSyncing) return;
 
     setIsAndroidSyncing(true);
-    showMessage("Sincronizando datos de Health Connect...");
+    showMessage(t("tracking.syncAndroidStarting"));
 
     try {
       const result = await syncAndroidHealthSnapshots(30);
@@ -970,13 +978,13 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
           const opened = await openAndroidHealthConnectSettings();
           showMessage(
             opened
-              ? "Actualiza Health Connect para continuar. Abrimos la app de salud."
-              : "Health Connect necesita una actualizacion para funcionar.",
+              ? t("tracking.syncAndroidUpdateOpened")
+              : t("tracking.syncAndroidUpdateRequired"),
           );
           return;
         }
 
-        showMessage("Health Connect no esta disponible en este dispositivo.");
+        showMessage(t("tracking.syncAndroidUnavailable"));
         return;
       }
 
@@ -984,21 +992,19 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
         const opened = await openAndroidHealthConnectSettings();
         showMessage(
           opened
-            ? "Activa permisos de Health Connect y vuelve a sincronizar."
-            : "Faltan permisos de Health Connect para sincronizar.",
+            ? t("tracking.syncAndroidPermissionsOpened")
+            : t("tracking.syncAndroidPermissionsRequired"),
         );
         return;
       }
 
       if (result.status === "error") {
-        showMessage(
-          `No pudimos sincronizar con Health Connect (${result.reason}).`,
-        );
+        showMessage(t("tracking.syncAndroidError", { reason: result.reason }));
         return;
       }
 
       if (!result.snapshots.length) {
-        showMessage("Sin datos recientes para sincronizar.");
+        showMessage(t("tracking.syncAndroidNoRecentData"));
         return;
       }
 
@@ -1006,7 +1012,9 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
         mergePassiveSnapshots(passiveData.snapshots, result.snapshots),
       );
       showMessage(
-        `Sincronizacion Android completada (${result.snapshots.length} dias).`,
+        t("tracking.syncAndroidSuccess", {
+          days: result.snapshots.length,
+        }),
       );
     } finally {
       setIsAndroidSyncing(false);
@@ -1361,45 +1369,6 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
       profile.trainingPreferences.daysPerWeek,
     ],
   );
-
-  if (isTrackingLoading && !trackingLoaded) {
-    return (
-      <div
-        className={
-          isCheckinOnly
-            ? `${styles.checkinOnlyBody} nutrition-page-shell`
-            : styles.trackingPageContent
-        }
-        data-testid="tracking-page-loading"
-      >
-        <LoadingState title={t("profile.checkinTitle")} ariaLabel={t("ui.loading")} lines={4} />
-      </div>
-    );
-  }
-
-  if (isTrackingError && !trackingLoaded) {
-    return (
-      <div
-        className={
-          isCheckinOnly
-            ? `${styles.checkinOnlyBody} nutrition-page-shell`
-            : styles.trackingPageContent
-        }
-        data-testid="tracking-page-error"
-      >
-        <ErrorState
-          title={t("tracking.errorTitle")}
-          description={t("dashboard.chartError")}
-          retryLabel={t("common.retry")}
-          onRetry={() => {
-            void refreshTrackingData({ showLoading: true, showError: true });
-          }}
-          wrapInCard
-        />
-      </div>
-    );
-  }
-
   const formatEntryDate = (value: string) => {
     const parsed = new Date(value);
     if (Number.isNaN(parsed.getTime())) return value;
@@ -1492,6 +1461,131 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
     Math.round((trainingSessions / targetSessionsForRange) * 100),
   );
   const workoutsRecent = workoutsInRange.slice(0, 5);
+  const summaryKpis = useMemo(
+    () => [
+      {
+        id: "weight",
+        label: t("tracking.latestWeightTitle"),
+        value: rangeLatestCheckin
+          ? `${rangeLatestCheckin.weightKg.toFixed(1)} ${t("units.kilograms")}`
+          : "—",
+        detail: latestCheckin
+          ? formatEntryDate(latestCheckin.date)
+          : t("tracking.latestWeightEmpty"),
+      },
+      {
+        id: "delta",
+        label: t("tracking.weightHistoryTitle"),
+        value:
+          rangeWeightDelta === null
+            ? "—"
+            : `${rangeWeightDelta > 0 ? "+" : ""}${rangeWeightDelta.toFixed(1)} ${t("units.kilograms")}`,
+        detail: t("tracking.summaryRangeDetail", { days: rangeDays }),
+      },
+      {
+        id: "nutrition",
+        label: t("tracking.progressComplianceTitle"),
+        value: `${nutritionLoggingAdherence}%`,
+        detail: `${nutritionDaysLogged}/${rangeDays} ${t("tracking.progressDaysLogged").toLowerCase()}`,
+      },
+      {
+        id: "training",
+        label: t("tracking.progressSessions"),
+        value: String(trainingSessions),
+        detail: `${trainingMinutes} min`,
+      },
+    ],
+    [
+      formatEntryDate,
+      latestCheckin,
+      nutritionDaysLogged,
+      nutritionLoggingAdherence,
+      rangeDays,
+      rangeLatestCheckin,
+      rangeWeightDelta,
+      t,
+      trainingMinutes,
+      trainingSessions,
+    ],
+  );
+  const primaryInsight = useMemo(() => {
+    if (progressInsightTab === "nutrition") {
+      if (nutritionDaysLogged === 0) {
+        return {
+          title: t("tracking.progressTabNutrition"),
+          chip: t("tracking.progressComplianceTitle"),
+          body: t("tracking.mealEmpty"),
+        };
+      }
+
+      if (
+        nutritionProteinTargetAdherence !== null &&
+        nutritionProteinTargetAdherence < 70
+      ) {
+        return {
+          title: t("tracking.progressTabNutrition"),
+          chip: `${nutritionProteinTargetAdherence}% ${t("tracking.progressProteinTargetLabel").toLowerCase()}`,
+          body: t("tracking.primaryInsightNutritionProtein"),
+        };
+      }
+
+      return {
+        title: t("tracking.progressTabNutrition"),
+        chip: `${nutritionLoggingAdherence}% ${t("tracking.progressLoggingLabel").toLowerCase()}`,
+        body: t("tracking.primaryInsightNutritionLogging"),
+      };
+    }
+
+    if (progressInsightTab === "training") {
+      if (trainingSessions === 0) {
+        return {
+          title: t("tracking.progressTabTraining"),
+          chip: t("tracking.progressSessionTarget"),
+          body: t("tracking.workoutEmpty"),
+        };
+      }
+
+      return {
+        title: t("tracking.progressTabTraining"),
+        chip: `${trainingConsistency}% ${t("tracking.progressConsistency").toLowerCase()}`,
+        body:
+          trainingSessions >= targetSessions
+            ? t("tracking.primaryInsightTrainingOnTrack")
+            : t("tracking.primaryInsightTrainingCatchUp", {
+                remaining: Math.max(0, targetSessions - trainingSessions),
+              }),
+      };
+    }
+
+    const topAlert = professionalInsights.alerts[0];
+    if (topAlert) {
+      return {
+        title: t("tracking.progressTabCheckin"),
+        chip: t("tracking.primaryInsightCoachChip"),
+        body: topAlert.detail,
+      };
+    }
+
+    return {
+      title: t("tracking.progressTabCheckin"),
+      chip: `${professionalInsights.combinedAdherencePct}% ${t("tracking.progressConsistency").toLowerCase()}`,
+      body: latestCheckin
+        ? buildRecommendation(latestCheckin.weightKg)
+        : t("tracking.latestWeightEmpty"),
+    };
+  }, [
+    latestCheckin,
+    nutritionDaysLogged,
+    nutritionLoggingAdherence,
+    nutritionProteinTargetAdherence,
+    professionalInsights.alerts,
+    professionalInsights.combinedAdherencePct,
+    progressInsightTab,
+    t,
+    targetSessions,
+    trainingConsistency,
+    trainingSessions,
+  ]);
 
   const checkinTrendData = buildWeightTrendData(
     checkinChart.map((point) => ({ date: point.date, weightKg: point.weight })),
@@ -1510,6 +1604,44 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
     rangeDays,
     formatEntryDate,
   );
+
+  if (isTrackingLoading && !trackingLoaded) {
+    return (
+      <div
+        className={
+          isCheckinOnly
+            ? `${styles.checkinOnlyBody} nutrition-page-shell`
+            : styles.trackingPageContent
+        }
+        data-testid="tracking-page-loading"
+      >
+        <LoadingState title={t("profile.checkinTitle")} ariaLabel={t("ui.loading")} lines={4} />
+      </div>
+    );
+  }
+
+  if (isTrackingError && !trackingLoaded) {
+    return (
+      <div
+        className={
+          isCheckinOnly
+            ? `${styles.checkinOnlyBody} nutrition-page-shell`
+            : styles.trackingPageContent
+        }
+        data-testid="tracking-page-error"
+      >
+        <ErrorState
+          title={t("tracking.errorTitle")}
+          description={t("dashboard.chartError")}
+          retryLabel={t("common.retry")}
+          onRetry={() => {
+            void refreshTrackingData({ showLoading: true, showError: true });
+          }}
+          wrapInCard
+        />
+      </div>
+    );
+  }
 
   async function addQuickWeightEntry(e: React.FormEvent) {
     e.preventDefault();
@@ -1750,79 +1882,79 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
       )}
       {!isCheckinOnly ? (
         <section
-          className={`card premium-surface-card surface-content-card ${styles.heroCard} ${styles.quickCheckinHero}`}
+          id="weight-entry"
+          className={`card premium-surface-card surface-content-card ${styles.heroCard} ${styles.quickCheckinHero} ${styles.summaryIntro}`}
         >
-          <div className={styles.heroHeader}>
-            <div>
-              <h2 className="section-title m-0">{t("profile.checkinTitle")}</h2>
-              <p className="section-subtitle m-0">
-                {t("tracking.weightEntrySubtitle")}
-              </p>
+          <div className={styles.summaryHeader}>
+            <div className={styles.summaryHeaderCopy}>
+              <p className="eyebrow m-0">{t("tracking.pageEyebrow")}</p>
+              <div>
+                <h1 className="section-title m-0">{t("tracking.pageTitle")}</h1>
+                <p className="section-subtitle m-0">{t("tracking.pageSubtitle")}</p>
+              </div>
             </div>
-            <div className={styles.heroPrimaryActionWrap}>
-              <button
-                type="button"
-                className={`btn ${styles.heroPrimaryAction}`}
-                onClick={() => router.push("/app/seguimiento/check-in")}
+            <div className={styles.summaryHeaderMeta}>
+              <div
+                className={styles.segmentedControl}
+                role="tablist"
+                aria-label={t("tracking.rangeLabel")}
               >
-                {t("today.checkinPrimaryCta")}
-              </button>
+                {(
+                  [
+                    { id: "7", label: t("tracking.rangeWeek") },
+                    { id: "30", label: t("tracking.rangeMonth") },
+                    { id: "90", label: t("tracking.rangeQuarter") },
+                  ] as const
+                ).map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    className={`${styles.segmentedButton} ${progressRange === option.id ? styles.segmentedButtonActive : ""}`}
+                    onClick={() => setProgressRange(option.id)}
+                    role="tab"
+                    aria-selected={progressRange === option.id}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+              <div className={styles.heroPrimaryActionWrap}>
+                <button
+                  type="button"
+                  className={`btn ${styles.heroPrimaryAction}`}
+                  onClick={() => router.push("/app/seguimiento/check-in")}
+                >
+                  {t("today.checkinPrimaryCta")}
+                </button>
+              </div>
             </div>
           </div>
 
-          {latestCheckin ? (
-            <div className={styles.checkinLatestPill}>
-              <span className="muted">{t("tracking.latestWeightTitle")}</span>
-              <strong>
-                {latestCheckin.weightKg.toFixed(1)} {t("units.kilograms")}
-              </strong>
+          <section className={styles.summaryKpiGrid} aria-label={t("tracking.summaryTitle")}>
+            {summaryKpis.map((metric) => (
+              <article key={metric.id} className={styles.summaryKpiCard}>
+                <p className="muted m-0">{metric.label}</p>
+                <strong className={styles.summaryKpiValue}>{metric.value}</strong>
+                <span className="muted">{metric.detail}</span>
+              </article>
+            ))}
+          </section>
+
+          <section className={styles.summaryInsightCard} aria-label={t("tracking.primaryInsightTitle")}>
+            <div className={styles.summaryInsightHeader}>
+              <div>
+                <p className="muted m-0">{t("tracking.primaryInsightTitle")}</p>
+                <h2 className="section-title section-title-sm m-0">{primaryInsight.title}</h2>
+              </div>
+              <span className={styles.summaryInsightChip}>{primaryInsight.chip}</span>
             </div>
-          ) : (
-            <p className="muted m-0">{t("tracking.latestWeightEmpty")}</p>
-          )}
+            <p className="m-0">{primaryInsight.body}</p>
+          </section>
 
           <Link className={styles.heroSecondaryLink} href="/app/weekly-review">
             {t("nav.weeklyReview")}
           </Link>
-
-          <div
-            className={styles.segmentedControl}
-            role="tablist"
-            aria-label="Rango"
-          >
-            {(
-              [
-                { id: "7", label: "Semana" },
-                { id: "30", label: "Mes" },
-                { id: "90", label: "3 meses" },
-              ] as const
-            ).map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                className={`${styles.segmentedButton} ${progressRange === option.id ? styles.segmentedButtonActive : ""}`}
-                onClick={() => setProgressRange(option.id)}
-                role="tab"
-                aria-selected={progressRange === option.id}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
         </section>
-      ) : null}
-
-      {!isCheckinOnly ? (
-        <PassiveHealthSummaryCard
-          passiveData={passiveData}
-          overview={passiveOverview}
-          endDate={passiveRangeEnd}
-          onSaveSnapshot={savePassiveSnapshot}
-          onLoadDemo={replacePassiveSync}
-          onSyncDevice={syncPassiveFromAndroidDevice}
-          syncPending={isAndroidSyncing}
-          disabled={trackingStatus === "loading"}
-        />
       ) : null}
 
       {!isCheckinOnly ? (
@@ -2020,7 +2152,6 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
                   </section>
                 </aside>
               </div>
-              <TrackingProfessionalInsights insights={professionalInsights} />
             </div>
           ) : null}
 
@@ -2362,10 +2493,82 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
         </section>
       ) : null}
 
+      {!isCheckinOnly ? (
+        <section className={styles.advancedSection} aria-label={t("tracking.advancedTitle")}>
+          <details
+            className={styles.advancedDisclosure}
+            onToggle={(event) =>
+              setIsAdvancedAnalysisOpen(
+                (event.currentTarget as HTMLDetailsElement).open,
+              )
+            }
+          >
+            <summary>
+              <div className={styles.advancedDisclosureTitle}>
+                <strong>{t("tracking.advancedAnalysisTitle")}</strong>
+                <span className="muted">{t("tracking.advancedAnalysisSubtitle")}</span>
+                <span className="muted">{t("tracking.advancedAnalysisSummary")}</span>
+              </div>
+              <span className={styles.advancedDisclosureIndicator}>
+                {isAdvancedAnalysisOpen ? t("ui.showLess") : t("ui.viewAll")}
+              </span>
+            </summary>
+            <div className={styles.advancedDisclosureBody}>
+              <TrackingProfessionalInsights insights={professionalInsights} />
+            </div>
+          </details>
+
+          <details
+            className={styles.advancedDisclosure}
+            onToggle={(event) =>
+              setIsPassiveDetailsOpen(
+                (event.currentTarget as HTMLDetailsElement).open,
+              )
+            }
+          >
+            <summary>
+              <div className={styles.advancedDisclosureTitle}>
+                <strong>{t("tracking.advancedPassiveTitle")}</strong>
+                <span className="muted">{t("tracking.advancedPassiveSubtitle")}</span>
+                <span className="muted">{t("tracking.advancedPassiveSummary")}</span>
+              </div>
+              <span className={styles.advancedDisclosureIndicator}>
+                {isPassiveDetailsOpen ? t("ui.showLess") : t("ui.viewAll")}
+              </span>
+            </summary>
+            <div className={styles.advancedDisclosureBody}>
+              <PassiveHealthSummaryCard
+                passiveData={passiveData}
+                overview={passiveOverview}
+                endDate={passiveRangeEnd}
+                onSaveSnapshot={savePassiveSnapshot}
+                onLoadDemo={replacePassiveSync}
+                onSyncDevice={isAndroidDevice ? syncPassiveFromAndroidDevice : undefined}
+                showDeviceSyncCta={isAndroidDevice}
+                syncPending={isAndroidSyncing}
+                disabled={trackingStatus === "loading"}
+              />
+            </div>
+          </details>
+        </section>
+      ) : null}
+
+      {!isCheckinOnly ? (
+        <div className={styles.stickyPrimaryCta}>
+          <button
+            type="button"
+            className={`btn ${styles.stickyPrimaryCtaButton}`}
+            onClick={() => router.push("/app/seguimiento/check-in")}
+          >
+            {t("today.checkinPrimaryCta")}
+          </button>
+        </div>
+      ) : null}
+
       {isCheckinOnly ? (
         <section
           className={`${styles.checkinShell} premium-fade-up`}
-          id="checkin-entry"
+          id="weight-entry"
         >
           <div className="flex justify-end">
             <button type="button" className="btn secondary fit-content" onClick={() => router.back()}>{t("ui.close")}</button>

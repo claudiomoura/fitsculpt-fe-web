@@ -43,6 +43,10 @@ export async function openAndroidHealthConnectSettings(): Promise<boolean> {
   }
 }
 
+export function isAndroidHealthSyncAvailable(): boolean {
+  return Capacitor.getPlatform() === "android";
+}
+
 export async function syncAndroidHealthSnapshots(days = 30): Promise<NativeHealthSyncResult> {
   if (Capacitor.getPlatform() !== "android") {
     return { status: "unsupported", reason: "ANDROID_ONLY" };

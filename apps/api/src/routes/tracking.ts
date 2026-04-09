@@ -52,16 +52,22 @@ export function registerTrackingRoutes(
     try {
       const user = await deps.requireUser(request);
       const currentProfile = await deps.getOrCreateProfile(user.id);
+      const currentTracking = normalizeTrackingSnapshot(currentProfile.tracking);
       const normalizedBody = normalizeTrackingSnapshot(request.body);
       const hasPassiveData =
         typeof request.body === "object" &&
         request.body !== null &&
         Object.prototype.hasOwnProperty.call(request.body, "passiveData");
+      const hasWeeklyCoach =
+        typeof request.body === "object" &&
+        request.body !== null &&
+        Object.prototype.hasOwnProperty.call(request.body, "weeklyCoach");
       const data = trackingSchema.parse({
         ...normalizedBody,
         passiveData: hasPassiveData
           ? normalizedBody.passiveData
-          : normalizeTrackingSnapshot(currentProfile.tracking).passiveData,
+          : currentTracking.passiveData,
+        weeklyCoach: hasWeeklyCoach ? normalizedBody.weeklyCoach : currentTracking.weeklyCoach,
       });
       const updated = await deps.prisma.userProfile.upsert({
         where: { userId: user.id },

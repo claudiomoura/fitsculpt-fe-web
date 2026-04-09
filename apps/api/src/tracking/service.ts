@@ -8,6 +8,7 @@ import type {
   TrackingCollection,
   TrackingEntryCreateInput,
   TrackingSnapshot,
+  WeeklyCoachTrackingState,
   WorkoutEntry,
 } from "./schemas.js";
 import { defaultTracking } from "./schemas.js";
@@ -173,6 +174,18 @@ export function normalizePassiveHealthData(value: unknown): PassiveHealthData {
   };
 }
 
+function normalizeWeeklyCoachTrackingState(value: unknown): WeeklyCoachTrackingState | undefined {
+  if (!isRecord(value) || !isRecord(value.checkIns)) {
+    return undefined;
+  }
+
+  const checkIns = Object.fromEntries(
+    Object.entries(value.checkIns).filter(([planWeekId]) => typeof planWeekId === "string" && planWeekId.trim().length > 0),
+  );
+
+  return { checkIns };
+}
+
 function normalizeCollection<T>(value: unknown, normalizeEntry: (entry: unknown, index: number) => T | null): T[] {
   if (!Array.isArray(value)) return [];
   return value.reduce<T[]>((acc, entry, index) => {
@@ -190,12 +203,15 @@ export function normalizeTrackingSnapshot(value: unknown): TrackingSnapshot {
   }
 
   const source = value as Partial<Record<TrackingCollection | "passiveData", unknown>>;
+  const weeklyCoach = normalizeWeeklyCoachTrackingState((value as { weeklyCoach?: unknown }).weeklyCoach);
+
   return {
     checkins: normalizeCollection(source.checkins, normalizeCheckinEntry),
     foodLog: normalizeCollection(source.foodLog, normalizeFoodEntry),
     workoutLog: normalizeCollection(source.workoutLog, normalizeWorkoutEntry),
     mealLog: normalizeCollection(source.mealLog, normalizeMealLogEntry),
     passiveData: normalizePassiveHealthData(source.passiveData),
+    ...(weeklyCoach ? { weeklyCoach } : {}),
   };
 }
 
