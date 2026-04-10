@@ -120,6 +120,23 @@ class HealthSyncPlugin : Plugin() {
     }
 
     try {
+      val appPermissionsIntent = Intent("androidx.health.ACTION_MANAGE_HEALTH_PERMISSIONS")
+      appPermissionsIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+      appPermissionsIntent.putExtra("androidx.health.extra.PACKAGE_NAME", currentContext.packageName)
+      appPermissionsIntent.putExtra("androidx.health.connect.extra.PACKAGE_NAME", currentContext.packageName)
+      appPermissionsIntent.putExtra("androidx.health.connect.extra.APP_PACKAGE_NAME", currentContext.packageName)
+      currentActivity.startActivity(appPermissionsIntent)
+
+      val data = JSObject()
+      data.put("opened", true)
+      data.put("destination", "app_permissions")
+      call.resolve(data)
+      return
+    } catch (_: Exception) {
+      // Fall through to general Health Connect settings.
+    }
+
+    try {
       val healthIntent = Intent("androidx.health.ACTION_HEALTH_CONNECT_SETTINGS")
       healthIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
       currentActivity.startActivity(healthIntent)
