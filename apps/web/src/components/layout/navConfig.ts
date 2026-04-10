@@ -94,7 +94,6 @@ export const mainTabsMobile: MobileTab[] = [
   },
   { id: "tracking", href: "/app/seguimiento", label: "Progreso", icon: "tab-progress" },
   { id: "profile", href: "/app/profile", label: "Perfil", icon: "tab-profile" },
-  { id: "coach", href: "/app/coach", label: "Coach", icon: "sparkles" },
 ];
 
 
