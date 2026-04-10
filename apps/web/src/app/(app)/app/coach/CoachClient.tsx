@@ -49,7 +49,7 @@ export default function CoachClient() {
 
   const handleContextualChat = async () => {
     if (!aiEntitled) {
-      setError(t("ai.notPro"));
+      setTokensExhaustedModalOpen(true);
       return;
     }
     if ((aiTokenBalance ?? 0) <= 0) {
@@ -157,11 +157,32 @@ export default function CoachClient() {
       </div>
 
       {isAiLocked ? (
-        <div className="feature-card">
-          <strong>{t("pro.aiLockedTitle")}</strong>
-          <p className="muted" style={{ marginTop: 6 }}>
-            {aiEntitled ? t("pro.aiLockedSubtitle") : t("ai.notPro")}
+        <div className="feature-card" style={{ background: "var(--surface-inset-bg)", padding: 20, borderRadius: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+            <span style={{ fontSize: 32 }}>🔒</span>
+            <div>
+              <strong style={{ display: "block", fontSize: "1.1rem" }}>{t("pro.aiLockedTitle")}</strong>
+              <p className="muted m-0">{aiEntitled ? t("pro.aiLockedSubtitle") : "Activa FitSculpt AI para usar el Coach"}</p>
+            </div>
+          </div>
+          <p className="muted" style={{ marginBottom: 16 }}>
+            {aiEntitled ? t("pro.aiLockedSubtitle") : "Desbloquea el Coach IA, Body Scan avanzado, recomendaciones personalizadas y más."}
           </p>
+          <div style={{ display: "flex", gap: 10 }}>
+            <button
+              className="btn primary"
+              onClick={() => window.location.href = billingHref}
+              style={{ flex: 1 }}
+            >
+              {t("pro.aiLockedCta") || "Hazte Pro"}
+            </button>
+            <button
+              className="btn secondary"
+              onClick={() => setTokensExhaustedModalOpen(true)}
+            >
+              Más info
+            </button>
+          </div>
         </div>
       ) : null}
 
