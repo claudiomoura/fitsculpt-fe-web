@@ -5,8 +5,10 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/design-system/components/Card";
 import { Button, ButtonLink } from "@/design-system/components/Button";
 import { Modal } from "@/design-system/components/Modal";
+import { SegmentedControl } from "@/design-system/components/SegmentedControl";
 import { ErrorState, LoadingState } from "@/components/states";
 import { useLanguage } from "@/context/LanguageProvider";
+import { useTheme } from "@/context/ThemeProvider";
 import LanguageSwitcher from "@/components/layout/LanguageSwitcher";
 import { defaultProfile, type ProfileData } from "@/lib/profile";
 import { extractGymMembership } from "@/lib/gymMembership";
@@ -18,13 +20,14 @@ import {
   type MeasurementSystem,
 } from "@/lib/measurementUnits";
 
-type SettingsSection = "account" | "language" | "units" | "profile" | "billing" | "notifications" | "support";
+type SettingsSection = "account" | "language" | "theme" | "units" | "profile" | "billing" | "notifications" | "support";
 type MembershipState = "none" | "pending" | "active" | "rejected" | "unknown";
 
-const sectionOrder: SettingsSection[] = ["account", "language", "units", "profile", "billing", "notifications", "support"];
+const sectionOrder: SettingsSection[] = ["account", "language", "theme", "units", "profile", "billing", "notifications", "support"];
 
 export default function SettingsClient() {
   const { t } = useLanguage();
+  const { themePreference, setThemePreference } = useTheme();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -90,7 +93,7 @@ export default function SettingsClient() {
         setProfile({ ...defaultProfile, ...data });
         setMembershipState(nextState);
         setMembershipGymName(gymName);
-      } catch (_err) {
+      } catch {
         if (!mounted) return;
         setHasError(true);
       } finally {
@@ -139,6 +142,11 @@ export default function SettingsClient() {
       language: {
         title: t("settings.sections.language.title"),
         description: t("settings.sections.language.description"),
+      },
+      theme: {
+        title: t("settings.sections.theme.title"),
+        description: t("settings.sections.theme.description"),
+        ariaLabel: t("settings.sections.theme.ariaLabel"),
       },
       units: {
         title: t("settings.sections.units.title"),
@@ -271,6 +279,36 @@ export default function SettingsClient() {
                     <p className="muted m-0">{section.emptyTitle}</p>
                   )}
                 </CardFooter>
+              </Card>
+            );
+          }
+
+          if (sectionKey === "theme") {
+            const section = sections.theme;
+            return (
+              <Card key={sectionKey}>
+                <CardHeader>
+                  <div>
+                    <CardTitle>{section.title}</CardTitle>
+                    <CardDescription>{section.description}</CardDescription>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <SegmentedControl
+                    ariaLabel={section.ariaLabel}
+                    options={[
+                      { id: "light", label: t("ui.themeLight") },
+                      { id: "dark", label: t("ui.themeDark") },
+                      { id: "system", label: t("ui.themeSystem") },
+                    ]}
+                    value={themePreference}
+                    onChange={(next) => {
+                      if (next === "light" || next === "dark" || next === "system") {
+                        setThemePreference(next);
+                      }
+                    }}
+                  />
+                </CardContent>
               </Card>
             );
           }

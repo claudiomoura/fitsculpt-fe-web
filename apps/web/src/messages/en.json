@@ -69,6 +69,7 @@
     "close": "Close",
     "themeLight": "Light mode",
     "themeDark": "Dark mode",
+    "themeSystem": "System",
     "language": "Language",
     "userFallback": "FitSculpt",
     "back": "Back",
@@ -2577,6 +2578,11 @@
       "language": {
         "title": "Language",
         "description": "Choose your app language for the full experience."
+      },
+      "theme": {
+        "title": "Theme",
+        "description": "Choose how FitSculpt looks on this device.",
+        "ariaLabel": "Theme preference"
       },
       "units": {
         "title": "Units",

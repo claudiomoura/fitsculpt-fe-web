@@ -26,10 +26,12 @@ export default async function RootLayout({
 }) {
   const cookieStore = await cookies();
   const initialLocale = resolveLocale(cookieStore.get("fs-locale")?.value);
-  const initialTheme = cookieStore.get("fs-theme")?.value === "light" ? "light" : "dark";
+  const rawTheme = cookieStore.get("fs-theme")?.value;
+  const initialTheme = rawTheme === "light" || rawTheme === "dark" || rawTheme === "system" ? rawTheme : "dark";
+  const initialThemeClass = initialTheme === "light" ? "theme-light" : "theme-dark";
 
   return (
-    <html lang={initialLocale} data-scroll-behavior="smooth" className={initialTheme === "dark" ? "theme-dark" : "theme-light"}>
+    <html lang={initialLocale} data-scroll-behavior="smooth" className={initialThemeClass}>
       <body>
         <WebVitals />
         <ClientProviders initialLocale={initialLocale} initialTheme={initialTheme}>
