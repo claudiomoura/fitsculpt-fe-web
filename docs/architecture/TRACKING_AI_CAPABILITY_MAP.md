@@ -62,6 +62,38 @@ This means:
 - `FutureProjectionPanel.tsx` should consume a reusable projection capability, not define the only projection flow.
 - profile and onboarding should consume capability outputs where useful instead of reimplementing logic.
 
+## Golden Rule for AI Capability Execution
+
+Any capability that invokes AI must pass a platform-owned preflight before execution.
+
+This rule applies to Body Scan, AI-assisted recommendation extensions, AI plan generation, and any future AI-backed capability.
+
+### Mandatory execution sequence
+1. verify the user's entitlement/tier for that capability
+2. estimate the token cost of the requested operation
+3. check whether the user has sufficient token balance
+4. reserve or charge the required tokens before invoking the AI operation
+5. only then execute the capability
+
+### Enforcement rules
+- if the user does not have the required tier, the AI operation must not run
+- if the user does not have sufficient balance, the AI operation must not run
+- some AI capabilities may be restricted to Pro or higher tiers
+- this sequence is a shared platform rule, not a screen-level concern and not a Body-Scan-only rule
+- capability modules may declare their AI cost profile, but preflight enforcement belongs to platform/orchestration
+- UI surfaces may explain why execution is unavailable, but must not bypass platform checks
+
+### Architectural consequence
+AI invocation is never "fire and forget".
+
+Every AI-backed capability must be modeled as:
+- eligibility check
+- token-cost estimation
+- balance validation
+- reservation/charge step
+- execution
+- success/failure/release accounting as applicable
+
 ## Capability Inventory
 
 ### 1. Check-in Capture
@@ -275,6 +307,7 @@ Owns:
 - orchestration
 - analytics taxonomy
 - entitlement plumbing
+- AI entitlement, token estimation, balance validation, and reservation/charge enforcement before execution
 - fallback conventions
 - compliance metadata rules
 
@@ -296,6 +329,7 @@ Own:
 ### AI layer
 Owns:
 - AI-assisted generation or interpretation where needed
+- executes only after platform preflight confirms tier eligibility and token availability
 - never the only execution path
 - must always have deterministic fallback when required by product
 
@@ -376,6 +410,9 @@ Every body/health-related capability must support:
 The long-term goal is reducing intelligence logic inside:
 - `TrackingClient.tsx`
 - screen-specific feature components
+
+### Principle 6: AI execution requires economic preflight
+Any AI-assisted capability must validate entitlement, estimate token usage, confirm sufficient balance, and reserve or charge tokens before execution begins.
 
 ## Recommended Execution Plan
 

@@ -1,0 +1,187 @@
+.guidedCaptureSection {
+  display: grid;
+  gap: 14px;
+  padding: clamp(14px, 2vw, 18px);
+  border-radius: 20px;
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 72%, transparent);
+  background:
+    linear-gradient(
+      165deg,
+      color-mix(in srgb, var(--surface-secondary-bg) 86%, transparent),
+      color-mix(in srgb, var(--bg-card) 95%, transparent)
+    );
+  box-shadow: var(--shadow-sm);
+}
+
+.header {
+  display: grid;
+  gap: 6px;
+}
+
+.stepper {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.stepItem {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 68%, transparent);
+  background: color-mix(in srgb, var(--surface-inset-bg) 84%, transparent);
+}
+
+.stepItemCurrent {
+  border-color: color-mix(in srgb, var(--color-primary) 46%, var(--surface-border-default));
+  background: color-mix(in srgb, var(--color-primary) 10%, var(--surface-inset-bg));
+}
+
+.stepItemComplete {
+  border-color: color-mix(in srgb, #2f9e44 50%, var(--surface-border-default));
+}
+
+.stepBadge {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 78%, transparent);
+  color: var(--text-muted);
+}
+
+.stepItemCurrent .stepBadge {
+  color: #fff;
+  border-color: color-mix(in srgb, var(--color-primary) 60%, transparent);
+  background: color-mix(in srgb, var(--color-primary) 92%, #ffffff 8%);
+}
+
+.stepItemComplete .stepBadge {
+  color: #fff;
+  border-color: color-mix(in srgb, #2f9e44 70%, transparent);
+  background: color-mix(in srgb, #2f9e44 88%, #ffffff 12%);
+}
+
+.stepTitle {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.stepStatus {
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.qualityChecklist {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.qualityChecklist li {
+  font-size: 0.87rem;
+  color: color-mix(in srgb, var(--text) 92%, transparent);
+}
+
+.captureGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.captureCard {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 66%, transparent);
+  background: color-mix(in srgb, var(--bg-card) 92%, transparent);
+}
+
+.capturePreview,
+.capturePlaceholder {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 72%, transparent);
+}
+
+.capturePreview {
+  object-fit: cover;
+}
+
+.capturePlaceholder {
+  display: grid;
+  place-items: center;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--surface-inset-bg) 92%, transparent);
+}
+
+.uploadInput {
+  display: none;
+}
+
+.uploadButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 56%, var(--surface-border-default));
+  color: color-mix(in srgb, var(--color-primary) 86%, #ffffff 14%);
+  background: color-mix(in srgb, var(--color-primary) 11%, transparent);
+  padding: 0 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.statusCard {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 70%, transparent);
+  background: color-mix(in srgb, var(--surface-inset-bg) 88%, transparent);
+}
+
+.statusCardError {
+  border-color: color-mix(in srgb, #e03131 40%, var(--surface-border-default));
+}
+
+.statusLabel {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.statusText {
+  font-size: 0.9rem;
+}
+
+@media (max-width: 640px) {
+  .guidedCaptureSection {
+    border-radius: 16px;
+    padding: 12px;
+  }
+
+  .stepItem {
+    grid-template-columns: auto 1fr;
+  }
+
+  .stepStatus {
+    grid-column: 2;
+  }
+}

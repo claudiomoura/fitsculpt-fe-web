@@ -24,13 +24,8 @@ import {
   saveCheckinAndSyncProfileMetrics,
 } from "@/lib/profileService";
 import {
-  buildPassiveHealthOverview,
   defaultPassiveHealthData,
 } from "@/lib/passiveHealth";
-import {
-  buildProfessionalTrackingInsights,
-  normalizeDailyCheckins,
-} from "@/lib/trackingProfessionalMetrics";
 import { getTrackingRangeConfig } from "@/lib/trackingProfessionalRules";
 import {
   hasAiEntitlement,
@@ -38,6 +33,21 @@ import {
   saveAiTrainingPlan,
   type AiEntitlementProfile,
 } from "@/domains/ai";
+import {
+  buildTrackingBodyScanCapability,
+  buildTrackingProfileSnapshotFallback,
+  buildTrackingRecommendationCapability,
+  detectTrackingSupport,
+  loadTrackingProjectionCapability,
+  selectCheckinsInTrendWindow,
+  selectNormalizedTrackingCheckins,
+  selectPassiveSupportOverview,
+  selectTrackingAdherenceContext,
+  selectTrackingAnalysisCheckins,
+  selectTrackingPhotoComparison,
+  toTrackingRecommendationProjectionInput,
+  type TrackingProjectionCapabilityResult,
+} from "@/domains/tracking-intelligence";
 import {
   canApplyTrainingAdjustment,
   generateAndSaveTrainingPlan,
@@ -66,6 +76,10 @@ import {
   isAndroidHealthSyncAvailable,
   syncAndroidHealthSnapshots,
 } from "@/lib/nativeHealthSync";
+import TrackingSummaryPreview, {
+  type TrackingSummaryRange,
+} from "./TrackingSummaryPreview";
+import GuidedBodyScanCapture from "./GuidedBodyScanCapture";
 import styles from "./TrackingClient.module.css";
 
 type CheckinMetrics = {
@@ -158,54 +172,6 @@ type WorkoutDbItem = {
 type TrackingClientProps = {
   view?: "all" | "checkin";
 };
-
-function buildProfileSnapshotFallback(
-  profile: ProfileData,
-): CheckinEntry | null {
-  const weightKg = Number(profile.weightKg ?? 0);
-  const bodyFatPercent = Number(profile.measurements.bodyFatPercent ?? 0);
-  const waistCm = Number(profile.measurements.waistCm ?? 0);
-  const chestCm = Number(profile.measurements.chestCm ?? 0);
-  const hipsCm = Number(profile.measurements.hipsCm ?? 0);
-  const bicepsCm = Number(profile.measurements.bicepsCm ?? 0);
-  const thighCm = Number(profile.measurements.thighCm ?? 0);
-  const calfCm = Number(profile.measurements.calfCm ?? 0);
-  const neckCm = Number(profile.measurements.neckCm ?? 0);
-
-  const hasAnyMetric = [
-    weightKg,
-    bodyFatPercent,
-    waistCm,
-    chestCm,
-    hipsCm,
-    bicepsCm,
-    thighCm,
-    calfCm,
-    neckCm,
-  ].some((value) => Number.isFinite(value) && value > 0);
-
-  if (!hasAnyMetric) return null;
-
-  return {
-    id: "profile-snapshot",
-    date: new Date().toISOString().slice(0, 10),
-    weightKg: Number.isFinite(weightKg) ? weightKg : 0,
-    chestCm: Number.isFinite(chestCm) ? chestCm : 0,
-    waistCm: Number.isFinite(waistCm) ? waistCm : 0,
-    hipsCm: Number.isFinite(hipsCm) ? hipsCm : 0,
-    bicepsCm: Number.isFinite(bicepsCm) ? bicepsCm : 0,
-    thighCm: Number.isFinite(thighCm) ? thighCm : 0,
-    calfCm: Number.isFinite(calfCm) ? calfCm : 0,
-    neckCm: Number.isFinite(neckCm) ? neckCm : 0,
-    bodyFatPercent: Number.isFinite(bodyFatPercent) ? bodyFatPercent : 0,
-    energy: 0,
-    hunger: 0,
-    notes: "",
-    recommendation: "",
-    frontPhotoUrl: null,
-    sidePhotoUrl: null,
-  };
-}
 
 function normalizeWorkoutEntriesFromDb(
   workouts: WorkoutDbItem[] | null | undefined,
@@ -385,7 +351,7 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
     new Date().toISOString().slice(0, 10),
   );
   const [notesValue, setNotesValue] = useState("");
-  const [progressRange, setProgressRange] = useState<"7" | "30" | "90">("30");
+  const [progressRange, setProgressRange] = useState<TrackingSummaryRange>("30");
   const [progressInsightTab, setProgressInsightTab] =
     useState<ProgressInsightTab>("checkin");
   const [checkinMode, setCheckinMode] = useState<"quick" | "full">(() => {
@@ -434,6 +400,12 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
   const [isAndroidSyncing, setIsAndroidSyncing] = useState(false);
   const [isAdvancedAnalysisOpen, setIsAdvancedAnalysisOpen] = useState(false);
   const [isPassiveDetailsOpen, setIsPassiveDetailsOpen] = useState(false);
+  const [isIntelligencePreviewOpen, setIsIntelligencePreviewOpen] = useState(false);
+  const [projectionCapability, setProjectionCapability] =
+    useState<TrackingProjectionCapabilityResult | null>(null);
+  const [projectionCapabilityStatus, setProjectionCapabilityStatus] = useState<
+    "idle" | "loading" | "ready" | "error"
+  >("idle");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isEnergySubmitting, setIsEnergySubmitting] = useState(false);
@@ -524,6 +496,39 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
     adjustmentStatus === "loading" || !canApplyAdjustment;
 
   useEffect(() => {
+    if (!isIntelligencePreviewOpen || projectionCapabilityStatus === "loading") {
+      return;
+    }
+    if (projectionCapability && projectionCapability.status !== "error") {
+      return;
+    }
+
+    let active = true;
+    const loadProjectionPreview = async () => {
+      setProjectionCapabilityStatus("loading");
+      const nextCapability = await loadTrackingProjectionCapability(
+        isCheckinOnly ? "checkin_page" : "tracking",
+      );
+      if (!active) return;
+      setProjectionCapability(nextCapability);
+      setProjectionCapabilityStatus(
+        nextCapability.status === "ready" ? "ready" : "error",
+      );
+    };
+
+    void loadProjectionPreview();
+
+    return () => {
+      active = false;
+    };
+  }, [
+    isCheckinOnly,
+    isIntelligencePreviewOpen,
+    projectionCapability,
+    projectionCapabilityStatus,
+  ]);
+
+  useEffect(() => {
     localStorage.setItem(CHECKIN_MODE_KEY, checkinMode);
   }, [checkinMode]);
 
@@ -568,46 +573,6 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
       active = false;
     };
   }, []);
-
-  function detectTrackingSupport(
-    entries?: Array<Record<string, unknown>> | null,
-  ) {
-    if (!entries || entries.length === 0) {
-      return {
-        energy: false,
-        notes: false,
-        bodyFat: false,
-        waist: false,
-        measurements: false,
-      };
-    }
-    const hasField = (field: string) =>
-      entries.some((entry) =>
-        Object.prototype.hasOwnProperty.call(entry, field),
-      );
-    const measurementFields = [
-      "chestCm",
-      "hipsCm",
-      "bicepsCm",
-      "thighCm",
-      "calfCm",
-      "neckCm",
-    ];
-    const supportsEnergy = hasField("energy");
-    const supportsNotes = hasField("notes");
-    const supportsBodyFat = hasField("bodyFatPercent");
-    const supportsWaist = hasField("waistCm");
-    const supportsMeasurements = measurementFields.some((field) =>
-      hasField(field),
-    );
-    return {
-      energy: supportsEnergy,
-      notes: supportsNotes,
-      bodyFat: supportsBodyFat,
-      waist: supportsWaist,
-      measurements: supportsMeasurements,
-    };
-  }
 
   async function refreshTrackingData(options?: {
     showLoading?: boolean;
@@ -1232,15 +1197,9 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
       }
     : null;
 
-  const checkinAnalysisSource = useMemo(() => {
-    if (checkins.length > 0) return checkins;
-    const fallback = buildProfileSnapshotFallback(profile);
-    return fallback ? [fallback] : [];
-  }, [checkins, profile]);
-
   const normalizedCheckins = useMemo(
-    () => normalizeDailyCheckins(checkinAnalysisSource),
-    [checkinAnalysisSource],
+    () => selectNormalizedTrackingCheckins(checkins, profile),
+    [checkins, profile],
   );
   const rangeConfig = useMemo(
     () => getTrackingRangeConfig(Number(progressRange)),
@@ -1248,15 +1207,7 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
   );
 
   const checkinsInRange = useMemo(() => {
-    if (normalizedCheckins.length === 0) return [];
-    const endDate = new Date();
-    endDate.setHours(23, 59, 59, 999);
-    const startDate = addDays(endDate, -(rangeConfig.days - 1));
-    startDate.setHours(0, 0, 0, 0);
-    return normalizedCheckins.filter((entry) => {
-      const parsed = parseDate(entry.date);
-      return parsed ? parsed >= startDate && parsed <= endDate : false;
-    });
+    return selectCheckinsInTrendWindow(normalizedCheckins, rangeConfig.days);
   }, [normalizedCheckins, rangeConfig.days]);
 
   const checkinChart = useMemo(() => {
@@ -1278,7 +1229,7 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
   }, [checkinsInRange, supportsBodyFat]);
 
   const fallbackProfileCheckin = useMemo(
-    () => buildProfileSnapshotFallback(profile),
+    () => buildTrackingProfileSnapshotFallback(profile),
     [profile],
   );
   const sortedCheckins = useMemo(() => {
@@ -1290,28 +1241,56 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
           : [];
     return [...source].sort((a, b) => b.date.localeCompare(a.date));
   }, [checkins, fallbackProfileCheckin]);
-  const checkinPhotosAvailable = useMemo(
-    () =>
-      sortedCheckins.filter(
-        (entry) => Boolean(entry.frontPhotoUrl) || Boolean(entry.sidePhotoUrl),
-      ),
+  const photoComparison = useMemo(
+    () => selectTrackingPhotoComparison(sortedCheckins),
     [sortedCheckins],
   );
-  const currentCheckinPhoto = checkinPhotosAvailable[0] ?? null;
-  const baselineCheckinPhoto =
-    checkinPhotosAvailable.length > 1
-      ? checkinPhotosAvailable[checkinPhotosAvailable.length - 1]
-      : null;
-  const professionalInsights = useMemo(
+  const currentCheckinPhoto = photoComparison.current;
+  const baselineCheckinPhoto = photoComparison.baseline;
+  const adherenceContext = useMemo(
     () =>
-      buildProfessionalTrackingInsights({
-        checkins: checkinAnalysisSource,
+      selectTrackingAdherenceContext({
+        checkins,
         mealLog,
         workoutLog,
+        passiveData,
         profile,
         rangeDays: Number(progressRange),
       }),
-    [checkinAnalysisSource, mealLog, workoutLog, profile, progressRange],
+    [checkins, mealLog, workoutLog, passiveData, profile, progressRange],
+  );
+  const professionalInsights = adherenceContext.professionalInsights;
+  const bodyScanCapability = useMemo(
+    () =>
+      buildTrackingBodyScanCapability({
+        origin: isCheckinOnly ? "checkin_page" : "tracking",
+        profile,
+        checkins,
+        passiveData,
+        rangeDays: Number(progressRange),
+      }),
+    [checkins, isCheckinOnly, passiveData, profile, progressRange],
+  );
+  const recommendationProjectionInput = useMemo(
+    () => toTrackingRecommendationProjectionInput(projectionCapability),
+    [projectionCapability],
+  );
+  const recommendationCapability = useMemo(
+    () =>
+      buildTrackingRecommendationCapability({
+        origin: isCheckinOnly ? "checkin_page" : "tracking",
+        profile,
+        adherenceContext,
+        bodyScan: bodyScanCapability,
+        projection: recommendationProjectionInput,
+      }),
+    [
+      adherenceContext,
+      bodyScanCapability,
+      isCheckinOnly,
+      profile,
+      recommendationProjectionInput,
+    ],
   );
   const latestCheckin = sortedCheckins[0];
   const rangeLatestCheckin = checkinsInRange[0] ?? null;
@@ -1353,22 +1332,20 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
   const isTrackingError = trackingStatus === "error";
   const rangeDays = rangeConfig.days;
   const daysBackForRange = Math.max(0, rangeDays - 1);
-  const passiveRangeEnd = toDateKey(new Date());
-  const passiveRangeStart = toDateKey(addDays(new Date(), -daysBackForRange));
   const passiveOverview = useMemo(
     () =>
-      buildPassiveHealthOverview(passiveData, {
-        startDate: passiveRangeStart,
-        endDate: passiveRangeEnd,
-        targetSessions: Number(profile.trainingPreferences.daysPerWeek ?? 0),
-      }),
+      selectPassiveSupportOverview(
+        passiveData,
+        rangeDays,
+        Number(profile.trainingPreferences.daysPerWeek ?? 0),
+      ),
     [
       passiveData,
-      passiveRangeEnd,
-      passiveRangeStart,
+      rangeDays,
       profile.trainingPreferences.daysPerWeek,
     ],
   );
+  const passiveRangeEnd = adherenceContext.trendWindow.endDate;
   const formatEntryDate = (value: string) => {
     const parsed = new Date(value);
     if (Number.isNaN(parsed.getTime())) return value;
@@ -1881,80 +1858,13 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
         </div>
       )}
       {!isCheckinOnly ? (
-        <section
-          id="weight-entry"
-          className={`card premium-surface-card surface-content-card ${styles.heroCard} ${styles.quickCheckinHero} ${styles.summaryIntro}`}
-        >
-          <div className={styles.summaryHeader}>
-            <div className={styles.summaryHeaderCopy}>
-              <p className="eyebrow m-0">{t("tracking.pageEyebrow")}</p>
-              <div>
-                <h1 className="section-title m-0">{t("tracking.pageTitle")}</h1>
-                <p className="section-subtitle m-0">{t("tracking.pageSubtitle")}</p>
-              </div>
-            </div>
-            <div className={styles.summaryHeaderMeta}>
-              <div
-                className={styles.segmentedControl}
-                role="tablist"
-                aria-label={t("tracking.rangeLabel")}
-              >
-                {(
-                  [
-                    { id: "7", label: t("tracking.rangeWeek") },
-                    { id: "30", label: t("tracking.rangeMonth") },
-                    { id: "90", label: t("tracking.rangeQuarter") },
-                  ] as const
-                ).map((option) => (
-                  <button
-                    key={option.id}
-                    type="button"
-                    className={`${styles.segmentedButton} ${progressRange === option.id ? styles.segmentedButtonActive : ""}`}
-                    onClick={() => setProgressRange(option.id)}
-                    role="tab"
-                    aria-selected={progressRange === option.id}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-              <div className={styles.heroPrimaryActionWrap}>
-                <button
-                  type="button"
-                  className={`btn ${styles.heroPrimaryAction}`}
-                  onClick={() => router.push("/app/seguimiento/check-in")}
-                >
-                  {t("today.checkinPrimaryCta")}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <section className={styles.summaryKpiGrid} aria-label={t("tracking.summaryTitle")}>
-            {summaryKpis.map((metric) => (
-              <article key={metric.id} className={styles.summaryKpiCard}>
-                <p className="muted m-0">{metric.label}</p>
-                <strong className={styles.summaryKpiValue}>{metric.value}</strong>
-                <span className="muted">{metric.detail}</span>
-              </article>
-            ))}
-          </section>
-
-          <section className={styles.summaryInsightCard} aria-label={t("tracking.primaryInsightTitle")}>
-            <div className={styles.summaryInsightHeader}>
-              <div>
-                <p className="muted m-0">{t("tracking.primaryInsightTitle")}</p>
-                <h2 className="section-title section-title-sm m-0">{primaryInsight.title}</h2>
-              </div>
-              <span className={styles.summaryInsightChip}>{primaryInsight.chip}</span>
-            </div>
-            <p className="m-0">{primaryInsight.body}</p>
-          </section>
-
-          <Link className={styles.heroSecondaryLink} href="/app/weekly-review">
-            {t("nav.weeklyReview")}
-          </Link>
-        </section>
+        <TrackingSummaryPreview
+          progressRange={progressRange}
+          summaryKpis={summaryKpis}
+          primaryInsight={primaryInsight}
+          onProgressRangeChange={setProgressRange}
+          onPrimaryAction={() => router.push("/app/seguimiento/check-in")}
+        />
       ) : null}
 
       {!isCheckinOnly ? (
@@ -2550,6 +2460,127 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
               />
             </div>
           </details>
+
+          <details
+            className={styles.advancedDisclosure}
+            onToggle={(event) =>
+              setIsIntelligencePreviewOpen(
+                (event.currentTarget as HTMLDetailsElement).open,
+              )
+            }
+          >
+            <summary>
+              <div className={styles.advancedDisclosureTitle}>
+                <strong>Body scan + recommendation</strong>
+                <span className="muted">Vista modular temprana sobre la nueva base reusable.</span>
+                <span className="muted">Fallback determinista con compliance y proximo mejor paso.</span>
+              </div>
+              <span className={styles.advancedDisclosureIndicator}>
+                {isIntelligencePreviewOpen ? t("ui.showLess") : t("ui.viewAll")}
+              </span>
+            </summary>
+            <div className={styles.advancedDisclosureBody}>
+              <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
+                <section className="rounded-3xl border border-[rgba(15,23,42,0.08)] bg-white/80 p-5 shadow-sm">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="m-0 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Body scan</p>
+                      <h3 className="m-0 mt-2 text-xl font-semibold text-[var(--text)]">{bodyScanCapability.summary}</h3>
+                    </div>
+                    <span className="rounded-full border border-[var(--border)] bg-white px-3 py-1 text-xs text-[var(--text)]">
+                      Confianza {bodyScanCapability.confidence}
+                    </span>
+                  </div>
+
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-2xl border border-[var(--border)] bg-[rgba(248,250,252,0.95)] p-4 text-sm text-[var(--text)]">
+                      <p className="m-0 text-xs uppercase tracking-[0.16em] text-[var(--muted)]">Senales</p>
+                      <div className="mt-2 space-y-2">
+                        {bodyScanCapability.observations.slice(0, 3).map((item, index) => (
+                          <p key={`body-scan-observation-${index}`} className="m-0 leading-6">{item}</p>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="rounded-2xl border border-[var(--border)] bg-[rgba(248,250,252,0.95)] p-4 text-sm text-[var(--text)]">
+                      <p className="m-0 text-xs uppercase tracking-[0.16em] text-[var(--muted)]">Mejoras de input</p>
+                      <div className="mt-2 space-y-2">
+                        {bodyScanCapability.nextBestInputs.slice(0, 3).map((item, index) => (
+                          <p key={`body-scan-next-${index}`} className="m-0 leading-6">{item}</p>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <p className="m-0 mt-4 text-xs leading-5 text-[var(--muted)]">{bodyScanCapability.compliance.disclaimer}</p>
+                </section>
+
+                <section className="rounded-3xl border border-[rgba(15,23,42,0.08)] bg-[linear-gradient(135deg,rgba(255,245,235,0.88),rgba(255,255,255,0.96),rgba(239,246,255,0.88))] p-5 shadow-sm">
+                  <p className="m-0 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Recommendation / transformation program</p>
+                  <h3 className="m-0 mt-2 text-xl font-semibold text-[var(--text)]">{recommendationCapability.summary}</h3>
+                  <div className="mt-4 rounded-2xl border border-white/80 bg-white/85 p-4">
+                    <p className="m-0 text-xs uppercase tracking-[0.16em] text-[var(--muted)]">Projection integration</p>
+                    {projectionCapabilityStatus === "loading" ? (
+                      <LoadingState
+                        ariaLabel="Cargando projection para recommendation"
+                        showCard={false}
+                        variant="inline"
+                        lines={2}
+                        className="mt-3"
+                      />
+                    ) : (
+                      <>
+                        <p className="m-0 mt-2 text-sm leading-6 text-[var(--text)]">
+                          {recommendationCapability.explainability.summary}
+                        </p>
+                        <div className="mt-2 space-y-1">
+                          {recommendationCapability.explainability.rationale
+                            .slice(0, 2)
+                            .map((item, index) => (
+                              <p key={`recommendation-explainability-${index}`} className="m-0 text-xs leading-5 text-[var(--muted)]">
+                                {item}
+                              </p>
+                            ))}
+                        </div>
+                        {recommendationCapability.explainability.fallbackLabel ? (
+                          <p className="m-0 mt-2 text-xs text-[var(--muted)]">
+                            Fallback activo: {recommendationCapability.explainability.fallbackLabel}
+                          </p>
+                        ) : null}
+                      </>
+                    )}
+                  </div>
+                  <div className="mt-4 space-y-3">
+                    {recommendationCapability.items.slice(0, 2).map((item) => (
+                      <article key={item.id} className="rounded-2xl border border-white/80 bg-white/85 p-4">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <h4 className="m-0 text-base font-semibold text-[var(--text)]">{item.title}</h4>
+                            <p className="m-0 mt-2 text-sm leading-6 text-[var(--text)]">{item.summary}</p>
+                          </div>
+                          <span className="rounded-full border border-[var(--border)] bg-white px-3 py-1 text-xs text-[var(--text)]">
+                            {item.confidence}
+                          </span>
+                        </div>
+                        <div className="mt-3 space-y-1">
+                          {item.rationale.slice(0, 2).map((reason, index) => (
+                            <p key={`${item.id}-reason-${index}`} className="m-0 text-sm leading-6 text-[var(--text)]">{reason}</p>
+                          ))}
+                        </div>
+                        <div className="mt-4 flex flex-wrap items-center gap-3">
+                          <Link href={item.cta.href} className="btn secondary fit-content">
+                            {item.cta.label}
+                          </Link>
+                          <span className="text-xs text-[var(--muted)]">
+                            Fuentes: {item.sourceCapabilities.join(" + ")}
+                          </span>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              </div>
+            </div>
+          </details>
         </section>
       ) : null}
 
@@ -2758,58 +2789,18 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
               </label>
             ) : null}
             {checkinMode === "full" && supportsCheckinPhotos ? (
-              <div className={styles.photoUploadSection}>
-                <h3 className="section-title section-title-sm">
-                  {t("tracking.checkinPhotoUploadTitle")}
-                </h3>
-                <p className="muted">{t("tracking.checkinPhotoConsent")}</p>
-                <div className={styles.photoUploadGrid}>
-                  <label className={styles.photoUploadField}>
-                    <span>{t("tracking.checkinFrontPhotoLabel")}</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      capture="environment"
-                      onChange={(event) =>
-                        void handleCheckinPhotoUpload("front", event)
-                      }
-                    />
-                  </label>
-                  <label className={styles.photoUploadField}>
-                    <span>{t("tracking.checkinSidePhotoLabel")}</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      capture="environment"
-                      onChange={(event) =>
-                        void handleCheckinPhotoUpload("side", event)
-                      }
-                    />
-                  </label>
-                </div>
-                {isCheckinPhotoProcessing ? (
-                  <p className="muted">{t("tracking.checkinPhotoProcessing")}</p>
-                ) : null}
-                {checkinPhotoError ? (
-                  <p className="muted">{checkinPhotoError}</p>
-                ) : null}
-                <div className={styles.photoPreviewGrid}>
-                  {checkinFrontPhotoUrl ? (
-                    <img
-                      src={checkinFrontPhotoUrl}
-                      alt={t("tracking.checkinFrontPhotoLabel")}
-                      className={styles.photoPreview}
-                    />
-                  ) : null}
-                  {checkinSidePhotoUrl ? (
-                    <img
-                      src={checkinSidePhotoUrl}
-                      alt={t("tracking.checkinSidePhotoLabel")}
-                      className={styles.photoPreview}
-                    />
-                  ) : null}
-                </div>
-              </div>
+              <GuidedBodyScanCapture
+                frontPreviewUrl={checkinFrontPhotoUrl}
+                sidePreviewUrl={checkinSidePhotoUrl}
+                isProcessing={isCheckinPhotoProcessing}
+                errorMessage={checkinPhotoError}
+                onFrontUpload={(event) => {
+                  void handleCheckinPhotoUpload("front", event);
+                }}
+                onSideUpload={(event) => {
+                  void handleCheckinPhotoUpload("side", event);
+                }}
+              />
             ) : null}
             {submitError ? (
               <div className="status-card status-card--warning" role="alert">

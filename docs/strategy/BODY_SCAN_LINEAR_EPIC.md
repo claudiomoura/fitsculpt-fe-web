@@ -23,6 +23,32 @@ Primary repo anchors:
 - `apps/web/src/components/weekly-review/FutureProjectionPanel.tsx`
 - `apps/web/src/components/tracking/PassiveHealthSummaryCard.tsx`
 
+## Implementation Progress (Living)
+
+### 2026-04-10 checkpoint
+
+#### Completed foundations
+- [x] Linear project and issue tree created (`FIT-30` to `FIT-40`).
+- [x] Modular domain introduced under `apps/web/src/domains/tracking-intelligence/`.
+- [x] Shared capability contracts/selectors/projection helpers added.
+- [x] Shared AI preflight added in `apps/web/src/domains/ai/preflight.ts` with fail-closed behavior.
+- [x] Golden rule of AI token accounting documented and applied as platform rule.
+
+#### Completed UX increments
+- [x] Tracking intelligence preview integrated in `TrackingClient.tsx`.
+- [x] `FutureProjectionPanel` moved toward reusable projection domain consumption.
+- [x] `TrackingSummaryPreview.tsx` extracted from `TrackingClient.tsx`.
+- [x] Guided Body Scan capture v1 (guided photos with stepper + prompts) integrated in Seguimiento full check-in.
+
+#### In progress
+- [ ] Connect AI preflight to real token reservation/balance adapter.
+- [ ] Expand guided capture from guided photos to richer camera guidance.
+- [ ] Further split `TrackingClient.tsx` intelligence sections into dedicated components/hooks.
+
+#### Validation status
+- [x] Typecheck passing (`apps/web`).
+- [x] Domain and guided-capture tests passing (`apps/web/src/test/*tracking*`, `aiPreflight`, `GuidedBodyScanCapture`, `TrackingSummaryPreview`).
+
 ## Success Metrics
 
 - 80%+ of new progress UX ships through standalone capability modules, not direct feature logic inside `TrackingClient.tsx`.
@@ -31,6 +57,27 @@ Primary repo anchors:
 - Recommendation engine can run with projection only, body scan only, or combined inputs.
 - Capability failures degrade gracefully.
 - Compliance, analytics, and entitlement gating are defined per capability.
+- Every AI-backed capability enforces entitlement, token estimation, balance validation, and reservation/charge before execution.
+
+## Golden Rule for AI Capability Execution
+
+Any AI-backed capability in this epic must follow a mandatory platform preflight before execution.
+
+This includes Body Scan where AI is used, AI-assisted recommendation extensions, AI plan generation, and any future capability introduced under this platform.
+
+### Mandatory sequence
+1. verify the user's entitlement/tier
+2. estimate token consumption for the requested operation
+3. confirm sufficient token balance
+4. reserve or charge tokens before invoking the AI operation
+5. only then execute
+
+### Product and platform implications
+- if tier eligibility fails, the operation does not execute
+- if balance is insufficient, the operation does not execute
+- some capabilities may be Pro-only or limited to higher tiers
+- this must be implemented as shared platform/orchestration behavior, not duplicated ad hoc inside Body Scan or a single UI flow
+- acceptance criteria for AI-related issues must include explicit entitlement and token-preflight behavior
 
 ## Milestones
 
@@ -194,7 +241,27 @@ Primary repo anchors:
 - **Dependencies:** Issues 1, 4
 - **Suggested owner profile:** Product analytics engineer
 
-### 6) Build Body Scan capability v1 UX and orchestration entrypoints
+### 6) Add shared AI entitlement and token-preflight platform layer
+- **Capability:** Platform / Orchestration / Billing
+- **Why:** AI capabilities must be governed by one shared execution rule instead of ad hoc checks inside Body Scan, recommendation flows, or AI plan generation.
+- **Scope:**
+  - Define entitlement/tier check contract for AI capabilities
+  - Define token estimation contract per AI operation
+  - Define sufficient-balance validation rules
+  - Define reservation or charge-before-execution behavior
+  - Define failure responses for ineligible tier and insufficient balance
+  - Define how shared preflight is consumed by Body Scan, Recommendation AI extensions, and AI plan generation
+- **Acceptance criteria:**
+  - A shared preflight contract exists for AI capability execution
+  - AI operations cannot run without passing entitlement and balance checks
+  - Token estimation happens before execution
+  - Reservation or charge occurs before execution begins
+  - Tier-restricted capability behavior is explicit and testable
+  - The rule is documented as platform behavior, not as Body-Scan-only logic
+- **Dependencies:** Issue 1
+- **Suggested owner profile:** Staff engineer / full-stack platform engineer
+
+### 7) Build Body Scan capability v1 UX and orchestration entrypoints
 - **Capability:** Body Scan / UX
 - **Why:** Body Scan must be independently invokable, not hidden inside a page.
 - **Scope:**
@@ -206,10 +273,10 @@ Primary repo anchors:
   - Body Scan works independently from Projection
   - Users see limitations/disclaimer
   - Recommendation is not required for Body Scan UI to render
-- **Dependencies:** Issues 3, 5
+- **Dependencies:** Issues 3, 5, 6
 - **Suggested owner profile:** Senior frontend engineer
 
-### 7) Build recommendation engine contract for transformation program and upsell
+### 8) Build recommendation engine contract for transformation program and upsell
 - **Capability:** Recommendation / Upsell
 - **Why:** Recommendations must remain independent from scan and projection and work with partial inputs.
 - **Scope:**
@@ -222,10 +289,10 @@ Primary repo anchors:
   - Output includes rationale, CTA, and gating state
   - Upsell logic is not hardcoded into one screen
   - Entitlement-aware behavior documented
-- **Dependencies:** Issues 1, 3, 4
+- **Dependencies:** Issues 1, 3, 4, 6
 - **Suggested owner profile:** Senior product engineer
 
-### 8) Integrate existing AI plan generation as recommendation consumer, not orchestrator
+### 9) Integrate existing AI plan generation as recommendation consumer, not orchestrator
 - **Capability:** AI
 - **Why:** AI plans already exist and should consume recommendation outputs instead of owning the whole flow.
 - **Scope:**
@@ -237,10 +304,10 @@ Primary repo anchors:
   - No direct coupling from Body Scan to training-plan internals
   - AI unavailability does not block recommendation rendering
   - Entitlement behavior is explicit and testable
-- **Dependencies:** Issue 7
+- **Dependencies:** Issues 6, 8
 - **Suggested owner profile:** Full-stack engineer with AI integration experience
 
-### 9) Add compliance, safety, and claim-governance layer for scan/projection/recommendation
+### 10) Add compliance, safety, and claim-governance layer for scan/projection/recommendation
 - **Capability:** Compliance
 - **Why:** Body and prediction outputs need explicit risk controls.
 - **Scope:**
@@ -253,10 +320,10 @@ Primary repo anchors:
   - Projection avoids guaranteed-outcome language
   - Body Scan avoids medical-diagnostic framing
   - Recommendation/upsell copy rules documented
-- **Dependencies:** Issues 3, 4, 7
+- **Dependencies:** Issues 3, 4, 6, 8
 - **Suggested owner profile:** PM + compliance-minded product engineer
 
-### 10) Refactor Tracking, Profile, Onboarding, and Weekly Review to consume capability orchestration
+### 11) Refactor Tracking, Profile, Onboarding, and Weekly Review to consume capability orchestration
 - **Capability:** UX / Orchestration
 - **Why:** The value is only real when multiple screens consume the same modular system.
 - **Scope:**
@@ -272,7 +339,7 @@ Primary repo anchors:
   - Tracking screen is lighter
   - One capability can be disabled without collapsing the overall flow
   - UX parity or improvement validated
-- **Dependencies:** Issues 6, 7, 8, 9
+- **Dependencies:** Issues 7, 8, 9, 10
 - **Suggested owner profile:** Senior frontend engineer / tech lead
 
 ## Execution Order
@@ -282,17 +349,19 @@ Primary repo anchors:
 3. Promote Projection into reusable capability service
 4. Formalize Body Scan input contract
 5. Add capability-level analytics taxonomy
-6. Build Body Scan capability v1 UX
-7. Build recommendation engine contract
-8. Integrate AI plan generation as downstream recommendation consumer
-9. Add compliance and claim-governance layer
-10. Refactor real product surfaces to consume orchestration
+6. Add shared AI entitlement and token-preflight platform layer
+7. Build Body Scan capability v1 UX
+8. Build recommendation engine contract
+9. Integrate AI plan generation as downstream recommendation consumer
+10. Add compliance and claim-governance layer
+11. Refactor real product surfaces to consume orchestration
 
 ## Developer Handoff Notes
 
 - Do **not** create a new mega feature module that owns capture, scan, projection, recommendation, and upsell together.
 - Treat `TrackingClient.tsx` as a current integration surface, not the long-term owner of domain logic.
 - Keep platform/orchestration separate from capability internals.
+- Any AI capability must pass shared entitlement and token preflight before execution; do not implement this as ad hoc screen logic.
 - Body Scan must not require Projection.
 - Recommendation must not require AI.
 - Passive Health remains a support input, not the single source of truth.

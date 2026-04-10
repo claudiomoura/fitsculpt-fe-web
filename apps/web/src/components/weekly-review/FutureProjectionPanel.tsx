@@ -1,18 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { LoadingState } from "@/components/states";
 import { Button } from "@/design-system/components/Button";
-import { trackEvent } from "@/lib/analytics";
 import {
-  getFutureProjection,
-  getRctStatus,
-  sendRctEvent,
-} from "@/services/futureProjection";
-import type {
-  FutureProjectionHorizon,
-  FutureProjectionResponse,
-  RctStatusResponse,
-} from "@/types/futureProjection";
+  loadTrackingProjectionCapability,
+  type TrackingProjectionCapabilityResult,
+} from "@/domains/tracking-intelligence";
+import { trackEvent } from "@/lib/analytics";
+import { sendRctEvent } from "@/services/futureProjection";
+import type { FutureProjectionHorizon } from "@/types/futureProjection";
 
 function formatDelta(min: number, max: number): string {
   return `${min > 0 ? "+" : ""}${min.toFixed(1)} a ${max > 0 ? "+" : ""}${max.toFixed(1)} kg`;
@@ -30,9 +27,7 @@ function confidenceLabel(confidence: FutureProjectionHorizon["confidence"]): str
 }
 
 export default function FutureProjectionPanel() {
-  const [projection, setProjection] = useState<FutureProjectionResponse | null>(null);
-  const [rctStatus, setRctStatus] = useState<RctStatusResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [capability, setCapability] = useState<TrackingProjectionCapabilityResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeScenarioByHorizon, setActiveScenarioByHorizon] = useState<
     Record<number, string>
@@ -43,39 +38,27 @@ export default function FutureProjectionPanel() {
 
     const run = async () => {
       setLoading(true);
-      setError(null);
-      const [projectionResult, statusResult] = await Promise.all([
-        getFutureProjection(),
-        getRctStatus(),
-      ]);
+      const capability = await loadTrackingProjectionCapability("weekly_review");
 
       if (!active) return;
 
-      if (!projectionResult.ok || !statusResult.ok) {
-        setError("No pudimos cargar tu proyeccion futura ahora mismo.");
+      if (capability.status !== "ready" || !capability.projection || !capability.rctStatus) {
+        setCapability(capability);
         setLoading(false);
         return;
       }
 
-      setProjection(projectionResult.data);
-      setRctStatus(statusResult.data);
-      setActiveScenarioByHorizon(
-        Object.fromEntries(
-          projectionResult.data.horizons.map((horizon) => [
-            horizon.months,
-            horizon.scenarios[0]?.id ?? "current-consistency",
-          ]),
-        ),
-      );
+      setCapability(capability);
+      setActiveScenarioByHorizon(capability.activeScenarioByHorizon);
       setLoading(false);
 
       trackEvent("future_projection_viewed", {
         origin: "weekly_review",
-        rctGroup: statusResult.data.group,
+        rctGroup: capability.rctStatus.group,
       });
       trackEvent("rct_status_viewed", {
         origin: "weekly_review",
-        rctGroup: statusResult.data.group,
+        rctGroup: capability.rctStatus.group,
       });
       void sendRctEvent({ event: "projection_viewed", context: { origin: "weekly_review" } });
     };
@@ -87,6 +70,8 @@ export default function FutureProjectionPanel() {
     };
   }, []);
 
+  const projection = capability?.projection ?? null;
+  const rctStatus = capability?.rctStatus ?? null;
   const horizons = projection?.horizons ?? [];
 
   const selectedScenarios = useMemo(
@@ -117,17 +102,23 @@ export default function FutureProjectionPanel() {
 
   if (loading) {
     return (
-      <section className="card border border-[rgba(15,23,42,0.08)] bg-[linear-gradient(135deg,rgba(252,250,245,0.95),rgba(245,250,255,0.95))]">
-        <p className="text-sm text-[var(--muted)]">Calculando proyeccion futura...</p>
-      </section>
+      <LoadingState
+        title="Future Self Projection v1"
+        ariaLabel="Calculando proyeccion futura"
+        lines={3}
+        className="rounded-3xl"
+        cardClassName="border border-[rgba(15,23,42,0.08)] bg-[linear-gradient(135deg,rgba(252,250,245,0.95),rgba(245,250,255,0.95))]"
+      />
     );
   }
 
-  if (error || !projection || !rctStatus) {
+  if (capability?.status !== "ready" || !projection || !rctStatus) {
     return (
       <section className="card border border-[rgba(194,65,12,0.18)] bg-[rgba(255,247,237,0.92)]">
         <h2 className="m-0 text-lg font-semibold text-[rgb(154,52,18)]">Future Self Projection v1</h2>
-        <p className="mt-2 text-sm text-[rgb(154,52,18)]">{error ?? "No pudimos cargar la proyeccion por ahora."}</p>
+        <p className="mt-2 text-sm text-[rgb(154,52,18)]">
+          {capability?.errorMessage ?? capability?.explainability.summary ?? "No pudimos cargar la proyeccion por ahora."}
+        </p>
       </section>
     );
   }
@@ -139,6 +130,8 @@ export default function FutureProjectionPanel() {
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">Future self projection v1</p>
           <h2 className="mt-1 text-2xl font-semibold text-[var(--text)]">Proyeccion 3/6/12 meses con tus datos reales</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--text)]">
+            {capability.explainability.summary}
+            {" "}
             Motor determinista y explicable basado en adherencia, tendencia de peso y consistencia de las ultimas semanas.
             No es un resultado garantizado ni una recomendacion medica.
           </p>
@@ -224,6 +217,17 @@ export default function FutureProjectionPanel() {
             ) : null}
           </article>
         ))}
+      </div>
+
+      <div className="mt-4 rounded-2xl border border-white/80 bg-white/82 p-4">
+        <p className="m-0 text-xs uppercase tracking-[0.18em] text-[var(--muted)]">Explainability reusable</p>
+        <div className="mt-2 space-y-1">
+          {capability.explainability.rationale.map((item, index) => (
+            <p key={`projection-explainability-${index}`} className="m-0 text-sm text-[var(--text)]">
+              {item}
+            </p>
+          ))}
+        </div>
       </div>
 
       <div className="mt-4 rounded-2xl border border-white/80 bg-white/82 p-4">
