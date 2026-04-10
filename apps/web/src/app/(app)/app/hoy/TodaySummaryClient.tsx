@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
+import { useRouter } from "next/navigation";
 import { ExerciseThumbnail } from "@/components/exercises/ExerciseThumbnail";
 import { EmptyState } from "@/components/exercise-library/states/EmptyState";
 import { ErrorState } from "@/components/exercise-library/states/ErrorState";
@@ -19,7 +20,7 @@ import { TodayNotesSummary, type TodayNotesSummaryData } from "@/components/toda
 import { TodaySection } from "@/components/today/TodaySection";
 import { TodayTrainingSummary, type TodayTrainingSummaryData } from "@/components/today/TodayTrainingSummary";
 import { TodayWeightSummary, type TodayWeightSummaryData } from "@/components/today/TodayWeightSummary";
-import { ButtonLink } from "@/design-system/components/Button";
+import { ButtonLink, Button } from "@/design-system/components/Button";
 import { useLanguage } from "@/context/LanguageProvider";
 import { differenceInDays, parseDate, toDateKey } from "@/lib/calendar";
 import { useExerciseFavorites } from "@/lib/exerciseFavorites";
@@ -28,6 +29,9 @@ import { useExerciseRecents } from "@/lib/exerciseRecents";
 import type { NutritionMeal } from "@/lib/profile";
 import { slugifyExerciseName } from "@/lib/slugify";
 import type { NutritionPlanDetail, NutritionPlanDetailMeal, NutritionPlanListItem, TrainingPlanDetail } from "@/lib/types";
+import { fetchAuthMe } from "@/lib/authDedup";
+import { hasAiEntitlement } from "@/components/access/aiEntitlements";
+import { PremiumSparklesIcon } from "@/components/icons/PremiumIcons";
 
 type CheckinEntry = {
   date?: string | null;
@@ -212,6 +216,7 @@ const getLatestNote = (checkins: CheckinEntry[]): TodayNotesSummaryData | null =
 };
 export default function TodaySummaryClient() {
   const { t } = useLanguage();
+  const router = useRouter();
   const mountedRef = useRef(true);
   const [trainingState, setTrainingState] = useState<SectionState<TodayTrainingSummaryData>>({ status: "loading" });
   const [nutritionState, setNutritionState] = useState<SectionState<TodayNutritionSummaryData>>({ status: "loading" });
@@ -223,6 +228,23 @@ export default function TodaySummaryClient() {
   const [trainingUnsupported, setTrainingUnsupported] = useState(false);
   const [assignedPlanId, setAssignedPlanId] = useState<string | null>(null);
   const [assignedNutritionPlanId, setAssignedNutritionPlanId] = useState<string | null>(null);
+  const [aiEntitled, setAiEntitled] = useState(false);
+  const [loadingAiEntitlement, setLoadingAiEntitlement] = useState(true);
+
+  // Load AI entitlement
+  useEffect(() => {
+    const checkAiEntitlement = async () => {
+      try {
+        const data = await fetchAuthMe();
+        setAiEntitled(hasAiEntitlement(data));
+      } catch {
+        setAiEntitled(false);
+      } finally {
+        setLoadingAiEntitlement(false);
+      }
+    };
+    void checkAiEntitlement();
+  }, []);
   const {
     favorites,
     loading: favoritesLoading,
@@ -517,6 +539,75 @@ const notesErrorActions: ErrorAction[] = [
           <p className="section-subtitle">{t("today.summarySectionSubtitle")}</p>
         </div>
       </div>
+
+      {/* Coach Section - Always visible, conditional content based on entitlement */}
+      <section className="card" style={{ 
+        background: aiEntitled 
+          ? "linear-gradient(135deg, var(--color-primary-alpha) 0%, var(--surface-inset-bg) 100%)" 
+          : "var(--surface-inset-bg)",
+        border: "1px solid var(--surface-border-default)",
+        padding: 20,
+        borderRadius: 16
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 12 }}>
+          <div style={{ 
+            background: aiEntitled ? "var(--color-primary)" : "var(--surface-card)", 
+            borderRadius: 12,
+            padding: 10,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center"
+          }}>
+            <PremiumSparklesIcon width={22} height={22} style={{ color: aiEntitled ? "white" : "var(--color-primary)" }} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 600 }}>
+              {t("coach.surfaceTitle") || "Tu Coach IA"}
+            </h3>
+            <p className="muted m-0" style={{ fontSize: "0.9rem" }}>
+              {aiEntitled 
+                ? (t("coach.surfaceSubtitle") || "Asesoría personalizada para tus objetivos")
+                : "Desbloquea acceso completo al Coach"
+              }
+            </p>
+          </div>
+        </div>
+
+        {aiEntitled ? (
+          /* User has Pro/AI access */
+          <div style={{ display: "flex", gap: 10 }}>
+            <Button 
+              variant="primary" 
+              onClick={() => router.push("/app/coach")}
+              style={{ flex: 1, justifyContent: "center" }}
+            >
+              {t("coach.chatSend") || "Hablar con Coach"}
+            </Button>
+          </div>
+        ) : (
+          /* User is FREE - show upsell */
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <p className="muted m-0" style={{ fontSize: "0.9rem" }}>
+              {t("pro.aiLockedSubtitle") || "Desbloquea Coach IA, recomendaciones personalizadas y más."}
+            </p>
+            <div style={{ display: "flex", gap: 10 }}>
+              <Button 
+                variant="primary" 
+                onClick={() => router.push("/app/settings/billing")}
+                style={{ flex: 1, justifyContent: "center" }}
+              >
+                {t("pro.aiLockedCta") || "Hazte Pro"}
+              </Button>
+              <Button 
+                variant="secondary" 
+                onClick={() => router.push("/app/coach")}
+              >
+                Más info
+              </Button>
+            </div>
+          </div>
+        )}
+      </section>
 
       <TodaySection
         title={t("today.trainingSectionTitle")}

@@ -15,6 +15,7 @@ import {
   PremiumCheckinIcon,
   PremiumNutritionIcon,
   PremiumWorkoutIcon,
+  PremiumSparklesIcon,
 } from "@/components/icons/PremiumIcons";
 import { Button, ButtonLink } from "@/design-system/components/Button";
 import { readAuthEntitlementSnapshot } from "@/context/auth/entitlements";
@@ -36,6 +37,8 @@ import { pickWorkoutIdForDateCandidates } from "@/lib/trainingWorkoutSelection";
 import { TodayEmptyState } from "./TodayEmptyState";
 import { TodayErrorState } from "./TodayErrorState";
 import { TodaySkeleton } from "./TodaySkeleton";
+import { fetchAuthMe } from "@/lib/authDedup";
+import { hasAiEntitlement } from "@/components/access/aiEntitlements";
 import QuickLogHub, {
   type QuickLogHubHandle,
 } from "@/components/quick-log/QuickLogHub";
@@ -1336,7 +1339,7 @@ export default function TodayQuickActionsClient() {
 
           {/* Main Dashboard - 8-block premium layout */}
           <div className="today-premium-stack flex flex-col gap-6">
-            {/* Block 2: Summary Card - Daily progress overview */}
+            {/* Block 1: Summary Card - Daily progress overview (DONUT) - FIRST */}
             <TodaySummaryCard
               dailyProgressPercent={dailyProgressPercent}
               completedGoals={completedGoals}
@@ -1349,10 +1352,7 @@ export default function TodayQuickActionsClient() {
               checkinTotal={1}
             />
 
-            {/* Block 3: View Tabs - Tab switching - HIDDEN for now */}
-            {/* <TodayViewTabs /> */}
-
-            {/* Block 4: Priority Hero - Today's workout/training */}
+            {/* Block 2: Priority Hero - Today's workout/training - SECOND */}
             <TodayPriorityHero
               trainingState={signals.trainingState}
               trainingName={signals.trainingName}
@@ -1418,6 +1418,57 @@ export default function TodayQuickActionsClient() {
               editHref={nutritionEditRoute}
               aiCreateHref={nutritionAiRoute}
             />
+
+            {/* Block 5.5: Coach Card - After nutrition, before weight */}
+            <section
+              className="card"
+              style={{
+                background: hasAiAccess
+                  ? "linear-gradient(135deg, var(--color-primary-alpha) 0%, var(--surface-card) 100%)"
+                  : "var(--surface-card)",
+                border: "1px solid var(--surface-border-default)",
+                padding: "clamp(16px, 3vw, 24px)",
+                borderRadius: 16,
+                cursor: "pointer",
+                transition: "transform 0.2s ease, box-shadow 0.2s ease",
+              }}
+              onClick={() => router.push("/app/coach")}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") router.push("/app/coach"); }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <div
+                  style={{
+                    background: hasAiAccess ? "var(--color-primary)" : "var(--surface-inset-bg)",
+                    borderRadius: 12,
+                    padding: 12,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
+                >
+                  <PremiumSparklesIcon
+                    width={24}
+                    height={24}
+                    style={{ color: hasAiAccess ? "white" : "var(--color-primary)" }}
+                  />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 600, color: "var(--text-primary)" }}>
+                    {t("coach.surfaceTitle") || "Tu Coach IA"}
+                  </h3>
+                  <p className="muted m-0" style={{ fontSize: "0.875rem", lineHeight: 1.4 }}>
+                    {hasAiAccess
+                      ? (t("coach.surfaceSubtitle") || "Asesoría personalizada para tus objetivos")
+                      : "✨ Desbloquea Coach IA, recomendaciones y más"
+                    }
+                  </p>
+                </div>
+                <div style={{ color: "var(--text-tertiary)", fontSize: "1.25rem" }}>›</div>
+              </div>
+            </section>
 
             {/* Block 6: Check-in Card - Weight tracking */}
             <TodayCheckinCard

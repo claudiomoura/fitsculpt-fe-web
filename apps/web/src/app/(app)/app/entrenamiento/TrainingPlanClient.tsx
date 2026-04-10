@@ -2216,8 +2216,13 @@ export default function TrainingPlanClient({
         ...(isAiLocked
           ? [
               {
-                label: t("billing.manageBilling"),
+                label: "🚀 Desbloquea FitSculpt Pro",
                 href: billingHref,
+                variant: "primary" as const,
+              },
+              {
+                label: "Ver opciones",
+                href: "/app/biblioteca",
                 variant: "secondary" as const,
               },
             ]

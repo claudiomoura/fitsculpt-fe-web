@@ -2611,8 +2611,33 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
               </span>
             </summary>
             <div className={styles.advancedDisclosureBody}>
+              {!hasAdjustmentEntitlement ? (
+                <div className="feature-card" style={{ background: "var(--surface-inset-bg)", padding: 20, borderRadius: 16, marginBottom: 16 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+                    <span style={{ fontSize: 32 }}>🔒</span>
+                    <div>
+                      <strong style={{ display: "block", fontSize: "1.1rem" }}>Body Scan Avanzado</strong>
+                      <p className="muted m-0">Desbloquea análisis corporal avanzado, recomendaciones personalizadas y más.</p>
+                    </div>
+                  </div>
+                  <button
+                    className="btn primary"
+                    onClick={() => (window.location.href = "/app/settings/billing")}
+                    style={{ width: "100%" }}
+                  >
+                    Desbloquea con Pro
+                  </button>
+                </div>
+              ) : null}
               <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
-                <TrackingBodyScanSummaryCard capability={bodyScanCapability} />
+                {hasAdjustmentEntitlement ? (
+                  <TrackingBodyScanSummaryCard capability={bodyScanCapability} />
+                ) : (
+                  <div className="rounded-3xl border border-[rgba(15,23,42,0.08)] bg-white/80 p-5 shadow-sm">
+                    <p className="m-0 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Body scan</p>
+                    <h3 className="m-0 mt-2 text-xl font-semibold text-[var(--text)]">{bodyScanCapability.summary}</h3>
+                  </div>
+                )}
 
                 <section className="rounded-3xl border border-[rgba(15,23,42,0.08)] bg-[linear-gradient(135deg,rgba(255,245,235,0.88),rgba(255,255,255,0.96),rgba(239,246,255,0.88))] p-5 shadow-sm">
                   <p className="m-0 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Recommendation / transformation program</p>

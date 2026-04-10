@@ -2990,30 +2990,43 @@ export default function NutritionPlanClient({
     router.push("/app/gym");
   };
 
-  const nutritionNoPlanActions = shouldShowJoinGymCta
+const nutritionNoPlanActions = shouldShowJoinGymCta
     ? [
-      {
-        label: t("nutrition.assignedPlanCta"),
-        href: "/app/nutricion/editar",
-      },
-      {
-        label: safeT("gym.join.consumerCta", "Unirme a un gimnasio"),
-        onClick: handleJoinGymCtaClick,
-        variant: "secondary" as const,
-      },
-    ]
+        {
+          label: t("nutrition.assignedPlanCta"),
+          href: "/app/nutricion/editar",
+        },
+        {
+          label: safeT("gym.join.consumerCta", "Unirme a un gimnasio"),
+          onClick: handleJoinGymCtaClick,
+          variant: "secondary" as const,
+        },
+      ]
     : [
-      {
-        label: t("nutrition.assignedPlanCta"),
-        href: "/app/nutricion/editar",
-      },
-      ...(!isAiLocked
-        ? [{ label: aiLoading ? t("nutrition.aiGenerating") : t("nutrition.aiGenerate"), onClick: handleGenerateClick, disabled: isAiDisabled || aiLoading, variant: "secondary" as const }]
-        : []),
-      ...((isAiLocked || isOutOfTokens)
-        ? [{ label: t("billing.manageBilling"), href: billingHref, variant: "ghost" as const }]
-        : []),
-    ];
+        {
+          label: t("nutrition.assignedPlanCta"),
+          href: "/app/nutricion/editar",
+        },
+        ...(isAiLocked
+          ? [
+              {
+                label: "🚀 Desbloquea FitSculpt Pro",
+                href: billingHref,
+                variant: "primary" as const,
+              },
+              {
+                label: "Ver opciones",
+                href: "/app/biblioteca/planes-nutricion",
+                variant: "secondary" as const,
+              },
+            ]
+          : !isAiLocked && !isOutOfTokens
+          ? [{ label: aiLoading ? t("nutrition.aiGenerating") : t("nutrition.aiGenerate"), onClick: handleGenerateClick, disabled: isAiDisabled || aiLoading, variant: "secondary" as const }]
+          : []),
+        ...(isOutOfTokens && !isAiLocked
+          ? [{ label: "Tokens agotados", href: billingHref, variant: "secondary" as const }]
+          : []),
+      ];
 
   const generatedPlanPreviewDay = useMemo(() => {
     if (!lastGeneratedAiPlan?.days?.length) return null;

@@ -1,11 +1,13 @@
 "use client";
 
-import { forwardRef, useImperativeHandle, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { Button } from "@/design-system/components/Button";
 import { Input } from "@/design-system/components/Input";
 import { Modal } from "@/design-system/components/Modal";
 import { useLanguage } from "@/context/LanguageProvider";
 import { trackEvent } from "@/lib/analytics";
+import { fetchAuthMe } from "@/lib/authDedup";
+import { hasAiEntitlement } from "@/components/access/aiEntitlements";
 import { compressAvatarToDataUrl } from "@/lib/avatarUpload";
 import { findQuickLogFoodByBarcode, searchQuickLogFoods, type QuickLogFoodItem } from "@/lib/quickLogFoodCatalog";
 import { parseQuickVoiceMeal } from "@/lib/quickLogVoiceParser";
@@ -97,6 +99,19 @@ const QuickLogHub = forwardRef<QuickLogHubHandle, QuickLogHubProps>(function Qui
   const [mode, setMode] = useState<Mode>("meal");
   const [status, setStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [aiEntitled, setAiEntitled] = useState(false);
+
+  useEffect(() => {
+    const checkAiEntitlement = async () => {
+      try {
+        const data = await fetchAuthMe();
+        setAiEntitled(hasAiEntitlement(data));
+      } catch {
+        setAiEntitled(false);
+      }
+    };
+    void checkAiEntitlement();
+  }, []);
 
   const [mealDate, setMealDate] = useState(toTodayKey());
   const [mealTitle, setMealTitle] = useState("");
@@ -540,10 +555,23 @@ const QuickLogHub = forwardRef<QuickLogHubHandle, QuickLogHubProps>(function Qui
                 <img src={mealPhotoUrl} alt={t("quickLog.mealPhotoAlt")} className={styles.photoPreview} />
                 <div className={styles.photoPreviewMeta}>
                   <p className={styles.smallText}>{mealPhotoName ?? t("quickLog.mealPhotoReady")}</p>
-                  <Button type="button" variant="secondary" onClick={() => void handleMealPhotoAnalyze()} loading={isMealPhotoAnalyzing}>
-                    {t("quickLog.mealPhotoAnalyze")}
-                  </Button>
-                  <Button type="button" variant="ghost" onClick={clearMealPhoto}>{t("quickLog.removePhoto")}</Button>
+                  {!aiEntitled ? (
+                    <div className={styles.lookupResult}>
+                      <p className={styles.smallText} style={{ color: "var(--color-primary)", fontWeight: 600 }}>
+                        {t("pro.aiLockedSubtitle") || "Desbloquea con Pro"}
+                      </p>
+                      <Button type="button" variant="primary" onClick={() => (window.location.href = "/app/settings/billing")}>
+                        {t("pro.aiLockedCta") || "Hazte Pro"}
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <Button type="button" variant="secondary" onClick={() => void handleMealPhotoAnalyze()} loading={isMealPhotoAnalyzing}>
+                        {t("quickLog.mealPhotoAnalyze")}
+                      </Button>
+                      <Button type="button" variant="ghost" onClick={clearMealPhoto}>{t("quickLog.removePhoto")}</Button>
+                    </>
+                  )}
                 </div>
               </div>
             ) : null}
