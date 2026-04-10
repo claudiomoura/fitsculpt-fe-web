@@ -339,6 +339,8 @@ Entregar al motor un payload de dominio estable, independiente de la UI, que con
 | `reason_codes_internal` | array<string> | Si | trazabilidad |
 | `reason_codes_user_facing` | array<string> | Si | UI |
 | `evidence_summary` | object | Si | inputs clave que explican la decision |
+| `decision_rule_path` | string | Si | rama canonica que produjo la salida |
+| `candidate_decisions_considered` | array<string> | No | observabilidad de solapamientos |
 | `training_changes` | array<object> | No | diff entreno |
 | `nutrition_changes` | array<object> | No | diff nutricion |
 | `expected_impact_summary` | string | Si | expectativa para la proxima semana |
@@ -381,6 +383,11 @@ Entregar al motor un payload de dominio estable, independiente de la UI, que con
     "Tu semana tuvo menos tiempo real del esperado.",
     "El estres y la recuperacion hicieron el plan actual dificil de sostener.",
     "La prioridad ahora es recuperar consistencia, no empujar mas carga."
+  ],
+  "decision_rule_path": "safety_clear>structural_mismatch_false>simplify_threshold_met",
+  "candidate_decisions_considered": [
+    "adjust",
+    "simplify"
   ],
   "evidence_summary": {
     "training_adherence_ratio": 0.5,
@@ -471,9 +478,22 @@ Entregar al motor un payload de dominio estable, independiente de la UI, que con
 ### Adaptation result
 
 - `primary_decision` debe ser exactamente una de cuatro salidas canonicas.
+- `primary_decision` solo puede ser `maintain`, `adjust`, `simplify` o `redesign`.
 - cada change item debe ser coherente con `primary_decision` y con el ruleset vigente.
 - `decision_confidence_band` no puede faltar, incluso si no se muestra completa al usuario.
 - si `fallback_used = true`, `fallback_reason` es obligatorio.
+- `decision_rule_path` es obligatorio para toda decision generada por ruleset v1.
+- si `candidate_decisions_considered` incluye `adjust` y `simplify`, la salida final debe respetar la precedencia del ruleset y no quedar ambigua en audit.
+
+### Fallback reasons canonicos v1
+
+Usar exactamente uno de estos valores cuando `fallback_used = true`:
+
+- `physical_risk`
+- `data_incomplete`
+- `signals_conflict`
+- `low_confidence`
+- `structural_mismatch`
 
 ## 12. Campos de explainability y audit
 
@@ -486,6 +506,7 @@ Entregar al motor un payload de dominio estable, independiente de la UI, que con
 - `derived_features_snapshot`
 - `reason_codes_internal`
 - `reason_codes_user_facing`
+- `decision_rule_path`
 - `safety_outcome`
 - `fallback_used`
 - `fallback_reason`
@@ -516,12 +537,16 @@ Entregar al motor un payload de dominio estable, independiente de la UI, que con
     "training_adherence_ratio": 0.5,
     "stress_band": "high",
     "recovery_band": "low",
-    "data_completeness_band": "medium"
+    "data_completeness_band": "medium",
+    "strain_signal_count": 3,
+    "structural_mismatch": false,
+    "signals_conflict_flag": false
   },
   "safety_evaluation_result": {
     "outcome": "constrained",
     "triggered_signals": []
   },
+  "decision_rule_path": "safety_clear>structural_mismatch_false>simplify_threshold_met",
   "decision_output_ref": "adp_789",
   "created_at": "2026-04-16T20:31:01Z"
 }
@@ -531,10 +556,13 @@ Entregar al motor un payload de dominio estable, independiente de la UI, que con
 
 ### Campos base para todos los eventos
 
+La taxonomia canonica de analytics vive en esta seccion. Si otros docs usan nombres abreviados o de UX, este documento manda para instrumentacion, QA y dashboards.
+
 | Campo | Tipo | Requerido |
 | --- | --- | --- |
 | `event_name` | string | Si |
 | `event_id` | string/uuid | Si |
+| `actor` | enum | Si |
 | `user_id` | string/uuid nullable | Condicional |
 | `session_id` | string | No |
 | `occurred_at` | datetime | Si |
@@ -561,6 +589,12 @@ Entregar al motor un payload de dominio estable, independiente de la UI, que con
 | `adaptation_accepted` | usuario acepta siguiente semana | `primary_decision`, `week_index` |
 | `adaptation_rejected` | usuario rechaza o pide otra opcion | `primary_decision`, `rejection_reason` |
 | `safety_fallback_triggered` | engine cae a modo conservador | `trigger_type`, `week_index` |
+
+Reglas minimas de instrumentacion:
+
+- `actor` debe ser `user`, `system` o `admin` segun quien origina el evento.
+- `event_name` debe usar exactamente la nomenclatura canonica de esta tabla para evitar funnels duplicados.
+- Si UX necesita labels mas amigables, se resuelven en copy o tracking plans derivados, no cambiando el nombre canonico del evento.
 
 ### Ejemplo de evento analytics
 

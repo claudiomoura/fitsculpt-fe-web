@@ -229,6 +229,42 @@ El MVP no debe depender de un LLM para elegir la decision principal. La decision
 | Change selection | deterministic with bounded templates | cambios permitidos por dimension |
 | Explanation assembly | deterministic + optional AI rewrite | reason codes, human summary, expected impact |
 
+### Policy v1 de clasificacion
+
+El clasificador MVP debe seguir este orden exacto y detenerse en la primera salida valida:
+
+1. evaluar `safety_outcome`
+2. evaluar `structural_mismatch`
+3. evaluar `simplify_threshold_met`
+4. evaluar `maintain_threshold_met`
+5. caer en `adjust`
+
+Derived features minimas recomendadas:
+
+- `training_adherence_ratio`
+- `nutrition_adherence_score`
+- `energy_score`
+- `recovery_score`
+- `stress_score`
+- `next_week_confidence_score`
+- `strain_signal_count`
+- `structural_mismatch`
+- `data_completeness_band`
+- `signals_conflict_flag`
+
+Definiciones v1:
+
+- `simplify_threshold_met = true` si `training_adherence_ratio < 0.60` o `next_week_confidence_score <= 2` o `strain_signal_count >= 2` con friccion principal de tiempo, estres, fatiga o saturacion.
+- `maintain_threshold_met = true` si `training_adherence_ratio >= 0.80`, `nutrition_adherence_score >= 4`, `energy_score >= 3`, `recovery_score >= 3`, `stress_score <= 3`, `next_week_confidence_score >= 3` y no existe `structural_mismatch`.
+- `adjust` es el bucket residual conservador para semanas con ejecucion razonable (`training_adherence_ratio >= 0.60`, `next_week_confidence_score >= 3`) que no califican para `maintain` y tampoco necesitan `simplify` o `redesign`.
+
+Guardrails de implementacion:
+
+- `adjust` nunca debe implicar mas agresividad neta que la evidencia semanal permite.
+- `simplify` gana sobre `adjust` cuando ambos candidatos aparecen y la semana siguiente se ve fragil para ejecutar.
+- `redesign` solo debe disparar por mismatch estructural, no por una mala semana aislada.
+- `safety_outcome = deferred` nunca puede terminar en `maintain` y debe limitar cambios a versiones prudentes de `simplify` o `redesign`.
+
 ### Donde entra IA en MVP
 
 IA puede entrar en tres puntos, siempre bajo guardrails:
@@ -268,6 +304,22 @@ Cada `AdaptationDecision` debe incluir:
 | safety | `pain_flag`, `new_limitation_declared` |
 | confidence | `low_next_week_confidence`, `data_incomplete` |
 
+### Reason codes v1 por decision
+
+| Decision principal | Reason codes internos tipicos | Traduccion visible sugerida |
+| --- | --- | --- |
+| `maintain` | `progress_on_track`, `strong_nutrition_adherence`, `stable_recovery` | `Tu semana fue suficientemente sostenible para repetir la estructura actual.` |
+| `adjust` | `progress_unclear`, `adherence_friction`, `high_hunger`, `poor_sleep_recovery` | `Hay una senal concreta para corregir, sin cambiar todo el plan.` |
+| `simplify` | `low_training_adherence`, `time_constraint`, `high_stress`, `low_next_week_confidence` | `La prioridad es recuperar cumplimiento con una semana mas facil de ejecutar.` |
+| `redesign` | `new_limitation_declared`, `travel_or_disruption`, `schedule_mismatch`, `pain_flag` | `Tu contexto actual cambio lo suficiente como para replantear la semana.` |
+
+Reglas de uso:
+
+- cada decision debe persistir `1` reason code principal y hasta `3` reason codes de soporte
+- los `reason_codes_internal` deben ser estables y aptos para audit y analytics
+- los `reason_codes_user_facing` deben derivarse del set interno y nunca contradecirlo
+- si hay `safety_outcome = deferred`, al menos un reason code debe ser de categoria `safety` o `confidence`
+
 ## 8. Arquitectura de trust y safety
 
 ### Capas de safety
@@ -294,6 +346,29 @@ Cada `AdaptationDecision` debe incluir:
 | nueva limitacion | redisenar conservador o derivar a revisitar contexto |
 | datos incompletos | mantener o ajustar minimo con `low confidence` visible internamente |
 | senales contradictorias | salida conservadora y flag de revision |
+
+Regla de precedencia de safety:
+
+- Safety no crea una quinta decision, pero si restringe el espacio de salida.
+- Si hay riesgo fisico, el motor no puede elegir `maintain` ni `adjust` aunque la adherencia previa haya sido buena.
+- Si solo hay baja confianza o datos incompletos sin riesgo fisico, el motor debe caer a `maintain` o `adjust` minimo; no a `simplify` o `redesign` por incertidumbre sola.
+
+### Politica de deferencia
+
+Cuando el motor no puede adaptar normalmente sin elevar riesgo, debe marcar `safety_outcome = deferred` y ejecutar una sola de estas salidas:
+
+| Caso | Accion del sistema | Efecto sobre el plan |
+| --- | --- | --- |
+| riesgo fisico declarado o inferido | frenar progresiones y pedir revisar contexto o buscar soporte profesional | no aumentar carga ni complejidad |
+| inconsistencia fuerte de datos | devolver guidance conservadora y pedir completar datos faltantes | mantener estructura base o ajuste minimo |
+| baja confianza extrema para la semana siguiente | priorizar simplificacion o mantener con nota de prudencia | evitar cambios agresivos |
+
+Reglas de implementacion:
+
+- `deferred` no significa error tecnico; significa decision conservadora deliberada
+- el backend debe persistir `triggered_signals`, `fallback_used` y la razon textual de deferencia para QA
+- ninguna salida `deferred` puede introducir progresiones, volumen extra o recomendaciones que parezcan diagnostico
+- cuando haya empate entre salidas validas, persistir tambien la `decision_rule_path` aplicada para poder reconstruir por que gano la opcion mas conservadora
 
 ### Regla de producto
 

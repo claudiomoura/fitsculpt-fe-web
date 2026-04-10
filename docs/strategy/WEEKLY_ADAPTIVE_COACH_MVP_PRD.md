@@ -158,16 +158,57 @@ Convertir una semana imperfecta en una decision simple, accionable y explicable.
 | Simplificar | La semana fue demasiado dificil de ejecutar y hay que recuperar cumplimiento/confianza |
 | Redisenar | El plan base ya no encaja por cambio estructural o nueva limitacion |
 
-### Reglas MVP sugeridas
+### Salidas permitidas en MVP
+
+- El MVP solo puede emitir una `primary_decision`: `mantener`, `ajustar`, `simplificar` o `redisenar`.
+- `safety_outcome` (`clear`, `constrained`, `deferred`) no es una quinta decision; es un guardrail que limita como se llega a una de las cuatro salidas.
+- No se permiten decisiones compuestas como `mantener y ajustar`, `simplificar parcial` o `redisenar con progresion`.
+- Si hay duda entre dos salidas, gana la menos agresiva que siga siendo honesta con la evidencia semanal.
+
+### Guardrails y thresholds MVP v1
+
+Definiciones operativas para el MVP:
+
+- `adherencia razonable`: entreno completado `>= 60%` de lo planificado.
+- `adherencia fuerte`: entreno completado `>= 80%` de lo planificado.
+- `semana tensionada`: al menos `2` de estas senales: energia `<= 2/5`, recuperacion `<= 2/5`, estres `>= 4/5`, hambre `>= 4/5`, confianza siguiente semana `<= 2/5`.
+- `mismatch estructural`: nueva limitacion, cambio de equipamiento/entorno, o cambio de disponibilidad que vuelve poco creible repetir la estructura base de la semana siguiente.
+
+### Reglas MVP cerradas
 
 | Regla | Resultado |
 | --- | --- |
-| Si hay dolor `problematico`, mareo, lesion nueva o contexto de riesgo declarado | No aplicar adaptacion normal; activar fallback de safety |
-| Si adherencia entreno >= 80%, nutricion >= 4/5, energia >= 3/5 y confianza >= 3/5 | `Mantener` |
-| Si adherencia es razonable pero progreso insuficiente o friccion puntual clara | `Ajustar` |
-| Si adherencia entreno < 60% o confianza <= 2/5 por falta de tiempo, estres o fatiga | `Simplificar` |
-| Si el usuario reporta cambio fuerte de contexto, nueva limitacion o mismatch claro con el plan | `Redisenar` |
-| Si faltan datos clave o hay senales contradictorias | Fallback conservador: `ajustar` minimo o `mantener` con nota de baja confianza |
+| Si hay dolor `problematico`, mareo, lesion nueva, enfermedad fuerte o senal de alarma | No aplicar adaptacion normal; activar fallback de safety y limitar salida a `simplificar` o `redisenar` conservador |
+| Si hay `mismatch estructural` para la proxima semana | `Redisenar` |
+| Si adherencia entreno `< 60%` o confianza siguiente semana `<= 2/5` | `Simplificar` |
+| Si la semana fue `tensionada` y la friccion principal es tiempo, estres, fatiga o saturacion | `Simplificar` |
+| Si adherencia entreno `>= 80%`, nutricion `>= 4/5`, energia `>= 3/5`, recuperacion `>= 3/5`, estres `<= 3/5` y confianza `>= 3/5` | `Mantener` |
+| Si adherencia es `>= 60%`, confianza `>= 3/5`, no hay semana tensionada y existe una friccion localizada o progreso insuficiente | `Ajustar` |
+| Si faltan datos clave o hay senales contradictorias sin riesgo fisico | Fallback conservador: `mantener` con `low confidence`, o `ajustar` minimo si la friccion localizada es clara |
+
+### Precedencia cuando las senales se pisan
+
+Orden canonico del MVP:
+
+1. `Safety / deferencia`
+2. `Redisenar`
+3. `Simplificar`
+4. `Ajustar`
+5. `Mantener`
+
+Reglas practicas:
+
+- `Redisenar` gana solo si el problema es estructural para la semana siguiente. Una semana mala por estres o tiempo no justifica `redisenar`; en ese caso gana `simplificar`.
+- `Simplificar` gana sobre `ajustar` cuando ejecutar la proxima semana ya se ve fragil: adherencia `< 60%`, confianza `<= 2/5` o `semana tensionada`.
+- `Ajustar` solo vive en semanas todavia cumplibles: adherencia `>= 60%`, confianza `>= 3/5` y problema localizado en una dimension.
+- `Mantener` solo aplica cuando no hay una senal clara que justifique cambiar carga, estructura o flexibilidad.
+
+### Desempate y fallback conservador
+
+- Si un caso califica para `ajustar` y `simplificar` a la vez, usar `simplificar` salvo que la ejecucion haya sido `>= 60%`, la confianza sea `>= 3/5` y la tension este contenida a una sola senal.
+- Si un caso califica para `mantener` y `ajustar`, usar `ajustar` solo cuando haya una friccion o desajuste concreto que cambie algo visible; si no, `mantener`.
+- Si los datos estan incompletos o se contradicen, no escalar a `simplificar` ni `redisenar` solo por incertidumbre. El fallback por defecto es `mantener` con baja confianza, o `ajustar` minimo si existe una correccion puntual muy evidente.
+- Ante empate real, elegir siempre la opcion menos agresiva entre las que siguen siendo defendibles con evidencia.
 
 ### Cambios permitidos por decision
 
@@ -251,15 +292,36 @@ Convertir una semana imperfecta en una decision simple, accionable y explicable.
 | `initial_plan_accepted` | Usuario acepta semana 1 | timestamp |
 | `weekly_home_viewed` | Visita a home semanal | current_week, checkin_due |
 | `weekly_log_submitted` | Registro minimo guardado | log_type, current_week |
-| `checkin_started` | Inicio del weekly check-in | current_week |
-| `checkin_completed` | Fin del weekly check-in | duration, completion_state |
-| `coach_decision_generated` | Decision lista | decision_type, rule_version, confidence_state |
-| `coach_decision_viewed` | Usuario ve decision | decision_type |
-| `coach_adaptation_accepted` | Usuario acepta adaptacion | decision_type |
-| `coach_adaptation_rejected` | Usuario rechaza o pide cambio | decision_type, rejection_reason |
+| `weekly_check_in_started` | Inicio del weekly check-in | current_week |
+| `weekly_check_in_completed` | Fin del weekly check-in | duration, completion_state |
+| `adaptation_generated` | Decision lista | decision_type, rule_version, confidence_state |
+| `adaptation_viewed` | Usuario ve decision | decision_type |
+| `adaptation_accepted` | Usuario acepta adaptacion | decision_type |
+| `adaptation_rejected` | Usuario rechaza o pide cambio | decision_type, rejection_reason |
 | `safety_fallback_triggered` | Se activa guardrail | trigger_type |
 
-## 14. Launch readiness checklist
+## 14. Release gates del MVP
+
+Los siguientes gates son cerrados para el MVP. Todos deben estar en verde antes de marcar el loop como `release-ready`.
+
+| Gate | Criterio de salida | Evidencia minima | Owner que prepara | Quien valida antes de release |
+| --- | --- | --- | --- | --- |
+| `G1_scope_locked` | objetivo, promesa, target/non-target y scope `in/out` congelados | PRD y backlog alineados | Product | Product lead |
+| `G2_onboarding_contract_ready` | onboarding definido campo por campo con required/optionalidad y validaciones minimas | data contracts + UX checklist | Product + App | Product + frontend lead |
+| `G3_decision_rules_ready` | reglas de `mantener`, `ajustar`, `simplificar`, `redisenar`, changes permitidos y reason codes v1 cerrados | PRD + tech architecture + data contracts | Intelligence | Intelligence lead + backend lead |
+| `G4_safety_ready` | triggers de seguridad/deferencia y UX de fallback definidos con CTA conservador | tech architecture + UX checklist | Product + Intelligence | Product lead |
+| `G5_functional_loop_ready` | onboarding -> plan inicial -> semana activa -> check-in -> decision -> aceptacion funciona end-to-end | QA/UAT smoke del loop | App | App lead |
+| `G6_analytics_ready` | eventos core permiten reconstruir onboarding, check-in, decision y aceptacion | taxonomy de eventos + smoke de observabilidad | Intelligence | Data/analytics owner |
+| `G7_audit_and_rollback_ready` | cada decision deja trazabilidad minima y el rollout puede apagarse por flags | audit schema + flags + runbook basico | App + Intelligence | Tech lead |
+| `G8_alpha_go_no_go` | cohorte inicial, cadence de review y umbrales de safety/aceptacion definidos | checklist de alpha y criterio go/no-go | Product | Product lead + tech lead |
+
+### Regla operativa de release
+
+- si falla cualquier gate de safety, audit o rollback, el MVP no sale aunque el flujo funcional este completo
+- si el loop funciona pero analytics no permite reconstruir funnel y aceptacion, no se marca `release-ready`
+- si hay dudas entre dos salidas posibles, gana la interpretacion mas conservadora
+
+## 15. Launch readiness checklist
 
 - [ ] Onboarding MVP definido campo por campo.
 - [ ] Plan inicial MVP definido con estructura y explicacion.
@@ -274,7 +336,7 @@ Convertir una semana imperfecta en una decision simple, accionable y explicable.
 - [ ] Checklist QA de edge cases y safety preparado.
 - [ ] Criterios de alpha cerrada y go/no-go documentados.
 
-## 15. Preguntas abiertas y supuestos
+## 16. Preguntas abiertas y supuestos
 
 ### Supuestos
 
@@ -288,5 +350,8 @@ Convertir una semana imperfecta en una decision simple, accionable y explicable.
 - Cual es el minimo logging que maximiza senal sin matar adherencia?
 - Cuanta autonomia debe tener el usuario para modificar o rechazar una adaptacion?
 - Que parte del plan inicial debe ser puramente gobernada por reglas y cual por IA controlada?
-- Cual es el umbral exacto para pasar de `ajustar` a `simplificar`?
 - Que experiencia de reenganche se muestra si un usuario salta dos check-ins seguidos?
+
+Nota de cierre para MVP:
+
+- El corte `ajustar` vs `simplificar` queda cerrado en este documento: `simplificar` gana cuando la siguiente semana ya no luce ejecutable; `ajustar` queda reservado para correcciones menores sobre una semana todavia cumplible.

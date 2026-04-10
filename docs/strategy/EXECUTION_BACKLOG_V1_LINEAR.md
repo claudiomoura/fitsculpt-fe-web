@@ -310,7 +310,7 @@ P0 | P1 | P2 | P3
 
 | ID | Bloqueo / unknown | Impacto | Owner sugerido | Mitigacion inicial |
 | --- | --- | --- | --- | --- |
-| BU-01 | Aun no esta cerrado el umbral exacto entre `ajustar` y `simplificar` | Riesgo de recomendaciones inconsistentes | AI + product | Arrancar con reglas conservadoras y revisar con datos de alpha |
+| BU-01 | Resuelto en docs MVP v1: `simplificar` gana cuando la siguiente semana no luce ejecutable; `ajustar` queda para correcciones menores sobre semanas todavia cumplibles | Riesgo mitigado; mantener QA de casos alpha para calibracion posterior | AI + product | Usar las reglas canonicas del PRD + tech architecture + data contracts como source of truth |
 | BU-02 | No esta definido el minimo logging obligatorio para que el motor sea util | Puede romper UX o dejar al motor ciego | product + data | Congelar logging MVP y tratar inputs avanzados como opcionales |
 | BU-03 | Falta decidir cuanta autonomia tiene el usuario para rechazar una adaptacion | Impacta UX, plan state y analytics | product | Iniciar con aceptar + pedir simplificacion + pedir contexto |
 | BU-04 | No esta definida la estrategia exacta de plan inicial reglas vs IA | Puede afectar velocidad, costo y consistencia | AI + backend | Empezar con estructura deterministicamente gobernada y texto asistido |

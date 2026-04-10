@@ -30,6 +30,22 @@ Regla principal:
 | Decision del coach | entender que cambia y por que | hacer visible la adaptacion y ganar confianza | explicacion vaga o diff ilegible |
 | Nueva semana | aceptar y ejecutar | reiniciar el loop con narrativa de progreso | dejar dudas sobre que hacer ahora |
 
+### Flujo canonico de onboarding coach-level
+
+| Paso | Objetivo | Inputs que desbloquea | Regla UX |
+| --- | --- | --- | --- |
+| `1_goal_and_context` | entender meta, horizonte y compromiso real | objetivo principal, objetivo secundario, horizonte, compromiso | primer paso corto, promesa visible y barra de progreso |
+| `2_physical_context` | capturar baseline suficiente para plan creible y seguro | edad, sexo, altura, peso/modo de peso, experiencia, lesiones/limitaciones | ayuda contextual corta y tono no clinico |
+| `3_availability_and_environment` | aterrizar el plan a la semana real del usuario | dias disponibles, duracion por sesion, equipamiento, horario, trabajo/actividad base | priorizar selectores rapidos, no calendarios complejos |
+| `4_preferences_and_adherence` | reducir friccion futura y riesgo de abandono | preferencias, avoidances, restricciones, estilo de plan, motivo historico de abandono, confianza | cerrar con expectativa de valor inmediato: `Generar mi plan` |
+
+Reglas de progresion:
+
+- el onboarding debe poder completarse en `4` pasos y no parecer un formulario infinito
+- cada paso debe explicar en una linea por que esos datos cambian el plan o la seguridad
+- se permite guardado parcial entre pasos, pero solo se habilita `Generar mi plan` cuando el set minimo requerido esta completo
+- si se detecta una limitacion relevante, el flujo no se bloquea; se recalibra el tono y se prepara un plan mas conservador
+
 ## 4. Inventario de pantallas MVP
 
 Estas son las pantallas que deben existir o estar explicitamente resueltas:
@@ -344,9 +360,9 @@ Estas son las pantallas que deben existir o estar explicitamente resueltas:
 
 **Analytics hooks**
 
-- `checkin_started`
+- `weekly_check_in_started`
 - `checkin_step_completed`
-- `checkin_completed`
+- `weekly_check_in_completed`
 - `checkin_abandoned`
 
 **Copy notes**
@@ -369,6 +385,14 @@ Estas son las pantallas que deben existir o estar explicitamente resueltas:
 - CTA primario `Aceptar adaptacion`
 - CTA secundario `Hazmelo mas facil` o `Revisar contexto`
 
+**Behavior rules**
+
+- nunca mostrar mas de una decision principal por semana
+- `safety` y `low confidence` se muestran como estado de confianza, no como nueva decision
+- si la salida es `ajustar`, el diff debe verse menor y puntual
+- si la salida es `simplificar`, el diff debe hacer visible que bajamos dificultad o complejidad
+- si la salida es `redisenar`, la UI debe explicar que cambio estructural invalido la semana anterior
+
 **Must-not-have clutter**
 
 - comparativas densas de todo el plan
@@ -385,10 +409,10 @@ Estas son las pantallas que deben existir o estar explicitamente resueltas:
 
 **Analytics hooks**
 
-- `coach_decision_generated`
-- `coach_decision_viewed`
-- `coach_adaptation_accepted`
-- `coach_adaptation_rejected`
+- `adaptation_generated`
+- `adaptation_viewed`
+- `adaptation_accepted`
+- `adaptation_rejected`
 - `safety_fallback_triggered`
 
 **Copy notes**
@@ -459,6 +483,21 @@ Estas son las pantallas que deben existir o estar explicitamente resueltas:
 - tono firme, claro y sereno
 - nunca sonar medico si no hay criterio clinico real
 
+### 5.12 Copy base para safety y fallback
+
+| Estado | Mensaje base | CTA primario | CTA secundario |
+| --- | --- | --- | --- |
+| `safety_trigger` | `Esta semana vamos a priorizar prudencia antes que progresion.` | `Revisar contexto` | `Buscar ayuda profesional` |
+| `data_incomplete` | `Nos faltan algunas senales para ajustar con confianza.` | `Completar datos` | `Seguir plan actual con cambios minimos` |
+| `low_confidence` | `Preferimos una recomendacion conservadora antes que adivinar demasiado.` | `Ver ajuste conservador` | `Revisar mi semana otra vez` |
+| `new_limitation_declared` | `Tu contexto fisico cambio y no conviene empujar el plan anterior tal cual.` | `Ver version mas segura` | `Revisar limitaciones` |
+
+Reglas de comportamiento visible:
+
+- toda surface de fallback debe explicar `por que frenamos`, `que hacemos en su lugar` y `que se espera del usuario ahora`
+- el CTA primario nunca debe sonar punitivo ni culpar al usuario por una mala semana
+- si el siguiente paso recomendado es buscar soporte profesional, el copy debe hablar de prudencia y no de diagnostico
+
 ## 6. Estados requeridos en todo el MVP
 
 Cada surface critica debe resolver estos estados cuando aplique:
@@ -486,6 +525,8 @@ Checklist transversal:
 - [ ] Si hay dolor problematico, lesion nueva, mareo o senal de riesgo, no mostrar progresion agresiva.
 - [ ] Toda decision sensible debe tener explicacion breve y accion conservadora.
 - [ ] Si faltan datos clave, usar fallback de `mantener` o `ajustar` minimo con nota de baja confianza.
+- [ ] Si el caso mezcla senales de `ajustar` y `simplificar`, la UX debe reflejar `simplificar` solo cuando la siguiente semana luce fragil de ejecutar; si no, mostrar `ajustar`.
+- [ ] `Redisenar` solo aparece cuando la razon visible es estructural, no por una sola mala semana.
 - [ ] Debe existir copy que explique que el sistema trabaja con senales semanales y no con certeza absoluta.
 - [ ] El usuario debe entender que puede revisar contexto o buscar ayuda profesional cuando corresponda.
 
