@@ -4,6 +4,9 @@ export type {
   TrackingBodyScanCapability,
   TrackingBodyScanDataSnapshot,
   TrackingBodyScanInsufficiencyReason,
+  TrackingBodyScanPersistenceAdapter,
+  TrackingBodyScanPersistenceRecord,
+  TrackingBodyScanPersistenceState,
   TrackingBodyScanRequest,
   TrackingBodyScanState,
   TrackingIntelligenceCompliancePayload,
@@ -23,6 +26,17 @@ export type {
   TrackingRecommendationRequest,
   TrackingTrendWindow,
 } from "@/domains/tracking-intelligence/contracts";
+export {
+  getTrackingIntelligenceCompliance,
+  getTrackingIntelligenceComplianceRule,
+} from "@/domains/tracking-intelligence/compliance";
+export {
+  trackTrackingCapabilityEvent,
+} from "@/domains/tracking-intelligence/analytics";
+export {
+  consumeTrackingRecommendationForAiPlan,
+  type TrackingRecommendationPlanConsumerResult,
+} from "@/domains/tracking-intelligence/recommendationPlanConsumer";
 export {
   buildTrackingBodyScanCapability,
   estimateTrackingBodyScanTokens,

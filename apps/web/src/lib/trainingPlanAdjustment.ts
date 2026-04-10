@@ -1,5 +1,8 @@
 import { addDays, parseDate, startOfWeek, toDateKey } from "@/lib/calendar";
+import { runAiCapabilityPreflight, type AiTokenReservation } from "@/domains/ai";
+import { requestAiTrainingPlan, saveAiTrainingPlan } from "@/components/training-plan/aiPlanGeneration";
 import { isProfileComplete } from "@/lib/profileCompletion";
+import type { AuthMeResponse } from "@/lib/types";
 import type {
   Goal,
   ProfileData,
@@ -9,7 +12,6 @@ import type {
   TrainingLevel,
   TrainingPlanData,
 } from "@/lib/profile";
-import { updateUserProfile } from "@/lib/profileService";
 
 type TrainingDay = NonNullable<TrainingPlanData>["days"][number];
 
@@ -93,70 +95,56 @@ export async function hasTrainingPlanAdjustmentCapability(): Promise<boolean> {
 
 export async function generateAndSaveTrainingPlan(
   profile: ProfileData,
-  input: TrainingPreferencesInput
+  input: TrainingPreferencesInput,
+  options?: {
+    aiProfile?: AuthMeResponse | null;
+    reserveTokens?: (input: {
+      capability: "training-plan-generation";
+      estimatedTokens: number;
+      profile: AuthMeResponse;
+    }) => Promise<AiTokenReservation>;
+  },
 ): Promise<TrainingPlanAdjustmentResult> {
-  const startDate = toDateKey(startOfWeek(new Date()));
-  const response = await fetch("/api/ai/training-plan", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify({
-      name: profile.name || undefined,
-      age: profile.age,
-      sex: profile.sex,
-      level: input.level,
-      goal: input.goal,
-      goals: profile.goals,
-      equipment: input.equipment,
-      daysPerWeek: input.daysPerWeek,
-      startDate,
-      daysCount: 7,
-      sessionTime: input.sessionTime,
-      focus: input.focus,
-      timeAvailableMinutes: input.sessionTime === "short" ? 35 : input.sessionTime === "medium" ? 50 : 65,
-      includeCardio: profile.trainingPreferences.includeCardio,
-      includeMobilityWarmups: profile.trainingPreferences.includeMobilityWarmups,
-      workoutLength: profile.trainingPreferences.workoutLength,
-      timerSound: profile.trainingPreferences.timerSound,
-      injuries: profile.injuries || undefined,
-      restrictions: profile.notes || undefined,
-    }),
+  const preflight = await runAiCapabilityPreflight({
+    capability: "training-plan-generation",
+    payload: { profile, input },
+    profile: options?.aiProfile,
+    entitlement: { module: "ai", minimumPlan: "PRO" },
+    estimateTokens: ({ input }) => 190 + Math.max(1, input.daysPerWeek) * 24,
+    reserveTokens: options?.reserveTokens
+      ? async ({ estimatedTokens, profile }) =>
+          options.reserveTokens?.({
+            capability: "training-plan-generation",
+            estimatedTokens,
+            profile,
+          }) ?? { ok: false, reason: "missing_reservation" }
+      : undefined,
   });
 
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as
-      | { error?: string; message?: string; retryAfterSec?: number }
-      | null;
-    if (payload?.error === "INSUFFICIENT_TOKENS") {
+  if (!preflight.ok) {
+    if (preflight.failureReason === "insufficient_balance") {
       throw new Error("INSUFFICIENT_TOKENS");
     }
-    if (response.status === 429) {
-      throw new Error(payload?.message ?? "RATE_LIMITED");
-    }
-    throw new Error("AI_GENERATION_FAILED");
+    throw new Error(preflight.failureReason ?? "AI_GENERATION_BLOCKED");
   }
 
-  const data = (await response.json()) as {
-    plan?: TrainingPlan;
-    aiTokenBalance?: number;
-    aiTokenRenewalAt?: string | null;
-    updatedAt?: string;
-    effectiveFrom?: string;
-    weekStart?: string;
-  };
-  const plan = data.plan ?? (data as unknown as TrainingPlan);
-  const nextPlan = ensurePlanStartDate(plan);
-  const updatedProfile = await updateUserProfile({ trainingPlan: nextPlan });
+  const generated = await requestAiTrainingPlan(profile, input, toDateKey(startOfWeek(new Date())));
+  const persisted = ensurePlanStartDate(generated.plan);
+  const updatedProfile = await saveAiTrainingPlan(persisted);
 
   return {
     profile: updatedProfile,
-    aiTokenBalance: typeof data.aiTokenBalance === "number" ? data.aiTokenBalance : undefined,
+    aiTokenBalance:
+      typeof generated.aiTokenBalance === "number" ? generated.aiTokenBalance : undefined,
     aiTokenRenewalAt:
-      typeof data.aiTokenRenewalAt === "string" || data.aiTokenRenewalAt === null ? data.aiTokenRenewalAt : undefined,
+      typeof generated.aiTokenRenewalAt === "string" ||
+      generated.aiTokenRenewalAt === null
+        ? generated.aiTokenRenewalAt
+        : undefined,
     metadata: {
-      updatedAt: data.updatedAt,
-      effectiveFrom: data.effectiveFrom,
-      weekStart: data.weekStart,
+      updatedAt: generated.metadata.updatedAt,
+      effectiveFrom: generated.metadata.effectiveFrom,
+      weekStart: generated.metadata.weekStart,
     },
   };
 }

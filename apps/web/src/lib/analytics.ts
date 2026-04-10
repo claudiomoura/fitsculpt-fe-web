@@ -31,7 +31,12 @@ export type AnalyticsEventName =
   | "future_projection_scenario_selected"
   | "rct_status_viewed"
   | "rct_summary_viewed"
-  | "gym_join_cta_clicked";
+  | "gym_join_cta_clicked"
+  | "tracking_intelligence_capability_computed"
+  | "tracking_intelligence_capability_viewed"
+  | "tracking_intelligence_capability_fallback"
+  | "tracking_intelligence_capability_cta_clicked"
+  | "tracking_intelligence_ai_preflight_blocked";
 
 export type AnalyticsEventProps = {
   target?: "training" | "nutrition" | "checkin" | "billing";
@@ -50,6 +55,13 @@ export type AnalyticsEventProps = {
   confidence?: number;
   itemsCount?: number;
   code?: string;
+  capabilityId?: "body-scan" | "projection" | "recommendation";
+  capabilityOrigin?: string;
+  capabilityStatus?: string;
+  capabilityAnalysisMode?: string;
+  capabilityConfidence?: string;
+  capabilityFallbackLabel?: string;
+  capabilityCtaTarget?: string;
 };
 
 declare global {

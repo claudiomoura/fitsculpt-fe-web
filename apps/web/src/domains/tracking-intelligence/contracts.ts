@@ -60,6 +60,7 @@ export type TrackingProjectionCapability = {
   origin: string;
   errorMessage: string | null;
   explainability: TrackingIntelligenceExplainability;
+  compliance: TrackingIntelligenceCompliancePayload;
 };
 
 export type TrackingIntelligenceConfidence = "low" | "medium" | "high";
@@ -89,6 +90,30 @@ export type TrackingBodyScanInsufficiencyReason =
   | "missing_passive_support";
 
 export type TrackingBodyScanState = "ready" | "low_confidence" | "insufficient_data";
+
+export type TrackingBodyScanPersistenceRecord = {
+  id: string;
+  capability: "body-scan";
+  origin: string;
+  state: TrackingBodyScanState;
+  confidence: TrackingIntelligenceConfidence;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type TrackingBodyScanPersistenceState = {
+  status: "not_persisted" | "persisted" | "persist_failed";
+  adapter: "none" | "memory" | "remote";
+  record: TrackingBodyScanPersistenceRecord | null;
+  errorMessage: string | null;
+};
+
+export type TrackingBodyScanPersistenceAdapter = {
+  id: string;
+  save: (payload: {
+    capability: TrackingBodyScanCapability;
+  }) => Promise<TrackingBodyScanPersistenceRecord>;
+};
 
 export type TrackingAiAssistState = {
   status: "not_requested" | "ready" | "blocked";
@@ -131,6 +156,7 @@ export type TrackingBodyScanCapability = {
   insufficiencies: TrackingBodyScanInsufficiencyReason[];
   data: TrackingBodyScanDataSnapshot;
   compliance: TrackingIntelligenceCompliancePayload;
+  persistence: TrackingBodyScanPersistenceState;
   aiAssist: TrackingAiAssistState;
 };
 

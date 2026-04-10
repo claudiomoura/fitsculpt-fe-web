@@ -7,6 +7,7 @@ import { Input } from "@/design-system/components/Input";
 import { useLanguage } from "@/context/LanguageProvider";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { trackEvent } from "@/lib/analytics";
+import TrackingCapabilitySnapshot from "@/components/tracking-intelligence/TrackingCapabilitySnapshot";
 import styles from "./OnboardingClient.module.css";
 import {
   defaultProfile,
@@ -1120,6 +1121,14 @@ export default function OnboardingClient({
             </div>
           ) : null}
         </section>
+
+        {!isGuestMode ? (
+          <TrackingCapabilitySnapshot
+            profile={profile}
+            origin="onboarding"
+            title="Tracking Intelligence preview"
+          />
+        ) : null}
 
         {!(isGuestMode && step === GUEST_LAST_STEP) ? (
           <section className={`card ${styles.footerCard}`}>

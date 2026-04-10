@@ -88,4 +88,27 @@ describe("tracking body scan capability", () => {
     expect(result.aiAssist.failureReason).toBe("reservation_unavailable");
     expect(result.summary.length).toBeGreaterThan(0);
   });
+
+  it("persists body scan output through adapter when available", async () => {
+    const result = await loadTrackingBodyScanCapability({
+      origin: "tracking",
+      profile: defaultProfile,
+      checkins: [buildCheckin({ id: "saved", frontPhotoUrl: "front", sidePhotoUrl: "side" })],
+      persistenceAdapter: {
+        id: "test-adapter",
+        save: async () => ({
+          id: "scan-1",
+          capability: "body-scan",
+          origin: "tracking",
+          state: "low_confidence",
+          confidence: "low",
+          createdAt: "2026-04-10T10:00:00.000Z",
+          updatedAt: "2026-04-10T10:00:00.000Z",
+        }),
+      },
+    });
+
+    expect(result.persistence.status).toBe("persisted");
+    expect(result.persistence.record?.id).toBe("scan-1");
+  });
 });

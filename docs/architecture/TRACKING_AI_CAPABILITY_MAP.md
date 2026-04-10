@@ -50,6 +50,18 @@ These are the most important integration points in the current codebase:
 - `apps/web/src/domains/ai/index.ts`
 - `apps/web/src/domains/training/index.ts`
 
+### Modular capability foundation (current)
+- `apps/web/src/domains/tracking-intelligence/contracts.ts`
+- `apps/web/src/domains/tracking-intelligence/bodyScan.ts`
+- `apps/web/src/domains/tracking-intelligence/projection.ts`
+- `apps/web/src/domains/tracking-intelligence/recommendation.ts`
+- `apps/web/src/domains/tracking-intelligence/recommendationPlanConsumer.ts`
+- `apps/web/src/domains/tracking-intelligence/compliance.ts`
+- `apps/web/src/domains/tracking-intelligence/analytics.ts`
+- `apps/web/src/components/tracking-intelligence/TrackingCapabilitySnapshot.tsx`
+
+The platform currently enforces fail-closed AI execution when token reservation is not connected. This is intentional to preserve the entitlement/token sequence as a hard rule.
+
 ## Architectural Rule
 
 Screens orchestrate capabilities.

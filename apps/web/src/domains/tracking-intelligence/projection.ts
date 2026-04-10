@@ -10,6 +10,7 @@ import type {
   TrackingProjectionCapability,
   TrackingRecommendationRequest,
 } from "@/domains/tracking-intelligence/contracts";
+import { getTrackingIntelligenceCompliance } from "@/domains/tracking-intelligence/compliance";
 
 export type TrackingProjectionCapabilityResult = TrackingProjectionCapability & {
   projection: FutureProjectionResponse | null;
@@ -128,6 +129,7 @@ export async function loadTrackingProjectionCapability(origin = "unknown"): Prom
       origin,
       errorMessage,
       explainability: buildProjectionUnavailableExplainability(errorMessage),
+      compliance: getTrackingIntelligenceCompliance("projection"),
       projection: null,
       rctStatus: null,
       activeScenarioByHorizon: {},
@@ -153,6 +155,7 @@ export async function loadTrackingProjectionCapability(origin = "unknown"): Prom
       activeScenarioByHorizon,
       errorMessage: null,
     }),
+    compliance: getTrackingIntelligenceCompliance("projection"),
     projection: projectionResult.data,
     rctStatus: statusResult.data,
     activeScenarioByHorizon,

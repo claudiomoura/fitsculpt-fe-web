@@ -4,6 +4,8 @@ import type {
   TrackingAiAssistState,
   TrackingBodyScanCapability,
   TrackingBodyScanInsufficiencyReason,
+  TrackingBodyScanPersistenceAdapter,
+  TrackingBodyScanPersistenceState,
   TrackingBodyScanRequest,
 } from "@/domains/tracking-intelligence/contracts";
 import {
@@ -14,22 +16,7 @@ import {
   selectTrackingPhotoAvailability,
   selectTrackingPhotoComparison,
 } from "@/domains/tracking-intelligence/selectors";
-
-const BODY_SCAN_COMPLIANCE = {
-  disclaimer:
-    "Esta lectura orienta seguimiento fisico con tus datos actuales. No ofrece diagnostico medico ni promete precision visual hiperrealista.",
-  limitations: [
-    "La confianza baja si faltan fotos comparables, check-ins recientes o medidas consistentes.",
-    "Las fotos pueden ayudar a contextualizar cambios, pero no sustituyen mediciones estandarizadas.",
-    "La version actual prioriza señales deterministas y explicables mientras el modelo AI final sigue pendiente.",
-  ],
-  safetyNotes: [
-    "Usa el resultado para ajustar seguimiento, no para sacar conclusiones clinicas.",
-    "Si hay dolor, cambios bruscos o dudas de salud, consulta a un profesional.",
-  ],
-  medicalAccuracy: "not_medical_advice",
-  visualAccuracy: "not_hyperrealistic",
-} as const;
+import { getTrackingIntelligenceCompliance } from "@/domains/tracking-intelligence/compliance";
 
 function buildAiAssistBlocked(message: string, failureReason: string | null, estimatedTokens: number | null): TrackingAiAssistState {
   return {
@@ -48,6 +35,15 @@ function buildAiAssistNotRequested(): TrackingAiAssistState {
     message: null,
     estimatedTokens: null,
     reservationId: null,
+  };
+}
+
+function buildNotPersistedState(): TrackingBodyScanPersistenceState {
+  return {
+    status: "not_persisted",
+    adapter: "none",
+    record: null,
+    errorMessage: null,
   };
 }
 
@@ -203,7 +199,8 @@ export function buildTrackingBodyScanCapability(request: TrackingBodyScanRequest
       waistDeltaCm,
       bodyFatDeltaPct,
     },
-    compliance: BODY_SCAN_COMPLIANCE,
+    compliance: getTrackingIntelligenceCompliance("body-scan"),
+    persistence: buildNotPersistedState(),
     aiAssist: buildAiAssistNotRequested(),
   };
 }
@@ -217,9 +214,35 @@ export async function loadTrackingBodyScanCapability(
       estimatedTokens: number;
       profile: AuthMeResponse;
     }) => Promise<AiTokenReservation>) | undefined;
+    persistenceAdapter?: TrackingBodyScanPersistenceAdapter;
   },
 ): Promise<TrackingBodyScanCapability> {
-  const capability = buildTrackingBodyScanCapability(request);
+  let capability = buildTrackingBodyScanCapability(request);
+
+  if (request.persistenceAdapter) {
+    try {
+      const record = await request.persistenceAdapter.save({ capability });
+      capability = {
+        ...capability,
+        persistence: {
+          status: "persisted",
+          adapter: "remote",
+          record,
+          errorMessage: null,
+        },
+      };
+    } catch (_error) {
+      capability = {
+        ...capability,
+        persistence: {
+          status: "persist_failed",
+          adapter: "remote",
+          record: null,
+          errorMessage: "No pudimos persistir el resultado de body scan.",
+        },
+      };
+    }
+  }
 
   if (!request.preferAi) {
     return capability;

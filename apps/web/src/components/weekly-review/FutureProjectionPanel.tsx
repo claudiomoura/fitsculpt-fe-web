@@ -5,6 +5,7 @@ import { LoadingState } from "@/components/states";
 import { Button } from "@/design-system/components/Button";
 import {
   loadTrackingProjectionCapability,
+  trackTrackingCapabilityEvent,
   type TrackingProjectionCapabilityResult,
 } from "@/domains/tracking-intelligence";
 import { trackEvent } from "@/lib/analytics";
@@ -43,10 +44,30 @@ export default function FutureProjectionPanel() {
       if (!active) return;
 
       if (capability.status !== "ready" || !capability.projection || !capability.rctStatus) {
+        trackTrackingCapabilityEvent({
+          event: "fallback",
+          capabilityId: "projection",
+          origin: "weekly_review",
+          status: capability.status,
+          fallbackLabel: capability.explainability.fallbackLabel,
+        });
         setCapability(capability);
         setLoading(false);
         return;
       }
+
+      trackTrackingCapabilityEvent({
+        event: "computed",
+        capabilityId: "projection",
+        origin: "weekly_review",
+        status: capability.status,
+      });
+      trackTrackingCapabilityEvent({
+        event: "viewed",
+        capabilityId: "projection",
+        origin: "weekly_review",
+        status: capability.status,
+      });
 
       setCapability(capability);
       setActiveScenarioByHorizon(capability.activeScenarioByHorizon);

@@ -20,6 +20,7 @@ import { ErrorState, LoadingState } from "@/components/states";
 import TrainerProfileSummary from "@/components/trainer/profile/TrainerProfileSummary";
 import { ButtonLink } from "@/design-system/components/Button";
 import { getMeasurementSystemLabel, getStoredMeasurementSystem, type MeasurementSystem } from "@/lib/measurementUnits";
+import TrackingCapabilitySnapshot from "@/components/tracking-intelligence/TrackingCapabilitySnapshot";
 import LogoutButton from "../LogoutButton";
 import styles from "./ProfileSummaryClient.module.css";
 
@@ -380,6 +381,12 @@ export default function ProfileSummaryClient() {
           {t("ui.edit")}
         </ButtonLink>
       </section>
+
+      <TrackingCapabilitySnapshot
+        profile={profile}
+        origin="profile"
+        title="Tracking Intelligence Snapshot"
+      />
 
       <section className="card premium-surface-card surface-content-card">
         <h3 className={styles.groupTitle}>{t("nav.trainingPlan")}</h3>

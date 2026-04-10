@@ -9,22 +9,7 @@ import type {
   TrackingRecommendationRequest,
 } from "@/domains/tracking-intelligence/contracts";
 import { selectTrackingProjectionScenario } from "@/domains/tracking-intelligence/projection";
-
-const RECOMMENDATION_COMPLIANCE = {
-  disclaimer:
-    "Estas recomendaciones priorizan el siguiente mejor paso con datos parciales. No sustituyen criterio clinico ni garantizan un resultado corporal concreto.",
-  limitations: [
-    "La logica actual usa reglas deterministas y explicables; el modelo AI final aun no esta conectado.",
-    "Una recomendacion puede apoyarse solo en projection, solo en body scan o en ambas fuentes segun la disponibilidad real.",
-    "Si faltan check-ins, fotos o adherence data, la recomendacion se degrada a acciones base de recogida de datos y consistencia.",
-  ],
-  safetyNotes: [
-    "Evita cambios agresivos solo por una lectura automatizada.",
-    "Ante sintomas, lesion o fatiga persistente, consulta a un profesional antes de ajustar volumen o nutricion.",
-  ],
-  medicalAccuracy: "not_medical_advice",
-  visualAccuracy: "not_hyperrealistic",
-} as const;
+import { getTrackingIntelligenceCompliance } from "@/domains/tracking-intelligence/compliance";
 
 function buildAiAssistBlocked(message: string, failureReason: string | null, estimatedTokens: number | null): TrackingAiAssistState {
   return {
@@ -290,7 +275,7 @@ export function buildTrackingRecommendationCapability(request: TrackingRecommend
     inputMatrix,
     items: limitedItems,
     deterministicFallbackUsed: true,
-    compliance: RECOMMENDATION_COMPLIANCE,
+    compliance: getTrackingIntelligenceCompliance("recommendation"),
     aiAssist: buildAiAssistNotRequested(),
     explainability,
   };

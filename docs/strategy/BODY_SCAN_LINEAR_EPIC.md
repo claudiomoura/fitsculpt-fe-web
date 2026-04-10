@@ -40,14 +40,28 @@ Primary repo anchors:
 - [x] `TrackingSummaryPreview.tsx` extracted from `TrackingClient.tsx`.
 - [x] Guided Body Scan capture v1 (guided photos with stepper + prompts) integrated in Seguimiento full check-in.
 
-#### In progress
-- [ ] Connect AI preflight to real token reservation/balance adapter.
-- [ ] Expand guided capture from guided photos to richer camera guidance.
-- [ ] Further split `TrackingClient.tsx` intelligence sections into dedicated components/hooks.
+#### Backlog closeout (FIT-30..FIT-40)
+- [x] Body Scan contract extended with persistence adapter contract + persisted status envelope.
+- [x] Capability-level analytics taxonomy implemented (`computed`, `viewed`, `fallback`, `cta_clicked`, `ai_preflight_blocked`) and instrumented on Tracking + Weekly Review modular flows.
+- [x] Recommendation integrated as AI plan-generation consumer through a decoupled domain boundary (`recommendationPlanConsumer`) with fail-closed preflight.
+- [x] Shared compliance/safety/claims layer implemented and consumed by body scan/projection/recommendation.
+- [x] Surface refactor expanded to Profile + Onboarding via reusable `TrackingCapabilitySnapshot` consumer while keeping Weekly Review projection modular.
+- [x] Shared AI preflight enforced on training-plan adjustment flow with fail-closed behavior when reservation adapter is unavailable.
+- [x] Fallback policy documented: until token reservation adapter exists, AI execution remains blocked by design (security/compliance first).
+- [ ] Linear status sync via API blocked in this execution environment because `LINEAR_API_KEY` is not present; issue status transitions must be pushed once token is available.
 
 #### Validation status
-- [x] Typecheck passing (`apps/web`).
-- [x] Domain and guided-capture tests passing (`apps/web/src/test/*tracking*`, `aiPreflight`, `GuidedBodyScanCapture`, `TrackingSummaryPreview`).
+- [x] Typecheck passing (`npm --prefix apps/web run typecheck`).
+- [x] Focused epic suite passing:
+  - `trackingBodyScanCapability.test.ts`
+  - `trackingRecommendationCapability.test.ts`
+  - `trackingProjectionCapability.test.ts`
+  - `aiPreflight.test.ts`
+  - `trackingComplianceLayer.test.ts`
+  - `trackingRecommendationPlanConsumer.test.ts`
+  - `trainingPlanAdjustmentPreflight.test.ts`
+  - `ProfileSummaryClient.test.tsx`
+  - `onboardingFlow.test.tsx`
 
 ## Success Metrics
 

@@ -29,11 +29,9 @@ import {
 import { getTrackingRangeConfig } from "@/lib/trackingProfessionalRules";
 import {
   hasAiEntitlement,
-  requestAiTrainingPlan,
-  saveAiTrainingPlan,
-  type AiEntitlementProfile,
 } from "@/domains/ai";
 import {
+  consumeTrackingRecommendationForAiPlan,
   buildTrackingBodyScanCapability,
   buildTrackingProfileSnapshotFallback,
   buildTrackingRecommendationCapability,
@@ -45,6 +43,7 @@ import {
   selectTrackingAdherenceContext,
   selectTrackingAnalysisCheckins,
   selectTrackingPhotoComparison,
+  trackTrackingCapabilityEvent,
   toTrackingRecommendationProjectionInput,
   type TrackingProjectionCapabilityResult,
 } from "@/domains/tracking-intelligence";
@@ -406,6 +405,10 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
   const [projectionCapabilityStatus, setProjectionCapabilityStatus] = useState<
     "idle" | "loading" | "ready" | "error"
   >("idle");
+  const [recommendationAiStatus, setRecommendationAiStatus] = useState<{
+    state: "idle" | "loading" | "success" | "blocked" | "error";
+    message: string | null;
+  }>({ state: "idle", message: null });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isEnergySubmitting, setIsEnergySubmitting] = useState(false);
@@ -449,6 +452,7 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
   });
   const supportsCheckinPhotos = true;
   const isMountedRef = useRef(true);
+  const intelligenceComputedRef = useRef(new Set<string>());
 
   const isWeightValid =
     Number.isFinite(checkinWeight) &&
@@ -511,6 +515,13 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
       );
       if (!active) return;
       setProjectionCapability(nextCapability);
+      trackTrackingCapabilityEvent({
+        event: nextCapability.status === "ready" ? "computed" : "fallback",
+        capabilityId: "projection",
+        origin: isCheckinOnly ? "checkin_page" : "tracking",
+        status: nextCapability.status,
+        fallbackLabel: nextCapability.explainability.fallbackLabel,
+      });
       setProjectionCapabilityStatus(
         nextCapability.status === "ready" ? "ready" : "error",
       );
@@ -1292,6 +1303,80 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
       recommendationProjectionInput,
     ],
   );
+  useEffect(() => {
+    const origin = isCheckinOnly ? "checkin_page" : "tracking";
+    const bodyScanKey = `body-scan:${origin}:${bodyScanCapability.status}:${bodyScanCapability.analysisMode}:${bodyScanCapability.confidence}`;
+    const recommendationKey = `recommendation:${origin}:${recommendationCapability.status}:${recommendationCapability.analysisMode}:${recommendationCapability.items.length}`;
+
+    if (!intelligenceComputedRef.current.has(bodyScanKey)) {
+      intelligenceComputedRef.current.add(bodyScanKey);
+      trackTrackingCapabilityEvent({
+        event: "computed",
+        capabilityId: "body-scan",
+        origin,
+        status: bodyScanCapability.status,
+        analysisMode: bodyScanCapability.analysisMode,
+        confidence: bodyScanCapability.confidence,
+      });
+    }
+
+    if (!intelligenceComputedRef.current.has(recommendationKey)) {
+      intelligenceComputedRef.current.add(recommendationKey);
+      trackTrackingCapabilityEvent({
+        event: "computed",
+        capabilityId: "recommendation",
+        origin,
+        status: recommendationCapability.status,
+        analysisMode: recommendationCapability.analysisMode,
+      });
+      if (recommendationCapability.explainability.fallbackLabel) {
+        trackTrackingCapabilityEvent({
+          event: "fallback",
+          capabilityId: "recommendation",
+          origin,
+          status: recommendationCapability.status,
+          fallbackLabel: recommendationCapability.explainability.fallbackLabel,
+        });
+      }
+    }
+  }, [
+    bodyScanCapability.analysisMode,
+    bodyScanCapability.confidence,
+    bodyScanCapability.status,
+    isCheckinOnly,
+    recommendationCapability.analysisMode,
+    recommendationCapability.explainability.fallbackLabel,
+    recommendationCapability.items.length,
+    recommendationCapability.status,
+  ]);
+
+  useEffect(() => {
+    if (!isIntelligencePreviewOpen) return;
+    const origin = isCheckinOnly ? "checkin_page" : "tracking";
+    trackTrackingCapabilityEvent({
+      event: "viewed",
+      capabilityId: "body-scan",
+      origin,
+      status: bodyScanCapability.status,
+      analysisMode: bodyScanCapability.analysisMode,
+      confidence: bodyScanCapability.confidence,
+    });
+    trackTrackingCapabilityEvent({
+      event: "viewed",
+      capabilityId: "recommendation",
+      origin,
+      status: recommendationCapability.status,
+      analysisMode: recommendationCapability.analysisMode,
+    });
+  }, [
+    bodyScanCapability.analysisMode,
+    bodyScanCapability.confidence,
+    bodyScanCapability.status,
+    isCheckinOnly,
+    isIntelligencePreviewOpen,
+    recommendationCapability.analysisMode,
+    recommendationCapability.status,
+  ]);
   const latestCheckin = sortedCheckins[0];
   const rangeLatestCheckin = checkinsInRange[0] ?? null;
   const rangeFirstCheckin = checkinChart[0] ?? null;
@@ -1837,6 +1922,51 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
       }
       setAdjustmentStatus("error");
     }
+  }
+
+  async function handleApplyRecommendationAiPlan(
+    item: (typeof recommendationCapability.items)[number],
+  ) {
+    if (item.cta.target !== "training-plan") return;
+    setRecommendationAiStatus({ state: "loading", message: null });
+
+    const trainingPreferences = getTrainingAdjustmentInput(profile);
+    const auth = await fetchAuthMe().catch(() => null);
+    const result = await consumeTrackingRecommendationForAiPlan({
+      recommendation: item,
+      profile,
+      trainingPreferences,
+      aiProfile: auth,
+    });
+
+    if (!result.ok) {
+      setRecommendationAiStatus({
+        state: result.status === "blocked" ? "blocked" : "error",
+        message: result.message,
+      });
+      if (result.status === "blocked") {
+        trackTrackingCapabilityEvent({
+          event: "ai_preflight_blocked",
+          capabilityId: "recommendation",
+          origin: isCheckinOnly ? "checkin_page" : "tracking",
+          status: recommendationCapability.status,
+          analysisMode: recommendationCapability.analysisMode,
+        });
+      }
+      return;
+    }
+
+    setRecommendationAiStatus({
+      state: "success",
+      message: "Plan de entrenamiento AI aplicado desde recommendation.",
+    });
+    trackTrackingCapabilityEvent({
+      event: "cta_clicked",
+      capabilityId: "recommendation",
+      origin: isCheckinOnly ? "checkin_page" : "tracking",
+      status: recommendationCapability.status,
+      ctaTarget: "training-plan-ai-consumer",
+    });
   }
 
   return (
@@ -2567,9 +2697,33 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
                           ))}
                         </div>
                         <div className="mt-4 flex flex-wrap items-center gap-3">
-                          <Link href={item.cta.href} className="btn secondary fit-content">
+                          <Link
+                            href={item.cta.href}
+                            className="btn secondary fit-content"
+                            onClick={() =>
+                              trackTrackingCapabilityEvent({
+                                event: "cta_clicked",
+                                capabilityId: "recommendation",
+                                origin: isCheckinOnly ? "checkin_page" : "tracking",
+                                status: recommendationCapability.status,
+                                ctaTarget: item.cta.target,
+                              })
+                            }
+                          >
                             {item.cta.label}
                           </Link>
+                          {item.cta.target === "training-plan" ? (
+                            <button
+                              type="button"
+                              className="btn"
+                              disabled={recommendationAiStatus.state === "loading"}
+                              onClick={() => void handleApplyRecommendationAiPlan(item)}
+                            >
+                              {recommendationAiStatus.state === "loading"
+                                ? "Aplicando plan AI..."
+                                : "Aplicar plan AI desde recommendation"}
+                            </button>
+                          ) : null}
                           <span className="text-xs text-[var(--muted)]">
                             Fuentes: {item.sourceCapabilities.join(" + ")}
                           </span>
@@ -2577,6 +2731,14 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
                       </article>
                     ))}
                   </div>
+                  {recommendationAiStatus.message ? (
+                    <p className="m-0 mt-3 text-xs text-[var(--muted)]">
+                      {recommendationAiStatus.message}
+                    </p>
+                  ) : null}
+                  <p className="m-0 mt-3 text-xs text-[var(--muted)]">
+                    {recommendationCapability.compliance.disclaimer}
+                  </p>
                 </section>
               </div>
             </div>
