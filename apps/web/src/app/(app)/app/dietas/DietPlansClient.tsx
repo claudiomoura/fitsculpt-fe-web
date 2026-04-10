@@ -97,23 +97,20 @@ export default function DietPlansClient() {
   const assignedPlanId = normalizePlanSelection(assignedPlan?.id);
   const activePlanId = resolveActiveNutritionPlanId(queryPlanId, selectedPlanId, assignedPlanId);
 
-  const activePlan = useMemo(() => {
-    if (!activePlanId) return null;
-    if (assignedPlan && getNutritionPlanId(assignedPlan) === activePlanId) return assignedPlan;
-    return plans.find((plan) => getNutritionPlanId(plan) === activePlanId) ?? null;
-  }, [activePlanId, assignedPlan, plans]);
+  const activePlan = !activePlanId
+    ? null
+    : assignedPlan && getNutritionPlanId(assignedPlan) === activePlanId
+      ? assignedPlan
+      : plans.find((plan) => getNutritionPlanId(plan) === activePlanId) ?? null;
 
-  const historyPlans = useMemo(() => {
-    const mergedPlans = [...plans];
-    if (assignedPlan) {
-      const assignedId = getNutritionPlanId(assignedPlan);
-      if (!mergedPlans.some((plan) => getNutritionPlanId(plan) === assignedId)) {
-        mergedPlans.unshift(assignedPlan);
-      }
+  const mergedHistoryPlans = [...plans];
+  if (assignedPlan) {
+    const assignedId = getNutritionPlanId(assignedPlan);
+    if (!mergedHistoryPlans.some((plan) => getNutritionPlanId(plan) === assignedId)) {
+      mergedHistoryPlans.unshift(assignedPlan);
     }
-
-    return mergedPlans.filter((plan) => getNutritionPlanId(plan) !== activePlanId);
-  }, [activePlanId, assignedPlan, plans]);
+  }
+  const historyPlans = mergedHistoryPlans.filter((plan) => getNutritionPlanId(plan) !== activePlanId);
   const assignedPlanCardId = assignedPlan ? getNutritionPlanId(assignedPlan) : null;
 
   useEffect(() => {

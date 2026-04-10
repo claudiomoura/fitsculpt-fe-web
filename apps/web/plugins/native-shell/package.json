@@ -1,0 +1,14 @@
+{
+  "name": "@fitsculpt/capacitor-native-shell",
+  "version": "0.1.0",
+  "private": true,
+  "description": "FitSculpt local Capacitor native shell plugins",
+  "files": [
+    "android"
+  ],
+  "capacitor": {
+    "android": {
+      "src": "android"
+    }
+  }
+}

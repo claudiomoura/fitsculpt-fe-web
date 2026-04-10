@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import { Button } from "@/design-system/components/Button";
 import { Input } from "@/design-system/components/Input";
@@ -37,11 +37,7 @@ function SubmitButton({ label, loadingLabel }: { label: string; loadingLabel: st
 
 export default function RegisterForm({ action, next, captureOnboardingDraft = false, labels }: RegisterFormProps) {
   const [showPassword, setShowPassword] = useState(false);
-  const [profileDraft, setProfileDraft] = useState("");
-
-  useEffect(() => {
-    setProfileDraft(readSerializedOnboardingDraft());
-  }, []);
+  const [profileDraft] = useState(() => readSerializedOnboardingDraft());
 
   return (
     <form action={action} className="form-stack">

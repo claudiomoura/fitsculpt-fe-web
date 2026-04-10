@@ -26,6 +26,7 @@
     "mobile:android:doctor": "npx cap doctor"
   },
   "dependencies": {
+    "@fitsculpt/capacitor-native-shell": "file:plugins/native-shell",
     "@capacitor/android": "^8.3.0",
     "@capacitor/core": "^8.3.0",
     "@sentry/nextjs": "^10.46.0",

@@ -1,9 +1,11 @@
 package com.fitsculpt.beta;
 
+import android.content.res.Configuration;
 import android.graphics.Color;
 import android.os.Bundle;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
+import com.fitsculpt.nativeshell.HealthSyncPlugin;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
@@ -12,11 +14,29 @@ public class MainActivity extends BridgeActivity {
     registerPlugin(HealthSyncPlugin.class);
     super.onCreate(savedInstanceState);
 
-    WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
-    getWindow().setStatusBarColor(Color.parseColor("#111827"));
+    WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+    getWindow().setStatusBarColor(Color.TRANSPARENT);
+    getWindow().setNavigationBarColor(Color.TRANSPARENT);
+
+    applySystemBarIconContrast();
+  }
+
+  @Override
+  public void onResume() {
+    super.onResume();
+    applySystemBarIconContrast();
+  }
+
+  private void applySystemBarIconContrast() {
+    boolean isNightMode =
+      (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK)
+        == Configuration.UI_MODE_NIGHT_YES;
 
     WindowInsetsControllerCompat windowInsetsController =
       new WindowInsetsControllerCompat(getWindow(), getWindow().getDecorView());
-    windowInsetsController.setAppearanceLightStatusBars(false);
+
+    // true means dark icons. Use dark icons on light surfaces and light icons on dark ones.
+    windowInsetsController.setAppearanceLightStatusBars(!isNightMode);
+    windowInsetsController.setAppearanceLightNavigationBars(!isNightMode);
   }
 }

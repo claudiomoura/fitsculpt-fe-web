@@ -110,6 +110,9 @@ Generated from `apps/web/src/app/api/**/route.ts` via `npm --prefix apps/web run
 | `/api/user-foods` | GET, POST | `apps/web/src/app/api/user-foods/route.ts` |
 | `/api/user-foods/[id]` | PUT, DELETE | `apps/web/src/app/api/user-foods/[id]/route.ts` |
 | `/api/waitlist` | GET, POST | `apps/web/src/app/api/waitlist/route.ts` |
+| `/api/weekly-adaptive-coach/adaptation-review` | POST | `apps/web/src/app/api/weekly-adaptive-coach/adaptation-review/route.ts` |
+| `/api/weekly-adaptive-coach/check-in` | GET, POST, PUT | `apps/web/src/app/api/weekly-adaptive-coach/check-in/route.ts` |
+| `/api/weekly-adaptive-coach/state` | GET | `apps/web/src/app/api/weekly-adaptive-coach/state/route.ts` |
 | `/api/workout-sessions/[id]` | PATCH | `apps/web/src/app/api/workout-sessions/[id]/route.ts` |
 | `/api/workout-sessions/[id]/finish` | POST | `apps/web/src/app/api/workout-sessions/[id]/finish/route.ts` |
 | `/api/workouts` | GET, POST | `apps/web/src/app/api/workouts/route.ts` |

@@ -166,7 +166,15 @@
     radial-gradient(circle at 78% 32%, rgba(255, 255, 255, 0.08) 0 1px, transparent 1.8px),
     radial-gradient(circle at 46% 72%, rgba(255, 255, 255, 0.06) 0 0.9px, transparent 1.7px);
   --tabbar-h: 64px;
-  --mobile-tab-safe-area: env(safe-area-inset-bottom, 0px);
+  --native-safe-area-top: 0px;
+  --native-safe-area-right: 0px;
+  --native-safe-area-bottom: 0px;
+  --native-safe-area-left: 0px;
+  --safe-area-top: max(env(safe-area-inset-top, 0px), var(--native-safe-area-top));
+  --safe-area-right: max(env(safe-area-inset-right, 0px), var(--native-safe-area-right));
+  --safe-area-bottom: max(env(safe-area-inset-bottom, 0px), var(--native-safe-area-bottom));
+  --safe-area-left: max(env(safe-area-inset-left, 0px), var(--native-safe-area-left));
+  --mobile-tab-safe-area: var(--safe-area-bottom);
   --mobile-tab-bar-height: calc(var(--tabbar-h) + var(--mobile-tab-safe-area));
   --mobile-tab-bar-offset: calc(var(--tabbar-h) + var(--mobile-tab-safe-area));
   --vv-offset-bottom: 0px;
@@ -1641,7 +1649,7 @@ label {
   position: sticky;
   top: 0;
   z-index: 80;
-  padding-top: env(safe-area-inset-top, 0px);
+  padding-top: var(--safe-area-top);
   background: color-mix(in srgb, var(--surface-primary-bg) 92%, transparent);
   border-bottom: 1px solid color-mix(in srgb, var(--surface-border-default) 92%, transparent);
   box-shadow: 0 4px 12px color-mix(in srgb, black 14%, transparent);
@@ -3376,7 +3384,7 @@ label {
 .auth-entry-language {
   position: absolute;
   z-index: 2;
-  top: max(env(safe-area-inset-top), 12px);
+    top: max(var(--safe-area-top), 12px);
   right: 12px;
 }
 
@@ -3612,7 +3620,7 @@ main.auth-signin-page {
   }
 
   .auth-entry-language {
-    top: max(env(safe-area-inset-top), 10px);
+    top: max(var(--safe-area-top), 10px);
     right: 10px;
   }
 
@@ -3641,7 +3649,7 @@ main.auth-signin-page {
   .auth-signin-topbar {
     margin-bottom: 0;
     min-height: 56px;
-    padding: max(12px, env(safe-area-inset-top)) 0 0;
+    padding: max(12px, var(--safe-area-top)) 0 0;
     width: var(--auth-signin-mobile-width);
     margin-inline: auto;
   }
@@ -3671,7 +3679,7 @@ main.auth-signin-page {
     margin-top: 0;
     width: var(--auth-signin-mobile-width);
     margin-inline: auto;
-    padding: 10px 0 max(8px, env(safe-area-inset-bottom));
+    padding: 10px 0 max(8px, var(--safe-area-bottom));
   }
 
   .link-muted {

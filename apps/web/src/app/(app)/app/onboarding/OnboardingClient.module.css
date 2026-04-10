@@ -31,7 +31,7 @@
   display: grid;
   gap: 10px;
   min-height: var(--onb-top-rail, 108px);
-  padding-top: max(2px, env(safe-area-inset-top));
+  padding-top: max(2px, var(--safe-area-top));
   background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 82%, black 18%) 0%, transparent 100%);
   align-content: start;
   justify-self: stretch;

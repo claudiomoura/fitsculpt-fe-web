@@ -1,5 +1,7 @@
-package com.fitsculpt.beta
+package com.fitsculpt.nativeshell
 
+import android.content.Intent
+import android.net.Uri
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ExerciseSessionRecord
@@ -8,8 +10,6 @@ import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.records.WeightRecord
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
-import android.content.Intent
-import android.net.Uri
 import com.getcapacitor.JSArray
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
@@ -41,12 +41,12 @@ class HealthSyncPlugin : Plugin() {
   )
 
   private fun getClientOrNull(): HealthConnectClient? {
-    val context = context ?: return null
-    val status = HealthConnectClient.getSdkStatus(context)
+    val currentContext = context ?: return null
+    val status = HealthConnectClient.getSdkStatus(currentContext)
     if (status != HealthConnectClient.SDK_AVAILABLE) {
       return null
     }
-    return HealthConnectClient.getOrCreate(context)
+    return HealthConnectClient.getOrCreate(currentContext)
   }
 
   private fun resolveSdkStatusLabel(status: Int): String {
@@ -59,13 +59,13 @@ class HealthSyncPlugin : Plugin() {
 
   @PluginMethod
   fun getSdkStatus(call: PluginCall) {
-    val context = context
-    if (context == null) {
+    val currentContext = context
+    if (currentContext == null) {
       call.reject("CONTEXT_UNAVAILABLE")
       return
     }
 
-    val status = HealthConnectClient.getSdkStatus(context)
+    val status = HealthConnectClient.getSdkStatus(currentContext)
     val data = JSObject()
     data.put("sdkStatus", status)
     data.put("isAvailable", status == HealthConnectClient.SDK_AVAILABLE)
@@ -130,7 +130,7 @@ class HealthSyncPlugin : Plugin() {
       call.resolve(data)
       return
     } catch (_: Exception) {
-      // Fallback below.
+      // Fall through to the Play Store fallback.
     }
 
     try {
@@ -147,7 +147,7 @@ class HealthSyncPlugin : Plugin() {
       call.resolve(data)
       return
     } catch (_: Exception) {
-      // Fallback below.
+      // Fall through to the web fallback.
     }
 
     val webIntent = Intent(
@@ -191,7 +191,7 @@ class HealthSyncPlugin : Plugin() {
           ReadRecordsRequest(
             recordType = StepsRecord::class,
             timeRangeFilter = range,
-          )
+          ),
         )
 
         steps.records.forEach { record ->
@@ -205,23 +205,22 @@ class HealthSyncPlugin : Plugin() {
           ReadRecordsRequest(
             recordType = SleepSessionRecord::class,
             timeRangeFilter = range,
-          )
+          ),
         )
 
         sleep.records.forEach { record ->
           val date = record.endTime.atZone(ZoneOffset.UTC).toLocalDate()
           val bucket = byDate.getOrPut(date) { DailySnapshot() }
-          val durationHours =
-            (record.endTime.epochSecond - record.startTime.epochSecond).toDouble() / 3600.0
+          val durationHours = (record.endTime.epochSecond - record.startTime.epochSecond).toDouble() / 3600.0
           val current = bucket.sleepHours ?: 0.0
-          bucket.sleepHours = (current + durationHours)
+          bucket.sleepHours = current + durationHours
         }
 
         val exercise = client.readRecords(
           ReadRecordsRequest(
             recordType = ExerciseSessionRecord::class,
             timeRangeFilter = range,
-          )
+          ),
         )
 
         exercise.records.forEach { record ->
@@ -236,7 +235,7 @@ class HealthSyncPlugin : Plugin() {
           ReadRecordsRequest(
             recordType = WeightRecord::class,
             timeRangeFilter = range,
-          )
+          ),
         )
 
         weight.records.forEach { record ->

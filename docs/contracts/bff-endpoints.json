@@ -784,6 +784,29 @@
       "source": "apps/web/src/app/api/waitlist/route.ts"
     },
     {
+      "path": "/api/weekly-adaptive-coach/adaptation-review",
+      "methods": [
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/weekly-adaptive-coach/adaptation-review/route.ts"
+    },
+    {
+      "path": "/api/weekly-adaptive-coach/check-in",
+      "methods": [
+        "GET",
+        "POST",
+        "PUT"
+      ],
+      "source": "apps/web/src/app/api/weekly-adaptive-coach/check-in/route.ts"
+    },
+    {
+      "path": "/api/weekly-adaptive-coach/state",
+      "methods": [
+        "GET"
+      ],
+      "source": "apps/web/src/app/api/weekly-adaptive-coach/state/route.ts"
+    },
+    {
       "path": "/api/workout-sessions/[id]",
       "methods": [
         "PATCH"

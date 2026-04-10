@@ -25,7 +25,11 @@ export type NativeHealthSyncResult =
 
 function getErrorCode(error: unknown): string {
   if (error instanceof Error && error.message.trim().length > 0) {
-    return error.message.trim();
+    const message = error.message.trim();
+    if (message.includes("not implemented on android")) {
+      return "HEALTH_SYNC_PLUGIN_NOT_IMPLEMENTED";
+    }
+    return message;
   }
   return "UNKNOWN_ERROR";
 }
