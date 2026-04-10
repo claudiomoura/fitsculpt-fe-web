@@ -36,6 +36,23 @@ export default function PassiveHealthSummaryCard({ passiveData, overview, endDat
     return getPassiveSourceLabel(passiveData.lastSyncSource);
   }, [passiveData.lastSyncSource]);
 
+  const sourceBreakdown = useMemo(() => {
+    const androidSyncSources = new Set(["health_connect", "google_fit", "fitbit", "garmin", "wearable", "apple_health", "smart_scale"]);
+    let androidCount = 0;
+    let manualCount = 0;
+
+    passiveData.snapshots.forEach((snapshot) => {
+      if (androidSyncSources.has(snapshot.source)) {
+        androidCount += 1;
+      } else {
+        manualCount += 1;
+      }
+    });
+
+    const mode = androidCount > 0 ? "android" : manualCount > 0 ? "manual" : "none";
+    return { mode, androidCount, manualCount };
+  }, [passiveData.snapshots]);
+
   async function handleSave() {
     setPending("save");
     try {
@@ -78,6 +95,13 @@ export default function PassiveHealthSummaryCard({ passiveData, overview, endDat
         <div className="rounded-2xl border border-white/75 bg-white/85 px-4 py-3 text-sm shadow-sm">
           <p className="font-medium text-[var(--text)]">{latestSource ? `${t("tracking.passiveLatestSync")}: ${latestSource}` : t("tracking.passiveNoSync")}</p>
           <p className="mt-1 text-[var(--muted)]">{t("tracking.passiveComplementLabel")}</p>
+          <p className="mt-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]" data-testid="passive-source-mode">
+            {sourceBreakdown.mode === "android"
+              ? `Fuente activa: Android Sync (${sourceBreakdown.androidCount})`
+              : sourceBreakdown.mode === "manual"
+                ? `Fuente activa: Manual (${sourceBreakdown.manualCount})`
+                : "Fuente activa: Sin sincronización"}
+          </p>
         </div>
       </div>
 

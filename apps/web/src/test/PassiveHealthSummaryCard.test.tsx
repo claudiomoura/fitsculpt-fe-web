@@ -79,4 +79,34 @@ describe("PassiveHealthSummaryCard", () => {
       screen.getByRole("button", { name: /sincronizando android/i }),
     ).toBeDisabled();
   });
+
+  it("shows explicit source mode as manual when only manual snapshots exist", () => {
+    renderWithProviders(
+      <PassiveHealthSummaryCard
+        {...baseProps}
+        passiveData={{
+          snapshots: [
+            {
+              id: "manual-1",
+              date: "2026-04-09",
+              source: "manual",
+              provider: "Manual sync",
+              steps: 8200,
+              activeCalories: 300,
+              activeMinutes: 34,
+              sleepHours: 7.1,
+              restingHeartRate: 59,
+              exerciseSessions: 0,
+              note: "Manual sync",
+              syncedAt: "2026-04-09T08:00:00.000Z",
+            },
+          ],
+          lastSyncAt: "2026-04-09T08:00:00.000Z",
+          lastSyncSource: "manual",
+        }}
+      />,
+    );
+
+    expect(screen.getByTestId("passive-source-mode")).toHaveTextContent(/fuente activa: manual/i);
+  });
 });
