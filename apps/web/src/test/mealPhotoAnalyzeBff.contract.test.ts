@@ -33,8 +33,13 @@ describe("meal photo analyze BFF contract", () => {
 
     const response = await invokeEndpoint();
 
-    expect(response.status).toBe(502);
-    await expect(response.json()).resolves.toEqual({ error: "AI_REQUEST_FAILED", code: "UPSTREAM_ERROR", kind: "upstream", status: 502 });
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual(expect.objectContaining({
+      analysisSource: "fallback",
+      degraded: true,
+      confidenceLabel: "low",
+      items: [expect.objectContaining({ name: "Comida no identificada" })],
+    }));
   });
 
   it("propagates 422 low confidence payload", async () => {
@@ -47,14 +52,25 @@ describe("meal photo analyze BFF contract", () => {
     await expect(response.json()).resolves.toEqual(upstreamPayload);
   });
 
+  it("propagates upstream quota/auth policy responses without fallback", async () => {
+    const upstreamPayload = { error: "AI_TOKENS_EXHAUSTED", kind: "quota" };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockBackendResponse(429, JSON.stringify(upstreamPayload))));
+
+    const response = await invokeEndpoint();
+
+    expect(response.status).toBe(429);
+    await expect(response.json()).resolves.toEqual(upstreamPayload);
+  });
+
   it("returns contract drift when success payload shape is invalid", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockBackendResponse(200, JSON.stringify({ foo: "bar" }))));
 
     const response = await invokeEndpoint();
 
-    expect(response.status).toBe(502);
+    expect(response.status).toBe(200);
     const payload = await response.json();
-    expect(payload.error).toBe("CONTRACT_DRIFT");
+    expect(payload.analysisSource).toBe("fallback");
+    expect(payload.degraded).toBe(true);
   });
 
   it("maps upstream abort to AI_TIMEOUT", async () => {
@@ -64,7 +80,11 @@ describe("meal photo analyze BFF contract", () => {
 
     const response = await invokeEndpoint();
 
-    expect(response.status).toBe(504);
-    await expect(response.json()).resolves.toEqual({ error: "AI_TIMEOUT", code: "AI_REQUEST_FAILED", kind: "upstream", status: 504 });
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual(expect.objectContaining({
+      analysisSource: "fallback",
+      degraded: true,
+      confidence: 0.2,
+    }));
   });
 });

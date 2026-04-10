@@ -62,6 +62,7 @@ import TrainingAdjustmentDiffSummary, {
 } from "@/components/tracking/TrainingAdjustmentDiffSummary";
 import PassiveHealthSummaryCard from "@/components/tracking/PassiveHealthSummaryCard";
 import TrackingProfessionalInsights from "@/components/tracking/TrackingProfessionalInsights";
+import TrackingBodyScanSummaryCard from "@/components/tracking-intelligence/TrackingBodyScanSummaryCard";
 import {
   type CheckinEntry,
   type FoodEntry,
@@ -2611,38 +2612,7 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
             </summary>
             <div className={styles.advancedDisclosureBody}>
               <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
-                <section className="rounded-3xl border border-[rgba(15,23,42,0.08)] bg-white/80 p-5 shadow-sm">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="m-0 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Body scan</p>
-                      <h3 className="m-0 mt-2 text-xl font-semibold text-[var(--text)]">{bodyScanCapability.summary}</h3>
-                    </div>
-                    <span className="rounded-full border border-[var(--border)] bg-white px-3 py-1 text-xs text-[var(--text)]">
-                      Confianza {bodyScanCapability.confidence}
-                    </span>
-                  </div>
-
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-2xl border border-[var(--border)] bg-[rgba(248,250,252,0.95)] p-4 text-sm text-[var(--text)]">
-                      <p className="m-0 text-xs uppercase tracking-[0.16em] text-[var(--muted)]">Senales</p>
-                      <div className="mt-2 space-y-2">
-                        {bodyScanCapability.observations.slice(0, 3).map((item, index) => (
-                          <p key={`body-scan-observation-${index}`} className="m-0 leading-6">{item}</p>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="rounded-2xl border border-[var(--border)] bg-[rgba(248,250,252,0.95)] p-4 text-sm text-[var(--text)]">
-                      <p className="m-0 text-xs uppercase tracking-[0.16em] text-[var(--muted)]">Mejoras de input</p>
-                      <div className="mt-2 space-y-2">
-                        {bodyScanCapability.nextBestInputs.slice(0, 3).map((item, index) => (
-                          <p key={`body-scan-next-${index}`} className="m-0 leading-6">{item}</p>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  <p className="m-0 mt-4 text-xs leading-5 text-[var(--muted)]">{bodyScanCapability.compliance.disclaimer}</p>
-                </section>
+                <TrackingBodyScanSummaryCard capability={bodyScanCapability} />
 
                 <section className="rounded-3xl border border-[rgba(15,23,42,0.08)] bg-[linear-gradient(135deg,rgba(255,245,235,0.88),rgba(255,255,255,0.96),rgba(239,246,255,0.88))] p-5 shadow-sm">
                   <p className="m-0 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Recommendation / transformation program</p>

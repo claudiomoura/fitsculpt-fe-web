@@ -2,6 +2,8 @@ export type {
   TrackingAdherenceContext,
   TrackingAiAssistState,
   TrackingBodyScanCapability,
+  TrackingBodyCompositionEstimate,
+  TrackingBodyCompositionEstimateSource,
   TrackingBodyScanDataSnapshot,
   TrackingBodyScanInsufficiencyReason,
   TrackingBodyScanPersistenceAdapter,

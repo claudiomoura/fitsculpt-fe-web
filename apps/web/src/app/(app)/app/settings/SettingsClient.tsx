@@ -187,6 +187,9 @@ export default function SettingsClient() {
       support: {
         title: t("settings.sections.support.title"),
         description: t("settings.sections.support.description"),
+        coachTitle: t("settings.sections.support.coachTitle"),
+        coachDescription: t("settings.sections.support.coachDescription"),
+        coachAction: t("settings.sections.support.coachAction"),
         emptyTitle: t("settings.sections.support.emptyTitle"),
         action: t("settings.sections.support.action"),
       },
@@ -270,14 +273,19 @@ export default function SettingsClient() {
                     <CardDescription>{section.description}</CardDescription>
                   </div>
                 </CardHeader>
+                <CardContent>
+                  <p className="m-0 settings-value">{section.coachTitle}</p>
+                  <p className="muted m-0">{section.coachDescription}</p>
+                </CardContent>
                 <CardFooter className="settings-card-footer">
+                  <ButtonLink href="/app/coach" variant="secondary">
+                    {section.coachAction}
+                  </ButtonLink>
                   {supportUrl ? (
                     <ButtonLink href={supportUrl} target="_blank" rel="noreferrer" variant="secondary">
                       {section.action}
                     </ButtonLink>
-                  ) : (
-                    <p className="muted m-0">{section.emptyTitle}</p>
-                  )}
+                  ) : <p className="muted m-0">{section.emptyTitle}</p>}
                 </CardFooter>
               </Card>
             );

@@ -545,6 +545,7 @@ function getPlanTokenAllowance(plan: SubscriptionPlan): number {
 const AI_FEATURE_ESTIMATED_TOKENS: Record<string, number> = {
   training: 800,
   nutrition: 800,
+  "meal-photo-analysis": 700,
   "training-generate": 1200,
   "nutrition-generate": 1200,
   tip: 300,
@@ -8099,6 +8100,15 @@ registerMealRoutes(app, {
   requireUser,
   callOpenAi,
   createHttpError,
+  aiNutritionDomainGuard,
+  getUserEntitlements,
+  getEffectiveTokenBalance,
+  assertSufficientAiTokenBalance,
+  getEstimatedAiFeatureTokens,
+  enforceAiQuota,
+  chargeAiUsageForResult,
+  prisma,
+  aiPricing,
 });
 
 registerProfileRoutes(app, {

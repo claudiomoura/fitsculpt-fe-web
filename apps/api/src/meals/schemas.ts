@@ -144,6 +144,11 @@ export const mealPhotoAnalysisResponseSchema = z.object({
   confidence: z.number().min(0).max(1),
   confidenceLabel: z.enum(["low", "medium", "high"]),
   notes: z.string().max(280).optional(),
+  foodName: z.string().min(1).optional(),
+  kcal: z.number().nonnegative().optional(),
+  fat: z.number().nonnegative().optional(),
+  analysisSource: z.enum(["ai", "fallback"]).optional(),
+  degraded: z.boolean().optional(),
 });
 export type MealPhotoAnalysisResponse = z.infer<typeof mealPhotoAnalysisResponseSchema>;
 
@@ -184,6 +189,11 @@ export const mealPhotoAnalysisJsonSchema = {
     confidence: { type: "number" },
     confidenceLabel: { type: "string", enum: ["low", "medium", "high"] },
     notes: { type: "string" },
+    foodName: { type: "string" },
+    kcal: { type: "number" },
+    fat: { type: "number" },
+    analysisSource: { type: "string", enum: ["ai", "fallback"] },
+    degraded: { type: "boolean" },
   },
   required: ["title", "items", "totals", "confidence", "confidenceLabel"],
   additionalProperties: false,

@@ -131,6 +131,24 @@ export type TrackingBodyScanRequest = {
   rangeDays?: number;
 };
 
+export type TrackingBodyCompositionEstimateSource =
+  | "manual_body_fat"
+  | "us_navy"
+  | "bmi_age";
+
+export type TrackingBodyCompositionEstimate = {
+  bodyFatPercent: number;
+  bodyFatRangePct: {
+    min: number;
+    max: number;
+  };
+  leanMassKg: number | null;
+  fatMassKg: number | null;
+  confidenceScore: number;
+  sources: TrackingBodyCompositionEstimateSource[];
+  accuracyNote: string;
+};
+
 export type TrackingBodyScanDataSnapshot = {
   latestCheckin: CheckinEntry | null;
   recentCheckinsCount: number;
@@ -140,6 +158,7 @@ export type TrackingBodyScanDataSnapshot = {
   weightDeltaKg: number | null;
   waistDeltaCm: number | null;
   bodyFatDeltaPct: number | null;
+  composition: TrackingBodyCompositionEstimate | null;
 };
 
 export type TrackingBodyScanCapability = {

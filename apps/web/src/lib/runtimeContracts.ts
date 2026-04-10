@@ -260,6 +260,26 @@ export function validateMealPhotoAnalyzePayload(payload: unknown): ContractValid
     return { ok: false, reason: "MEAL_PHOTO_ANALYZE_INVALID_NOTES" };
   }
 
+  if (payload.foodName !== undefined && payload.foodName !== null && !isString(payload.foodName)) {
+    return { ok: false, reason: "MEAL_PHOTO_ANALYZE_INVALID_FOOD_NAME" };
+  }
+
+  if (payload.kcal !== undefined && !isNumber(payload.kcal)) {
+    return { ok: false, reason: "MEAL_PHOTO_ANALYZE_INVALID_KCAL" };
+  }
+
+  if (payload.fat !== undefined && !isNumber(payload.fat)) {
+    return { ok: false, reason: "MEAL_PHOTO_ANALYZE_INVALID_FAT" };
+  }
+
+  if (payload.analysisSource !== undefined && payload.analysisSource !== "ai" && payload.analysisSource !== "fallback") {
+    return { ok: false, reason: "MEAL_PHOTO_ANALYZE_INVALID_SOURCE" };
+  }
+
+  if (payload.degraded !== undefined && typeof payload.degraded !== "boolean") {
+    return { ok: false, reason: "MEAL_PHOTO_ANALYZE_INVALID_DEGRADED" };
+  }
+
   return { ok: true };
 }
 

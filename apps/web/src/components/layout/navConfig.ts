@@ -178,6 +178,7 @@ export const sidebarUser: NavSectionGroup[] = [
       { id: "diet-plans", href: "/app/biblioteca/planes-nutricion", labelKey: "nav.nutritionPlans", feature: "nutrition" },
       { id: "macros", href: "/app/macros", labelKey: "nav.macros", feature: "nutrition" },
       { id: "weekly-review", href: "/app/weekly-review", labelKey: "nav.weeklyReview" },
+      { id: "coach", href: "/app/coach", labelKey: "nav.coach" },
       { id: "feed", href: "/app/feed", labelKey: "nav.feed" },
       { id: "gym", href: "/app/gym", labelKey: "nav.gym" },
     ],

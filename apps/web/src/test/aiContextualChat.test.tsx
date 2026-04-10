@@ -5,7 +5,7 @@ import {
   resetMockNavigation,
   setMockPathname,
 } from "@/test/utils/renderWithProviders";
-import FeedClient from "@/app/(app)/app/feed/FeedClient";
+import CoachClient from "@/app/(app)/app/coach/CoachClient";
 
 function mockResponse(payload: unknown, status = 200): Response {
   return {
@@ -40,10 +40,10 @@ function setupBaseFetch(
   return fetchMock;
 }
 
-describe("Feed contextual chat", () => {
+describe("Coach contextual chat", () => {
   beforeEach(() => {
     resetMockNavigation();
-    setMockPathname("/app/feed");
+    setMockPathname("/app/coach");
   });
 
   it("shows loading state then renders successful contextual reply", async () => {
@@ -55,11 +55,11 @@ describe("Feed contextual chat", () => {
         }),
     );
 
-    renderWithProviders(<FeedClient />);
+    renderWithProviders(<CoachClient />);
 
-    const chatInput = await screen.findByLabelText("Campo de chat contextual con IA");
+    const chatInput = await screen.findByLabelText("Campo de chat de FitSculpt Coach");
     fireEvent.change(chatInput, { target: { value: "Que hago con dolor de rodilla?" } });
-    fireEvent.click(screen.getByRole("button", { name: "Preguntar a la IA" }));
+    fireEvent.click(screen.getByRole("button", { name: "Preguntar al coach" }));
 
     expect(await screen.findByRole("button", { name: "Consultando..." })).toBeInTheDocument();
 
@@ -83,15 +83,15 @@ describe("Feed contextual chat", () => {
   it("shows mapped error message when chat request fails", async () => {
     setupBaseFetch(async () => mockResponse({ error: "AI_REQUEST_FAILED" }, 502));
 
-    renderWithProviders(<FeedClient />);
+    renderWithProviders(<CoachClient />);
 
-    const chatInput = await screen.findByLabelText("Campo de chat contextual con IA");
+    const chatInput = await screen.findByLabelText("Campo de chat de FitSculpt Coach");
     fireEvent.change(chatInput, { target: { value: "Necesito ayuda" } });
-    fireEvent.click(screen.getByRole("button", { name: "Preguntar a la IA" }));
+    fireEvent.click(screen.getByRole("button", { name: "Preguntar al coach" }));
 
     expect(
       await screen.findByText(
-        "No pudimos generar una respuesta contextual en este momento.",
+        "No pudimos generar una respuesta del coach en este momento.",
       ),
     ).toBeInTheDocument();
   });
@@ -99,11 +99,11 @@ describe("Feed contextual chat", () => {
   it("opens token exhausted modal when upstream returns token exhaustion", async () => {
     setupBaseFetch(async () => mockResponse({ error: "AI_QUOTA_EXCEEDED" }, 429));
 
-    renderWithProviders(<FeedClient />);
+    renderWithProviders(<CoachClient />);
 
-    const chatInput = await screen.findByLabelText("Campo de chat contextual con IA");
+    const chatInput = await screen.findByLabelText("Campo de chat de FitSculpt Coach");
     fireEvent.change(chatInput, { target: { value: "Necesito ayuda" } });
-    fireEvent.click(screen.getByRole("button", { name: "Preguntar a la IA" }));
+    fireEvent.click(screen.getByRole("button", { name: "Preguntar al coach" }));
 
     expect(await screen.findByText("Tokens IA agotados")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Gestionar facturación" })).toBeInTheDocument();
@@ -113,10 +113,10 @@ describe("Feed contextual chat", () => {
   it("blocks empty message submissions", async () => {
     setupBaseFetch(async () => mockResponse({ reply: { message: "unused" } }));
 
-    renderWithProviders(<FeedClient />);
+    renderWithProviders(<CoachClient />);
 
-    await screen.findByLabelText("Campo de chat contextual con IA");
-    fireEvent.click(screen.getByRole("button", { name: "Preguntar a la IA" }));
+    await screen.findByLabelText("Campo de chat de FitSculpt Coach");
+    fireEvent.click(screen.getByRole("button", { name: "Preguntar al coach" }));
 
     await waitFor(() => {
       expect(screen.getByText("Escribe un mensaje antes de enviar.")).toBeInTheDocument();
@@ -141,11 +141,11 @@ describe("Feed contextual chat", () => {
     );
     vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
 
-    renderWithProviders(<FeedClient />);
+    renderWithProviders(<CoachClient />);
 
-    const chatInput = await screen.findByLabelText("Campo de chat contextual con IA");
+    const chatInput = await screen.findByLabelText("Campo de chat de FitSculpt Coach");
     expect(chatInput).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Preguntar a la IA" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Preguntar al coach" })).toBeDisabled();
     expect(screen.getByText("Mejora tu plan con FitSculpt AI (Pro)")).toBeInTheDocument();
     expect(screen.queryByText("aiLockedTitle")).not.toBeInTheDocument();
   });

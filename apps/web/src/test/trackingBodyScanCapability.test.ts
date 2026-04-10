@@ -67,7 +67,40 @@ describe("tracking body scan capability", () => {
     expect(result.confidence).toBe("medium");
     expect(result.data.weightDeltaKg).toBe(-2);
     expect(result.data.photoComparison.totalEntriesWithPhotos).toBe(2);
+    expect(result.data.composition).not.toBeNull();
+    expect(result.data.composition?.bodyFatRangePct.min).toBeLessThan(result.data.composition?.bodyFatPercent ?? 0);
+    expect(result.data.composition?.bodyFatRangePct.max).toBeGreaterThan(result.data.composition?.bodyFatPercent ?? 0);
+    expect(result.data.composition?.leanMassKg).toBeGreaterThan(60);
+    expect(result.data.composition?.fatMassKg).toBeGreaterThan(10);
     expect(result.observations.some((item) => item.includes("peso reciente baja"))).toBe(true);
+  });
+
+  it("falls back to anthropometric estimate when manual body fat is missing", () => {
+    const result = buildTrackingBodyScanCapability({
+      origin: "tracking",
+      profile: { ...defaultProfile, sex: "male", age: 34, heightCm: 178, weightKg: 84 },
+      checkins: [
+        buildCheckin({
+          id: "scan-1",
+          date: "2026-04-10",
+          weightKg: 84,
+          waistCm: 88,
+          neckCm: 39,
+          bodyFatPercent: 0,
+          frontPhotoUrl: "front",
+          sidePhotoUrl: "side",
+        }),
+      ],
+      passiveData: { snapshots: [], lastSyncAt: null, lastSyncSource: null },
+      rangeDays: 30,
+    });
+
+    expect(result.data.composition).not.toBeNull();
+    expect(result.data.composition?.sources).toContain("us_navy");
+    expect(result.data.composition?.sources).toContain("bmi_age");
+    expect(result.data.composition?.bodyFatPercent).toBeGreaterThan(10);
+    expect(result.data.composition?.bodyFatPercent).toBeLessThan(30);
+    expect(result.summary).toContain("rango honesto");
   });
 
   it("fails closed for AI while still returning deterministic fallback", async () => {

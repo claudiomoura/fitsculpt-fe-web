@@ -89,6 +89,7 @@ describe("navConfig", () => {
       "/app/biblioteca/planes-nutricion",
       "/app/macros",
       "/app/weekly-review",
+      "/app/coach",
       "/app/feed",
       "/app/gym",
     ]);

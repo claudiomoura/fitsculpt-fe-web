@@ -47,6 +47,8 @@ Primary repo anchors:
 - [x] Shared compliance/safety/claims layer implemented and consumed by body scan/projection/recommendation.
 - [x] Surface refactor expanded to Profile + Onboarding via reusable `TrackingCapabilitySnapshot` consumer while keeping Weekly Review projection modular.
 - [x] Shared AI preflight enforced on training-plan adjustment flow with fail-closed behavior when reservation adapter is unavailable.
+- [x] Body Scan maturity moved from guided capture only to estimation-ready capability consumption across secondary surfaces, with persisted status envelope and modular orchestration already in place for rollout.
+- [x] Nutrition meal-photo analysis aligned with the same entitlement/token/quota policy used by AI-backed capabilities, while preserving editable degraded fallback for upstream/model failures.
 - [x] Fallback policy documented: until token reservation adapter exists, AI execution remains blocked by design (security/compliance first).
 - [ ] Linear status sync via API blocked in this execution environment because `LINEAR_API_KEY` is not present; issue status transitions must be pushed once token is available.
 
@@ -62,6 +64,9 @@ Primary repo anchors:
   - `trainingPlanAdjustmentPreflight.test.ts`
   - `ProfileSummaryClient.test.tsx`
   - `onboardingFlow.test.tsx`
+- [x] Nutrition photo analysis hardening suite passing:
+  - `apps/api/src/tests/mealPhotoAnalyze.contract.test.ts`
+  - `apps/web/src/test/mealPhotoAnalyzeBff.contract.test.ts`
 
 ## Success Metrics
 

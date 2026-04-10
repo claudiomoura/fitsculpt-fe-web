@@ -276,6 +276,16 @@ const QuickLogHub = forwardRef<QuickLogHubHandle, QuickLogHubProps>(function Qui
       if (error.code === "LOW_CONFIDENCE") return t("quickLog.mealPhotoAnalyzeLowConfidence");
       if (error.code === "INVALID_IMAGE" || error.code === "INVALID_INPUT") return t("quickLog.mealPhotoAnalyzeInvalidImage");
       if (error.code === "AI_TIMEOUT") return t("quickLog.mealPhotoAnalyzeTimeout");
+      if (
+        error.code === "AI_ACCESS_FORBIDDEN"
+        || error.code === "UPGRADE_REQUIRED"
+        || error.code === "AI_TOKENS_EXHAUSTED"
+        || error.code === "AI_TOKENS_INSUFFICIENT"
+        || error.code === "AI_LIMIT_REACHED"
+        || error.code === "AI_QUOTA_EXCEEDED"
+      ) {
+        return t("quickLog.mealPhotoAnalyzeUnavailable");
+      }
       if (error.code === "AI_NOT_CONFIGURED" || error.code === "AI_SERVICE_UNAVAILABLE") return t("quickLog.mealPhotoAnalyzeUnavailable");
     }
     return t("quickLog.mealPhotoAnalyzeError");

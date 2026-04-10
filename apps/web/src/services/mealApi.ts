@@ -77,6 +77,7 @@ export type MealPhotoAnalysisItem = {
 
 export type MealPhotoAnalysisResponse = {
   title: string;
+  foodName?: string;
   items: MealPhotoAnalysisItem[];
   totals: {
     calories: number;
@@ -84,9 +85,15 @@ export type MealPhotoAnalysisResponse = {
     carbs: number;
     fats: number;
   };
+  kcal?: number;
+  protein?: number;
+  carbs?: number;
+  fat?: number;
   confidence: number;
   confidenceLabel: "low" | "medium" | "high";
   notes?: string;
+  analysisSource?: "ai" | "fallback";
+  degraded?: boolean;
 };
 
 export class MealPhotoAnalysisError extends Error {

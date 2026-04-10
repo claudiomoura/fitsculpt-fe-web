@@ -1,6 +1,8 @@
 import type { User } from "@prisma/client";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { MealType } from "@prisma/client";
+import { z } from "zod";
+import type { AuthenticatedEntitlementsRequest } from "../middleware/entitlements.js";
 import {
   analyzeMealPhotoRequestSchema,
   mealPhotoAnalysisJsonSchema,
@@ -45,27 +47,106 @@ type CallOpenAiFn = (
 ) => Promise<OpenAiResponse>;
 type CreateHttpErrorFn = (statusCode: number, code: string, debug?: Record<string, unknown>) => Error;
 
+type MealPhotoEntitlements = {
+  legacy: { tier: string };
+  role: { adminOverride: boolean };
+};
+
+type ChargeAiUsageForResultFn = (params: any) => Promise<{ payload: Record<string, unknown> }>;
+
 export function registerMealRoutes(
   app: FastifyInstance,
-  deps: { requireUser: RequireUserFn; callOpenAi: CallOpenAiFn; createHttpError: CreateHttpErrorFn }
+  deps: {
+    requireUser: RequireUserFn;
+    callOpenAi: CallOpenAiFn;
+    createHttpError: CreateHttpErrorFn;
+    aiNutritionDomainGuard?: (request: FastifyRequest, reply: FastifyReply) => Promise<unknown>;
+    getUserEntitlements?: (user: User) => MealPhotoEntitlements;
+    getEffectiveTokenBalance?: (user: User) => number;
+    assertSufficientAiTokenBalance?: (user: User, minimumRequiredTokens?: number) => number;
+    getEstimatedAiFeatureTokens?: (feature: string) => number;
+    enforceAiQuota?: (user: { id: string; plan: string }) => Promise<void>;
+    chargeAiUsageForResult?: ChargeAiUsageForResultFn;
+    prisma?: unknown;
+    aiPricing?: unknown;
+  }
 ): void {
-  const { requireUser, callOpenAi, createHttpError } = deps;
+  const {
+    requireUser,
+    callOpenAi,
+    createHttpError,
+    aiNutritionDomainGuard,
+    getUserEntitlements,
+    getEffectiveTokenBalance,
+    assertSufficientAiTokenBalance,
+    getEstimatedAiFeatureTokens,
+    enforceAiQuota,
+    chargeAiUsageForResult,
+    prisma,
+    aiPricing,
+  } = deps;
+  const mealPhotoFeature = "meal-photo-analysis";
 
   const foodPhotoSystemPrompt = [
     "Analiza una foto de comida en un plato.",
     "Devuelve SOLO JSON estricto.",
+    "Identifica que comida es y separa los alimentos visibles en items.",
     "Estima titulo de comida, items y macros por item (calories, protein, carbs, fats).",
     "Si no estas seguro, baja confidence y confidenceLabel.",
     "No inventes ingredientes no visibles.",
     "Usa valores realistas para una porcion normal.",
+    "Incluye notes breves cuando la estimacion sea dudosa o falten ingredientes fuera de camara.",
   ].join(" ");
 
-  function roundMacro(value: number): number {
-    return Math.max(0, Math.round(value * 10) / 10);
+  const fallbackCopy = {
+    es: {
+      title: "Comida por revisar",
+      item: "Comida no identificada",
+      notes: {
+        low_confidence: "Estimacion visual con baja confianza. Revisa o ajusta manualmente antes de guardar.",
+        upstream: "La IA no estuvo disponible. Se devuelve una estimacion editable para que no pierdas el registro.",
+        contract_drift: "La IA devolvio un formato incompleto. Se genero una estimacion editable.",
+      },
+    },
+    en: {
+      title: "Meal to review",
+      item: "Unidentified food",
+      notes: {
+        low_confidence: "Low-confidence visual estimate. Review or adjust it before saving.",
+        upstream: "AI was unavailable. Returning an editable estimate so logging can continue.",
+        contract_drift: "AI returned an incomplete format. An editable estimate was generated.",
+      },
+    },
+    pt: {
+      title: "Refeicao para revisar",
+      item: "Comida nao identificada",
+      notes: {
+        low_confidence: "Estimativa visual com baixa confianca. Revise ou ajuste antes de guardar.",
+        upstream: "A IA nao esteve disponivel. Foi devolvida uma estimativa editavel para nao bloquear o registo.",
+        contract_drift: "A IA devolveu um formato incompleto. Foi gerada uma estimativa editavel.",
+      },
+    },
+  } as const;
+
+  type SupportedLocale = keyof typeof fallbackCopy;
+
+  function clampConfidence(value: number, max = 1): number {
+    return Math.min(max, Math.max(0, roundMacro(value)));
   }
 
-  function normalizeAnalysis(payload: unknown) {
-    const parsed = mealPhotoAnalysisResponseSchema.parse(payload);
+  function getFallbackLocale(locale: string | undefined): SupportedLocale {
+    return locale === "en" || locale === "pt" ? locale : "es";
+  }
+
+  function trimString(value: unknown): string | undefined {
+    return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
+  }
+
+  function readNumber(value: unknown): number | undefined {
+    return typeof value === "number" && Number.isFinite(value) ? roundMacro(value) : undefined;
+  }
+
+  function enrichAnalysis(parsed: z.infer<typeof mealPhotoAnalysisResponseSchema>, analysisSource: "ai" | "fallback", degraded: boolean) {
     const normalizedItems = parsed.items.map((item) => ({
       ...item,
       calories: roundMacro(item.calories),
@@ -86,8 +167,86 @@ export function registerMealRoutes(
       ...parsed,
       items: normalizedItems,
       totals,
-      confidence: roundMacro(parsed.confidence),
+      confidence: clampConfidence(parsed.confidence),
+      foodName: trimString(parsed.foodName) ?? normalizedItems[0]?.name ?? parsed.title,
+      kcal: totals.calories,
+      protein: totals.protein,
+      carbs: totals.carbs,
+      fat: totals.fats,
+      analysisSource,
+      degraded,
     };
+  }
+
+  function sanitizeFallbackItems(payload: unknown, fallbackName: string) {
+    if (!payload || typeof payload !== "object" || !Array.isArray((payload as { items?: unknown[] }).items)) {
+      return [];
+    }
+
+    const items = (payload as { items: unknown[] }).items
+      .map((item) => {
+        if (!item || typeof item !== "object") return null;
+        const entry = item as Record<string, unknown>;
+        const name = trimString(entry.name) ?? fallbackName;
+        const calories = readNumber(entry.calories) ?? 0;
+        const protein = readNumber(entry.protein) ?? 0;
+        const carbs = readNumber(entry.carbs) ?? 0;
+        const fats = readNumber(entry.fats) ?? readNumber(entry.fat) ?? 0;
+        return {
+          name,
+          calories,
+          protein,
+          carbs,
+          fats,
+          ...(readNumber(entry.quantity) === undefined ? {} : { quantity: readNumber(entry.quantity) }),
+          ...(trimString(entry.unit) === undefined ? {} : { unit: trimString(entry.unit) }),
+        };
+      })
+      .filter((item): item is NonNullable<typeof item> => item !== null);
+
+    return items.slice(0, 12);
+  }
+
+  function buildFallbackAnalysis(args: {
+    locale: string | undefined;
+    payload?: unknown;
+    reason: "low_confidence" | "upstream" | "contract_drift";
+  }) {
+    const locale = getFallbackLocale(args.locale);
+    const copy = fallbackCopy[locale];
+    const fallbackItems = sanitizeFallbackItems(args.payload, copy.item);
+    const payloadRecord = args.payload && typeof args.payload === "object" ? args.payload as Record<string, unknown> : null;
+    const payloadTotals = payloadRecord?.totals && typeof payloadRecord.totals === "object"
+      ? payloadRecord.totals as Record<string, unknown>
+      : null;
+    const title = trimString(payloadRecord?.title) ?? trimString(payloadRecord?.foodName) ?? copy.title;
+    const items = fallbackItems.length > 0
+      ? fallbackItems
+      : [{
+          name: trimString(payloadRecord?.foodName) ?? copy.item,
+          calories: readNumber(payloadTotals?.calories) ?? readNumber(payloadRecord?.kcal) ?? 0,
+          protein: readNumber(payloadTotals?.protein) ?? readNumber(payloadRecord?.protein) ?? 0,
+          carbs: readNumber(payloadTotals?.carbs) ?? readNumber(payloadRecord?.carbs) ?? 0,
+          fats: readNumber(payloadTotals?.fats) ?? readNumber(payloadRecord?.fat) ?? 0,
+        }];
+    const notes = [trimString(payloadRecord?.notes), copy.notes[args.reason]].filter(Boolean).join(" ").slice(0, 280);
+
+    return enrichAnalysis({
+      title,
+      items,
+      totals: { calories: 0, protein: 0, carbs: 0, fats: 0 },
+      confidence: clampConfidence(readNumber(payloadRecord?.confidence) ?? 0.24, 0.44),
+      confidenceLabel: "low",
+      notes,
+    }, "fallback", true);
+  }
+
+  function roundMacro(value: number): number {
+    return Math.max(0, Math.round(value * 10) / 10);
+  }
+
+  function normalizeAnalysis(payload: unknown) {
+    return enrichAnalysis(mealPhotoAnalysisResponseSchema.parse(payload), "ai", false);
   }
 
   // GET /meals - List meal logs
@@ -264,11 +423,42 @@ export function registerMealRoutes(
 
   app.post(
     "/meals/analyze-photo",
+    aiNutritionDomainGuard ? { preHandler: aiNutritionDomainGuard } : {},
     async (request: FastifyRequest, reply: FastifyReply) => {
-      await requireUser(request);
+      const authRequest = request as AuthenticatedEntitlementsRequest;
+      const user = authRequest.currentUser ?? await requireUser(request);
+      const entitlements = authRequest.currentEntitlements ?? getUserEntitlements?.(user);
+      const shouldChargeAi = Boolean(
+        entitlements
+        && !entitlements.role.adminOverride
+        && assertSufficientAiTokenBalance
+        && getEstimatedAiFeatureTokens
+        && enforceAiQuota
+        && chargeAiUsageForResult
+        && prisma
+        && aiPricing,
+      );
+      const parsedInput = analyzeMealPhotoRequestSchema.safeParse(request.body);
+      if (!parsedInput.success) {
+        return sendAiEndpointError(reply, parsedInput.error);
+      }
+
+      const input = parsedInput.data;
 
       try {
-        const input = analyzeMealPhotoRequestSchema.parse(request.body);
+        if (shouldChargeAi) {
+          assertSufficientAiTokenBalance!(user, getEstimatedAiFeatureTokens!(mealPhotoFeature));
+          await enforceAiQuota!({ id: user.id, plan: entitlements!.legacy.tier });
+          app.log.info(
+            {
+              userId: user.id,
+              feature: mealPhotoFeature,
+              balanceBefore: getEffectiveTokenBalance?.(user) ?? null,
+            },
+            "meal photo AI preflight passed",
+          );
+        }
+
         const localeHint =
           input.locale === "en"
             ? "Write title and notes in English."
@@ -303,31 +493,63 @@ export function registerMealRoutes(
           ],
         });
 
-        const normalized = normalizeAnalysis(result.payload);
+        const chargedResult = shouldChargeAi
+          ? await chargeAiUsageForResult!({
+              prisma: prisma!,
+              pricing: aiPricing!,
+              user: {
+                id: user.id,
+                plan: user.plan,
+                aiTokenBalance: user.aiTokenBalance ?? 0,
+                aiTokenResetAt: user.aiTokenResetAt,
+                aiTokenRenewalAt: user.aiTokenRenewalAt,
+              },
+              feature: mealPhotoFeature,
+              result: {
+                payload: result.payload,
+                model: result.model ?? "gpt-4o-mini",
+                requestId: result.requestId ?? null,
+                usage: result.usage ?? {},
+              },
+              meta: { route: "meals/analyze-photo" },
+              createHttpError,
+            })
+          : null;
+
+        const normalized = normalizeAnalysis(chargedResult?.payload ?? result.payload);
 
         if (normalized.confidenceLabel === "low" || normalized.confidence < 0.45) {
-          app.log.warn({ confidence: normalized.confidence }, "meal photo analysis low confidence");
-          return reply.status(422).send({
-            error: "LOW_CONFIDENCE",
-            kind: "validation",
-            confidence: normalized.confidence,
-            message: "Could not estimate meal with enough confidence",
-          });
+          app.log.warn({ confidence: normalized.confidence }, "meal photo analysis fell back due to low confidence");
+          return reply.status(200).send(buildFallbackAnalysis({
+            locale: input.locale,
+            payload: normalized,
+            reason: "low_confidence",
+          }));
         }
 
         return reply.status(200).send(normalized);
       } catch (error) {
         const typed = error as { code?: string; message?: string };
+        if (error instanceof z.ZodError) {
+          app.log.warn({ issues: error.issues }, "meal photo analysis response contract drift; using fallback");
+          return reply.status(200).send(buildFallbackAnalysis({
+            locale: input.locale,
+            reason: "contract_drift",
+          }));
+        }
         if (typed.code === "AI_REQUEST_FAILED") {
-          return sendAiEndpointError(reply, createHttpError(502, "AI_REQUEST_FAILED", { kind: "upstream" }));
+          app.log.warn({ code: typed.code }, "meal photo analysis upstream failed; using fallback");
+          return reply.status(200).send(buildFallbackAnalysis({ locale: input.locale, reason: "upstream" }));
         }
         if (typed.code === "AI_NOT_CONFIGURED") {
-          return sendAiEndpointError(reply, createHttpError(503, "AI_NOT_CONFIGURED", { kind: "internal" }));
+          app.log.warn({ code: typed.code }, "meal photo analysis AI not configured; using fallback");
+          return reply.status(200).send(buildFallbackAnalysis({ locale: input.locale, reason: "upstream" }));
         }
         if (typed.message?.includes("Invalid image data URL")) {
           return reply.status(400).send({ error: "INVALID_IMAGE", kind: "validation" });
         }
-        return sendAiEndpointError(reply, error);
+        app.log.error({ err: error }, "meal photo analysis unexpected error; using fallback");
+        return reply.status(200).send(buildFallbackAnalysis({ locale: input.locale, reason: "upstream" }));
       }
     }
   );
