@@ -67,11 +67,66 @@ export type AnalyticsEventProps = {
 declare global {
   interface Window {
     __fsAnalyticsQueue?: Array<{ name: AnalyticsEventName; props?: AnalyticsEventProps }>;
+    posthog?: typeof posthog;
   }
 }
 
 let analyticsEnabled = false;
 let analyticsInitialized = false;
+
+const POSTHOG_INGEST_HOST = "https://us.i.posthog.com";
+const POSTHOG_SESSION_BOOT_KEY = "fs_posthog_boot_event_sent";
+
+export function resolvePostHogHost(host: string | undefined): string {
+  const normalized = host?.trim().replace(/\/+$/, "");
+
+  if (!normalized) {
+    return POSTHOG_INGEST_HOST;
+  }
+
+  if (normalized === "https://app.posthog.com") {
+    return POSTHOG_INGEST_HOST;
+  }
+
+  if (normalized === "https://eu.posthog.com") {
+    return "https://eu.i.posthog.com";
+  }
+
+  return normalized;
+}
+
+function resolveRuntimeSurface() {
+  if (typeof window === "undefined") return "server";
+
+  const userAgent = window.navigator.userAgent.toLowerCase();
+  return userAgent.includes("capacitor") || userAgent.includes("fitsculpt") || userAgent.includes(" wv")
+    ? "native-webview"
+    : "web";
+}
+
+function captureBootEvent() {
+  if (typeof window === "undefined") return;
+
+  try {
+    if (window.sessionStorage.getItem(POSTHOG_SESSION_BOOT_KEY) === "1") {
+      return;
+    }
+
+    posthog.capture("app_opened", {
+      app_env: process.env.NEXT_PUBLIC_APP_ENV ?? process.env.NODE_ENV ?? "unknown",
+      surface: resolveRuntimeSurface(),
+      path: window.location.pathname,
+    });
+
+    window.sessionStorage.setItem(POSTHOG_SESSION_BOOT_KEY, "1");
+  } catch {
+    posthog.capture("app_opened", {
+      app_env: process.env.NEXT_PUBLIC_APP_ENV ?? process.env.NODE_ENV ?? "unknown",
+      surface: resolveRuntimeSurface(),
+      path: typeof window === "undefined" ? undefined : window.location.pathname,
+    });
+  }
+}
 
 export function initAnalytics() {
   if (typeof window === "undefined" || analyticsInitialized) return;
@@ -89,8 +144,11 @@ export function initAnalytics() {
     return;
   }
 
+  const apiHost = resolvePostHogHost(process.env.NEXT_PUBLIC_POSTHOG_HOST);
+  window.posthog = posthog;
+
   posthog.init(apiKey, {
-    api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST ?? "https://app.posthog.com",
+    api_host: apiHost,
     capture_pageview: true,
     capture_pageleave: true,
     person_profiles: "identified_only",
@@ -98,6 +156,8 @@ export function initAnalytics() {
     persistence: "localStorage+cookie",
     loaded: () => {
       analyticsEnabled = true;
+      window.posthog = posthog;
+      captureBootEvent();
       // Flush any events queued before PostHog initialized
       const queue = window.__fsAnalyticsQueue;
       if (queue?.length) {

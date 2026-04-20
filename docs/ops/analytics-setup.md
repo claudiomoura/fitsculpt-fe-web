@@ -19,7 +19,7 @@ Add to `.env.local`:
 ```bash
 # PostHog Analytics
 NEXT_PUBLIC_POSTHOG_KEY=phc_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-NEXT_PUBLIC_POSTHOG_HOST=https://app.posthog.com
+NEXT_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com
 ```
 
 For local development, you can leave these empty - analytics will be disabled gracefully.
@@ -175,7 +175,7 @@ Install PostHog browser extension to see events in real-time:
 
 1. Check `NEXT_PUBLIC_POSTHOG_KEY` is set
 2. Check browser console for errors
-3. Verify network requests to `app.posthog.com`
+3. Verify network requests to `us.i.posthog.com` (or `eu.i.posthog.com` for EU projects)
 4. Check PostHog project settings
 
 ### User Not Identified

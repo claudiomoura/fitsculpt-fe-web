@@ -33,7 +33,7 @@ Para observabilidade (local/dev), configure tambem:
 ```bash
 NEXT_PUBLIC_SENTRY_DSN=
 NEXT_PUBLIC_POSTHOG_KEY=
-NEXT_PUBLIC_POSTHOG_HOST=https://app.posthog.com
+NEXT_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com
 NEXT_PUBLIC_APP_ENV=development
 ```
 
@@ -44,7 +44,7 @@ Configure no projeto Vercel:
 - `BACKEND_URL` e `NEXT_PUBLIC_BACKEND_URL` (Render API URL)
 - `NEXT_PUBLIC_SENTRY_DSN`
 - `NEXT_PUBLIC_POSTHOG_KEY`
-- `NEXT_PUBLIC_POSTHOG_HOST` (default: `https://app.posthog.com`)
+- `NEXT_PUBLIC_POSTHOG_HOST` (default: `https://us.i.posthog.com`; use `https://eu.i.posthog.com` for EU projects)
 - `NEXT_PUBLIC_APP_ENV=production`
 
 ### Smoke gate (beta)
