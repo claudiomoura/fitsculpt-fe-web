@@ -280,6 +280,34 @@ export function validateMealPhotoAnalyzePayload(payload: unknown): ContractValid
     return { ok: false, reason: "MEAL_PHOTO_ANALYZE_INVALID_DEGRADED" };
   }
 
+  if (payload.usage !== undefined && !isUsagePayload(payload.usage)) {
+    return { ok: false, reason: "MEAL_PHOTO_ANALYZE_INVALID_USAGE" };
+  }
+
+  if (payload.costCents !== undefined && !isNumber(payload.costCents)) {
+    return { ok: false, reason: "MEAL_PHOTO_ANALYZE_INVALID_COST_CENTS" };
+  }
+
+  if (payload.costEur !== undefined && !isNumber(payload.costEur)) {
+    return { ok: false, reason: "MEAL_PHOTO_ANALYZE_INVALID_COST_EUR" };
+  }
+
+  if (payload.balanceBefore !== undefined && payload.balanceBefore !== null && !isNumber(payload.balanceBefore)) {
+    return { ok: false, reason: "MEAL_PHOTO_ANALYZE_INVALID_BALANCE_BEFORE" };
+  }
+
+  if (payload.balanceAfter !== undefined && payload.balanceAfter !== null && !isNumber(payload.balanceAfter)) {
+    return { ok: false, reason: "MEAL_PHOTO_ANALYZE_INVALID_BALANCE_AFTER" };
+  }
+
+  if (payload.aiTokenBalance !== undefined && payload.aiTokenBalance !== null && !isNumber(payload.aiTokenBalance)) {
+    return { ok: false, reason: "MEAL_PHOTO_ANALYZE_INVALID_TOKEN_BALANCE" };
+  }
+
+  if (payload.aiTokenRenewalAt !== undefined && payload.aiTokenRenewalAt !== null && !isString(payload.aiTokenRenewalAt)) {
+    return { ok: false, reason: "MEAL_PHOTO_ANALYZE_INVALID_TOKEN_RENEWAL" };
+  }
+
   return { ok: true };
 }
 

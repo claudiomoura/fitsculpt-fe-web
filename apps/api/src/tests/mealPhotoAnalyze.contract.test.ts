@@ -16,7 +16,12 @@ function httpError(statusCode: number, code: string, debug?: Record<string, unkn
 
 async function buildApp(callOpenAi: (...args: unknown[]) => Promise<unknown>) {
   const app = Fastify();
-  const chargeAiUsageForResult = async (params: { result: { payload: unknown } }) => ({ payload: params.result.payload as Record<string, unknown> });
+  const chargeAiUsageForResult = async (params: { result: { payload: unknown } }) => ({
+    payload: params.result.payload as Record<string, unknown>,
+    balance: 850,
+    costCents: 2,
+    usage: { promptTokens: 110, completionTokens: 90, totalTokens: 200 },
+  });
   registerMealRoutes(app, {
     requireUser: async () => ({ id: "user_test" } as never),
     callOpenAi: callOpenAi as never,
@@ -81,6 +86,12 @@ async function run() {
   assert.equal(body.protein, 35);
   assert.equal(body.carbs, 46);
   assert.equal(body.fat, 7);
+  assert.deepEqual(body.usage, { promptTokens: 110, completionTokens: 90, totalTokens: 200 });
+  assert.equal(body.balanceBefore, 900);
+  assert.equal(body.balanceAfter, 850);
+  assert.equal(body.aiTokenBalance, 850);
+  assert.equal(body.costCents, 2);
+  assert.equal(body.costEur, 0.02);
   await app.close();
 
   app = await buildApp(async () => ({
@@ -99,6 +110,7 @@ async function run() {
   assert.equal(body.degraded, true);
   assert.equal(body.items[0].name, "Pasta");
   assert.match(body.notes, /revisa|ajusta/i);
+  assert.equal(body.balanceAfter, 850);
   await app.close();
 
   app = await buildApp(async () => {

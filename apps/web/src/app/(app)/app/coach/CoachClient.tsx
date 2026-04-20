@@ -20,6 +20,8 @@ type AiUsageSummary = {
   totalTokens: number;
 };
 
+const ESTIMATED_COACH_CHAT_TOKENS = 300;
+
 export default function CoachClient() {
   const { t, locale } = useLanguage();
   const pathname = usePathname();
@@ -56,6 +58,11 @@ export default function CoachClient() {
       setTokensExhaustedModalOpen(true);
       return;
     }
+    if (typeof aiTokenBalance === "number" && aiTokenBalance < ESTIMATED_COACH_CHAT_TOKENS) {
+      setTokensExhaustedModalOpen(true);
+      setError(t("ai.insufficientTokens"));
+      return;
+    }
 
     const message = chatInput.trim();
     if (!message) {
@@ -85,6 +92,7 @@ export default function CoachClient() {
             aiTokenBalance?: number;
             usage?: AiUsageSummary;
             costEur?: number;
+            balanceAfter?: number;
           }
         | null;
 
@@ -131,8 +139,14 @@ export default function CoachClient() {
           : null,
       );
       setChatInput("");
-      if (typeof payload.aiTokenBalance === "number") {
-        setAiTokenBalance(payload.aiTokenBalance);
+      const resolvedBalanceAfter =
+        typeof payload.balanceAfter === "number"
+          ? payload.balanceAfter
+          : typeof payload.aiTokenBalance === "number"
+            ? payload.aiTokenBalance
+            : null;
+      if (typeof resolvedBalanceAfter === "number") {
+        setAiTokenBalance(resolvedBalanceAfter);
       }
       void refreshSubscription();
     } catch (err) {
@@ -225,12 +239,19 @@ export default function CoachClient() {
               <p className="muted">{chatReply.suggestions.join(" • ")}</p>
             ) : null}
             {chatUsage ? (
-              <p className="muted">
-                {t("coach.chatUsage", {
-                  tokens: chatUsage.totalTokens,
-                  eur: (chatCostEur ?? 0).toFixed(2),
-                })}
-              </p>
+              <>
+                <p className="muted">
+                  {t("coach.chatUsage", {
+                    tokens: chatUsage.totalTokens,
+                    eur: (chatCostEur ?? 0).toFixed(2),
+                  })}
+                </p>
+                {typeof aiTokenBalance === "number" ? (
+                  <p className="muted">
+                    {t("ai.tokensRemaining")} {aiTokenBalance} · {t("nutrition.aiSuccessModal.tokensUsed")}: {chatUsage.totalTokens} · est: {ESTIMATED_COACH_CHAT_TOKENS}
+                  </p>
+                ) : null}
+              </>
             ) : null}
           </article>
         ) : null}

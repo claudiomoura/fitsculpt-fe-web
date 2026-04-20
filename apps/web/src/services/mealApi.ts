@@ -94,6 +94,17 @@ export type MealPhotoAnalysisResponse = {
   notes?: string;
   analysisSource?: "ai" | "fallback";
   degraded?: boolean;
+  usage?: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
+  costCents?: number;
+  costEur?: number;
+  balanceBefore?: number | null;
+  balanceAfter?: number | null;
+  aiTokenBalance?: number | null;
+  aiTokenRenewalAt?: string | null;
 };
 
 export class MealPhotoAnalysisError extends Error {

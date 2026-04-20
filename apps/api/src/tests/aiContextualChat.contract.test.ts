@@ -181,7 +181,7 @@ async function run() {
   let response = await app.inject({
     method: "POST",
     url: "/ai/chat/contextual",
-    payload: { message: "Que hago hoy?", surface: "feed" },
+    payload: { message: "Que hago hoy?", surface: "coach" },
   });
   assert.equal(response.statusCode, 200);
   let body = response.json();
@@ -193,7 +193,7 @@ async function run() {
   assert.equal(body.balanceBefore, 100);
   assert.equal(body.balanceAfter, 90);
   assert.equal(chargeCalls, 1);
-  assert.equal(capturedInput?.surface, "feed");
+  assert.equal(capturedInput?.surface, "coach");
   await app.close();
 
   app = await buildApp({ requireUser: async () => { throw httpError(401, "UNAUTHORIZED"); } });

@@ -149,6 +149,19 @@ export const mealPhotoAnalysisResponseSchema = z.object({
   fat: z.number().nonnegative().optional(),
   analysisSource: z.enum(["ai", "fallback"]).optional(),
   degraded: z.boolean().optional(),
+  aiTokenBalance: z.number().nullable().optional(),
+  aiTokenRenewalAt: z.string().nullable().optional(),
+  balanceBefore: z.number().nullable().optional(),
+  balanceAfter: z.number().nullable().optional(),
+  costCents: z.number().nonnegative().optional(),
+  costEur: z.number().nonnegative().optional(),
+  usage: z
+    .object({
+      promptTokens: z.number().nonnegative(),
+      completionTokens: z.number().nonnegative(),
+      totalTokens: z.number().nonnegative(),
+    })
+    .optional(),
 });
 export type MealPhotoAnalysisResponse = z.infer<typeof mealPhotoAnalysisResponseSchema>;
 

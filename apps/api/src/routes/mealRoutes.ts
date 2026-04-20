@@ -52,7 +52,18 @@ type MealPhotoEntitlements = {
   role: { adminOverride: boolean };
 };
 
-type ChargeAiUsageForResultFn = (params: any) => Promise<{ payload: Record<string, unknown> }>;
+type AiUsageSummary = {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+};
+
+type ChargeAiUsageForResultFn = (params: any) => Promise<{
+  payload: Record<string, unknown>;
+  balance?: number;
+  costCents?: number;
+  usage?: AiUsageSummary;
+}>;
 
 export function registerMealRoutes(
   app: FastifyInstance,
@@ -86,6 +97,14 @@ export function registerMealRoutes(
     aiPricing,
   } = deps;
   const mealPhotoFeature = "meal-photo-analysis";
+  const ZERO_AI_USAGE: AiUsageSummary = {
+    promptTokens: 0,
+    completionTokens: 0,
+    totalTokens: 0,
+  };
+
+  const toEurAmount = (costCents: number) =>
+    Number((Math.max(0, costCents) / 100).toFixed(2));
 
   const foodPhotoSystemPrompt = [
     "Analiza una foto de comida en un plato.",
@@ -247,6 +266,55 @@ export function registerMealRoutes(
 
   function normalizeAnalysis(payload: unknown) {
     return enrichAnalysis(mealPhotoAnalysisResponseSchema.parse(payload), "ai", false);
+  }
+
+  function serializeTokenRenewalAt(user: {
+    aiTokenResetAt?: Date | null;
+    aiTokenRenewalAt?: Date | null;
+  }): string | null {
+    const renewal = user.aiTokenResetAt ?? user.aiTokenRenewalAt ?? null;
+    return renewal instanceof Date ? renewal.toISOString() : null;
+  }
+
+  function normalizeProviderUsage(usage: OpenAiResponse["usage"]): AiUsageSummary | null {
+    if (!usage || typeof usage !== "object") return null;
+    const promptRaw = usage.prompt_tokens ?? usage.input_tokens;
+    const completionRaw = usage.completion_tokens ?? usage.output_tokens;
+    const totalRaw = usage.total_tokens;
+    if (
+      typeof promptRaw !== "number"
+      || typeof completionRaw !== "number"
+      || typeof totalRaw !== "number"
+    ) {
+      return null;
+    }
+    return {
+      promptTokens: Math.max(0, promptRaw),
+      completionTokens: Math.max(0, completionRaw),
+      totalTokens: Math.max(0, totalRaw),
+    };
+  }
+
+  function attachAiUsageMeta(
+    payload: Record<string, unknown>,
+    meta: {
+      usage: AiUsageSummary;
+      balanceBefore: number | null;
+      balanceAfter: number | null;
+      aiTokenRenewalAt: string | null;
+      costCents: number;
+    },
+  ) {
+    return {
+      ...payload,
+      usage: meta.usage,
+      costCents: meta.costCents,
+      costEur: toEurAmount(meta.costCents),
+      balanceBefore: meta.balanceBefore,
+      balanceAfter: meta.balanceAfter,
+      aiTokenBalance: meta.balanceAfter,
+      aiTokenRenewalAt: meta.aiTokenRenewalAt,
+    };
   }
 
   // GET /meals - List meal logs
@@ -428,10 +496,9 @@ export function registerMealRoutes(
       const authRequest = request as AuthenticatedEntitlementsRequest;
       const user = authRequest.currentUser ?? await requireUser(request);
       const entitlements = authRequest.currentEntitlements ?? getUserEntitlements?.(user);
-      const shouldChargeAi = Boolean(
-        entitlements
-        && !entitlements.role.adminOverride
-        && assertSufficientAiTokenBalance
+      const shouldChargeAi = Boolean(entitlements && !entitlements.role.adminOverride);
+      const tokenFlowReady = Boolean(
+        assertSufficientAiTokenBalance
         && getEstimatedAiFeatureTokens
         && enforceAiQuota
         && chargeAiUsageForResult
@@ -444,8 +511,32 @@ export function registerMealRoutes(
       }
 
       const input = parsedInput.data;
+      const baseBalanceBefore =
+        typeof getEffectiveTokenBalance?.(user) === "number"
+          ? getEffectiveTokenBalance(user)
+          : typeof user.aiTokenBalance === "number"
+            ? user.aiTokenBalance
+            : null;
+      let responseUsage: AiUsageSummary = ZERO_AI_USAGE;
+      let responseCostCents = 0;
+      let responseBalanceAfter = baseBalanceBefore;
+      const aiTokenRenewalAt = serializeTokenRenewalAt(user);
 
       try {
+        if (shouldChargeAi && !tokenFlowReady) {
+          app.log.error(
+            {
+              userId: user.id,
+              feature: mealPhotoFeature,
+            },
+            "meal photo AI token flow not configured",
+          );
+          throw createHttpError(503, "AI_BILLING_NOT_READY", {
+            kind: "upstream",
+            reason: "token_flow_not_configured",
+          });
+        }
+
         if (shouldChargeAi) {
           assertSufficientAiTokenBalance!(user, getEstimatedAiFeatureTokens!(mealPhotoFeature));
           await enforceAiQuota!({ id: user.id, plan: entitlements!.legacy.tier });
@@ -493,6 +584,11 @@ export function registerMealRoutes(
           ],
         });
 
+        const providerUsage = normalizeProviderUsage(result.usage);
+        if (providerUsage) {
+          responseUsage = providerUsage;
+        }
+
         const chargedResult = shouldChargeAi
           ? await chargeAiUsageForResult!({
               prisma: prisma!,
@@ -516,40 +612,103 @@ export function registerMealRoutes(
             })
           : null;
 
+        if (chargedResult?.usage) {
+          responseUsage = chargedResult.usage;
+        }
+        if (typeof chargedResult?.costCents === "number") {
+          responseCostCents = Math.max(0, chargedResult.costCents);
+        }
+        if (typeof chargedResult?.balance === "number") {
+          responseBalanceAfter = chargedResult.balance;
+        }
+
         const normalized = normalizeAnalysis(chargedResult?.payload ?? result.payload);
 
         if (normalized.confidenceLabel === "low" || normalized.confidence < 0.45) {
           app.log.warn({ confidence: normalized.confidence }, "meal photo analysis fell back due to low confidence");
-          return reply.status(200).send(buildFallbackAnalysis({
+          const lowConfidenceFallback = buildFallbackAnalysis({
             locale: input.locale,
             payload: normalized,
             reason: "low_confidence",
-          }));
+          });
+          return reply.status(200).send(
+            attachAiUsageMeta(lowConfidenceFallback, {
+              usage: responseUsage,
+              costCents: responseCostCents,
+              balanceBefore: baseBalanceBefore,
+              balanceAfter: responseBalanceAfter,
+              aiTokenRenewalAt,
+            }),
+          );
         }
 
-        return reply.status(200).send(normalized);
+        return reply.status(200).send(
+          attachAiUsageMeta(normalized, {
+            usage: responseUsage,
+            costCents: responseCostCents,
+            balanceBefore: baseBalanceBefore,
+            balanceAfter: responseBalanceAfter,
+            aiTokenRenewalAt,
+          }),
+        );
       } catch (error) {
         const typed = error as { code?: string; message?: string };
         if (error instanceof z.ZodError) {
           app.log.warn({ issues: error.issues }, "meal photo analysis response contract drift; using fallback");
-          return reply.status(200).send(buildFallbackAnalysis({
+          const payload = buildFallbackAnalysis({
             locale: input.locale,
             reason: "contract_drift",
-          }));
+          });
+          return reply.status(200).send(
+            attachAiUsageMeta(payload, {
+              usage: responseUsage,
+              costCents: responseCostCents,
+              balanceBefore: baseBalanceBefore,
+              balanceAfter: responseBalanceAfter,
+              aiTokenRenewalAt,
+            }),
+          );
         }
         if (typed.code === "AI_REQUEST_FAILED") {
           app.log.warn({ code: typed.code }, "meal photo analysis upstream failed; using fallback");
-          return reply.status(200).send(buildFallbackAnalysis({ locale: input.locale, reason: "upstream" }));
+          const payload = buildFallbackAnalysis({ locale: input.locale, reason: "upstream" });
+          return reply.status(200).send(
+            attachAiUsageMeta(payload, {
+              usage: responseUsage,
+              costCents: responseCostCents,
+              balanceBefore: baseBalanceBefore,
+              balanceAfter: responseBalanceAfter,
+              aiTokenRenewalAt,
+            }),
+          );
         }
         if (typed.code === "AI_NOT_CONFIGURED") {
           app.log.warn({ code: typed.code }, "meal photo analysis AI not configured; using fallback");
-          return reply.status(200).send(buildFallbackAnalysis({ locale: input.locale, reason: "upstream" }));
+          const payload = buildFallbackAnalysis({ locale: input.locale, reason: "upstream" });
+          return reply.status(200).send(
+            attachAiUsageMeta(payload, {
+              usage: responseUsage,
+              costCents: responseCostCents,
+              balanceBefore: baseBalanceBefore,
+              balanceAfter: responseBalanceAfter,
+              aiTokenRenewalAt,
+            }),
+          );
         }
         if (typed.message?.includes("Invalid image data URL")) {
           return reply.status(400).send({ error: "INVALID_IMAGE", kind: "validation" });
         }
         app.log.error({ err: error }, "meal photo analysis unexpected error; using fallback");
-        return reply.status(200).send(buildFallbackAnalysis({ locale: input.locale, reason: "upstream" }));
+        const payload = buildFallbackAnalysis({ locale: input.locale, reason: "upstream" });
+        return reply.status(200).send(
+          attachAiUsageMeta(payload, {
+            usage: responseUsage,
+            costCents: responseCostCents,
+            balanceBefore: baseBalanceBefore,
+            balanceAfter: responseBalanceAfter,
+            aiTokenRenewalAt,
+          }),
+        );
       }
     }
   );

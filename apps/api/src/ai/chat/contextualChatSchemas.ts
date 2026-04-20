@@ -4,6 +4,7 @@ export const CONTEXTUAL_CHAT_MAX_MESSAGE_LENGTH = 1200;
 
 export const contextualChatSurfaceSchema = z.enum([
   "feed",
+  "coach",
   "training",
   "nutrition",
   "general",

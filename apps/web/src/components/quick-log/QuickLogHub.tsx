@@ -1,7 +1,7 @@
 "use client";
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type ChangeEvent } from "react";
-import { Button } from "@/design-system/components/Button";
+import { Button, ButtonLink } from "@/design-system/components/Button";
 import { Input } from "@/design-system/components/Input";
 import { Modal } from "@/design-system/components/Modal";
 import { useLanguage } from "@/context/LanguageProvider";
@@ -19,6 +19,8 @@ import { NUTRITION_ADHERENCE_EVENT } from "@/lib/nutritionAdherence";
 import styles from "./QuickLogHub.module.css";
 
 type Mode = "meal" | "water" | "weight";
+
+const ESTIMATED_MEAL_PHOTO_ANALYZE_TOKENS = 700;
 
 type SpeechRecognitionCtor = new () => {
   lang: string;
@@ -104,14 +106,18 @@ const QuickLogHub = forwardRef<QuickLogHubHandle, QuickLogHubProps>(function Qui
   const [status, setStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [aiEntitled, setAiEntitled] = useState(false);
+  const [aiTokenBalance, setAiTokenBalance] = useState<number | null>(null);
+  const [tokensExhaustedModalOpen, setTokensExhaustedModalOpen] = useState(false);
 
   useEffect(() => {
     const checkAiEntitlement = async () => {
       try {
         const data = await fetchAuthMe();
         setAiEntitled(hasAiEntitlement(data));
+        setAiTokenBalance(typeof data.aiTokenBalance === "number" ? data.aiTokenBalance : null);
       } catch {
         setAiEntitled(false);
+        setAiTokenBalance(null);
       }
     };
     void checkAiEntitlement();
@@ -334,6 +340,15 @@ const QuickLogHub = forwardRef<QuickLogHubHandle, QuickLogHubProps>(function Qui
   };
 
   const handleMealPhotoAnalyze = async () => {
+    if (!aiEntitled) {
+      setTokensExhaustedModalOpen(true);
+      return;
+    }
+    if (typeof aiTokenBalance === "number" && aiTokenBalance < ESTIMATED_MEAL_PHOTO_ANALYZE_TOKENS) {
+      setTokensExhaustedModalOpen(true);
+      setStatus({ type: "error", message: t("ai.insufficientTokens") });
+      return;
+    }
     if (!mealPhotoUrl) {
       setStatus({ type: "error", message: t("quickLog.mealPhotoAnalyzeMissing") });
       return;
@@ -352,7 +367,20 @@ const QuickLogHub = forwardRef<QuickLogHubHandle, QuickLogHubProps>(function Qui
       setMealFats(result.totals.fats);
       setMealDetectedItems(result.items);
       setMealAnalysisNotes(result.notes ?? null);
-      setStatus({ type: "success", message: t("quickLog.mealPhotoAnalyzeSuccess") });
+      const balanceAfter =
+        typeof result.balanceAfter === "number"
+          ? result.balanceAfter
+          : typeof result.aiTokenBalance === "number"
+            ? result.aiTokenBalance
+            : null;
+      if (typeof balanceAfter === "number") {
+        setAiTokenBalance(balanceAfter);
+      }
+      const usageSuffix =
+        result.usage && typeof result.usage.totalTokens === "number"
+          ? ` · ${t("nutrition.aiSuccessModal.tokensUsed")}: ${result.usage.totalTokens}${typeof balanceAfter === "number" ? ` · ${t("ai.tokensRemaining")} ${balanceAfter}` : ""}`
+          : "";
+      setStatus({ type: "success", message: `${t("quickLog.mealPhotoAnalyzeSuccess")}${usageSuffix}` });
       trackEvent("quick_log_photo_analysis_success", {
         origin,
         target: "nutrition",
@@ -361,6 +389,19 @@ const QuickLogHub = forwardRef<QuickLogHubHandle, QuickLogHubProps>(function Qui
       });
     } catch (error) {
       const message = resolveMealPhotoAnalyzeError(error);
+      if (
+        error instanceof MealPhotoAnalysisError
+        && (
+          error.code === "AI_TOKENS_EXHAUSTED"
+          || error.code === "AI_TOKENS_INSUFFICIENT"
+          || error.code === "AI_LIMIT_REACHED"
+          || error.code === "AI_QUOTA_EXCEEDED"
+          || error.code === "AI_ACCESS_FORBIDDEN"
+          || error.code === "UPGRADE_REQUIRED"
+        )
+      ) {
+        setTokensExhaustedModalOpen(true);
+      }
       setStatus({ type: "error", message });
       trackEvent("quick_log_photo_analysis_error", {
         origin,
@@ -761,6 +802,26 @@ const QuickLogHub = forwardRef<QuickLogHubHandle, QuickLogHubProps>(function Qui
             {status.message}
           </p>
         ) : null}
+      </Modal>
+
+      <Modal
+        open={tokensExhaustedModalOpen}
+        onClose={() => setTokensExhaustedModalOpen(false)}
+        title={t("ai.tokensExhaustedTitle")}
+        description={t("ai.tokensExhaustedDescription")}
+        footer={(
+          <div className="inline-actions-sm">
+            <Button variant="secondary" onClick={() => setTokensExhaustedModalOpen(false)}>{t("ui.close")}</Button>
+            <ButtonLink href="/app/settings/billing">{t("billing.manageBilling")}</ButtonLink>
+          </div>
+        )}
+      >
+        <p className="muted m-0">
+          {t("ai.insufficientTokens")}
+          {typeof aiTokenBalance === "number"
+            ? ` ${t("ai.tokensRemaining")} ${aiTokenBalance} · est: ${ESTIMATED_MEAL_PHOTO_ANALYZE_TOKENS}`
+            : ""}
+        </p>
       </Modal>
     </div>
   );

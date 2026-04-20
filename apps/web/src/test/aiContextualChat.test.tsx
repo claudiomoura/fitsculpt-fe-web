@@ -27,7 +27,7 @@ function setupBaseFetch(
       if (url === "/api/auth/me") {
         return mockResponse({
           entitlements: { modules: { ai: { enabled: true } } },
-          aiTokenBalance: 10,
+          aiTokenBalance: 1000,
         });
       }
       if (url === "/api/ai/chat/contextual") {
@@ -121,6 +121,37 @@ describe("Coach contextual chat", () => {
     await waitFor(() => {
       expect(screen.getByText("Escribe un mensaje antes de enviar.")).toBeInTheDocument();
     });
+  });
+
+  it("blocks submission when token balance is below estimated requirement", async () => {
+    const fetchMock = vi.fn(
+      async (input: RequestInfo | URL): Promise<Response> => {
+        const url = String(input);
+        if (url === "/api/feed") {
+          return mockResponse([]);
+        }
+        if (url === "/api/auth/me") {
+          return mockResponse({
+            entitlements: { modules: { ai: { enabled: true } } },
+            aiTokenBalance: 120,
+          });
+        }
+        if (url === "/api/ai/chat/contextual") {
+          return mockResponse({ reply: { message: "unused" } });
+        }
+        throw new Error(`Unhandled fetch: ${url}`);
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+
+    renderWithProviders(<CoachClient />);
+
+    const chatInput = await screen.findByLabelText("Campo de chat de FitSculpt Coach");
+    fireEvent.change(chatInput, { target: { value: "Necesito ayuda" } });
+    fireEvent.click(screen.getByRole("button", { name: "Preguntar al coach" }));
+
+    expect(await screen.findByText("Tokens IA agotados")).toBeInTheDocument();
+    expect(fetchMock.mock.calls.some(([input]) => String(input) === "/api/ai/chat/contextual")).toBe(false);
   });
 
   it("keeps chat input disabled when AI entitlement is missing", async () => {
