@@ -2642,6 +2642,18 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
                 <section className="rounded-3xl border border-[rgba(15,23,42,0.08)] bg-[linear-gradient(135deg,rgba(255,245,235,0.88),rgba(255,255,255,0.96),rgba(239,246,255,0.88))] p-5 shadow-sm">
                   <p className="m-0 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Recommendation / transformation program</p>
                   <h3 className="m-0 mt-2 text-xl font-semibold text-[var(--text)]">{recommendationCapability.summary}</h3>
+                  {!hasAdjustmentEntitlement ? (
+                    <div className="mt-3 rounded-2xl border border-[var(--surface-border-default)] bg-white/85 p-3">
+                      <p className="m-0 text-sm text-[var(--text)]">
+                        {t("pro.aiLockedSubtitle")}
+                      </p>
+                      <div className="mt-3">
+                        <Link href="/app/settings/billing" className="btn primary fit-content">
+                          {t("pro.aiLockedCta")}
+                        </Link>
+                      </div>
+                    </div>
+                  ) : null}
                   <div className="mt-4 rounded-2xl border border-white/80 bg-white/85 p-4">
                     <p className="m-0 text-xs uppercase tracking-[0.16em] text-[var(--muted)]">Projection integration</p>
                     {projectionCapabilityStatus === "loading" ? (

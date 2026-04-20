@@ -1276,13 +1276,17 @@ export default function TodayQuickActionsClient() {
       <TodayHeader userName={userName} />
 
       {/* QuickLogHub - kept in header area for easy access */}
-      <div className="flex justify-end">
+      <div className="flex justify-end rounded-2xl border border-[var(--surface-border-default)] bg-[var(--surface-inset-bg)]/65 px-3 py-2">
         <QuickLogHub
           ref={quickLogHubRef}
           origin="today"
           latestCheckin={null}
           currentWeightKg={signals.currentWeightKg}
-          onSaved={async () => {
+          onSaved={async (payload) => {
+            if (payload.mode === "meal" && payload.date) {
+              router.push(`${nutritionRoute}?day=${encodeURIComponent(payload.date)}`);
+              return;
+            }
             await loadTodaySignals();
           }}
         />

@@ -4,6 +4,12 @@ import { getMealsByDate, createMealLog, updateMealLog, deleteMealLog, type MealL
 
 export const NUTRITION_ADHERENCE_EVENT = "fs:nutrition-adherence-changed";
 
+type NutritionAdherenceEventDetail = {
+  dateKey?: string;
+  mealType?: string;
+  title?: string;
+};
+
 type NutritionAdherenceStore = Record<string, string[]>;
 
 // Map of dateKey -> mealType -> mealId for new API operations
@@ -44,13 +50,13 @@ import { slugifyExerciseName } from "@/lib/slugify";
 
 /**
  * Convert new API meal logs to adherence store format.
- * Only includes meals that have been actually logged (completedAt present).
- * Reconstructs the same mealKey format the UI generates: dayKey:mealType:slugifiedTitle
+ * Includes meals returned by the API date endpoint and reconstructs
+ * the same mealKey format the UI generates: dayKey:mealType:slugifiedTitle
  */
 export function buildAdherenceStoreFromMeals(meals: MealLogResponse[]): NutritionAdherenceStore {
   const store: NutritionAdherenceStore = {};
   for (const meal of meals) {
-    if (!meal.date || !meal.mealType || !meal.completedAt) continue;
+    if (!meal.date || !meal.mealType) continue;
     const current = store[meal.date] ?? [];
     // Reconstruct the same mealKey format as getNutritionMealKey:
     // dayKey:mealType:slugifiedTitle
@@ -90,6 +96,23 @@ function mapMealKeyToType(mealKey: string): ApiMealType {
 
 function getMealTypeStoreKey(mealType: ApiMealType): string {
   return mealType.toLowerCase();
+}
+
+function normalizeMealTypeForStore(value?: string): string {
+  const normalized = String(value ?? "").toLowerCase();
+  if (normalized.includes("breakfast") || normalized.includes("desayuno") || normalized.includes("pequeno-almoco")) return "breakfast";
+  if (normalized.includes("lunch") || normalized.includes("almuerzo") || normalized.includes("almoco")) return "lunch";
+  if (normalized.includes("dinner") || normalized.includes("cena") || normalized.includes("jantar")) return "dinner";
+  if (normalized.includes("snack")) return "snack";
+  return "snack";
+}
+
+function buildAdherenceMealKeyFromEvent(detail: NutritionAdherenceEventDetail): string | null {
+  const dateKey = normalizeKey(detail.dateKey);
+  if (!dateKey) return null;
+  const mealType = normalizeMealTypeForStore(detail.mealType);
+  const titleSlug = slugifyExerciseName(normalizeKey(detail.title));
+  return titleSlug ? `${dateKey}:${mealType}:${titleSlug}` : `${dateKey}:${mealType}`;
 }
 
 export function hasConsumedEntryForKey(entries: string[] | undefined, itemKey: string): boolean {
@@ -164,6 +187,26 @@ export const useNutritionAdherence = (dayKey: string) => {
     // No event listener — toggle uses optimistic updates directly
     return () => {};
   }, [loadStore]);
+
+  useEffect(() => {
+    if (!isBrowser()) return;
+    const handleQuickLogCreated = (event: Event) => {
+      const detail = (event as CustomEvent<NutritionAdherenceEventDetail>).detail;
+      const mealKey = buildAdherenceMealKeyFromEvent(detail ?? {});
+      const dateKey = normalizeKey(detail?.dateKey);
+      if (!mealKey || !dateKey) return;
+      setStore((prev) => {
+        const next = { ...prev };
+        const current = next[dateKey] ?? [];
+        next[dateKey] = Array.from(new Set([...current, mealKey]));
+        return next;
+      });
+    };
+    window.addEventListener(NUTRITION_ADHERENCE_EVENT, handleQuickLogCreated as EventListener);
+    return () => {
+      window.removeEventListener(NUTRITION_ADHERENCE_EVENT, handleQuickLogCreated as EventListener);
+    };
+  }, []);
 
   const isConsumed = useCallback(
     (itemKey?: string | null, dateKey?: string | null) => {
@@ -411,6 +454,26 @@ export const useNutritionAdherenceWeek = (dateKeys: string[]) => {
     void loadStore(dateKeys);
     return () => {};
   }, [dateKeys.join(","), loadStore]);
+
+  useEffect(() => {
+    if (!isBrowser()) return;
+    const handleQuickLogCreated = (event: Event) => {
+      const detail = (event as CustomEvent<NutritionAdherenceEventDetail>).detail;
+      const mealKey = buildAdherenceMealKeyFromEvent(detail ?? {});
+      const dateKey = normalizeKey(detail?.dateKey);
+      if (!mealKey || !dateKey) return;
+      setStore((prev) => {
+        const next = { ...prev };
+        const current = next[dateKey] ?? [];
+        next[dateKey] = Array.from(new Set([...current, mealKey]));
+        return next;
+      });
+    };
+    window.addEventListener(NUTRITION_ADHERENCE_EVENT, handleQuickLogCreated as EventListener);
+    return () => {
+      window.removeEventListener(NUTRITION_ADHERENCE_EVENT, handleQuickLogCreated as EventListener);
+    };
+  }, []);
 
   const isConsumed = useCallback(
     (itemKey?: string | null, dateKey?: string | null) => {

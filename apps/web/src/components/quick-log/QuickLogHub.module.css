@@ -53,6 +53,23 @@
   color: var(--text-muted);
 }
 
+.selectField {
+  display: grid;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.selectField select {
+  min-height: 42px;
+  border-radius: 12px;
+  border: 1px solid var(--surface-border-default);
+  padding: 0 12px;
+  background: var(--surface-inset-bg);
+  color: var(--text-primary);
+  font-size: 0.92rem;
+}
+
 .uploadField input {
   border-radius: 12px;
   border: 1px dashed var(--surface-border-default);
@@ -125,6 +142,22 @@
 .photoPreviewMeta {
   display: grid;
   gap: 6px;
+}
+
+.reviewBlock {
+  display: grid;
+  gap: 10px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 82%, transparent);
+  background: color-mix(in srgb, var(--surface-inset-bg) 90%, transparent);
+  padding: 12px;
+}
+
+.reviewTitle {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
 }
 
 .saveButton {

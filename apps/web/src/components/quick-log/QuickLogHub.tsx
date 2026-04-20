@@ -1,19 +1,21 @@
 "use client";
 
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { Button } from "@/design-system/components/Button";
 import { Input } from "@/design-system/components/Input";
 import { Modal } from "@/design-system/components/Modal";
 import { useLanguage } from "@/context/LanguageProvider";
 import { trackEvent } from "@/lib/analytics";
+import { parseDate } from "@/lib/calendar";
 import { fetchAuthMe } from "@/lib/authDedup";
 import { hasAiEntitlement } from "@/components/access/aiEntitlements";
 import { compressAvatarToDataUrl } from "@/lib/avatarUpload";
 import { findQuickLogFoodByBarcode, searchQuickLogFoods, type QuickLogFoodItem } from "@/lib/quickLogFoodCatalog";
 import { parseQuickVoiceMeal } from "@/lib/quickLogVoiceParser";
 import { createTrackingEntry, type CheckinEntry, type MealLogEntry } from "@/services/tracking";
-import { analyzeMealPhoto, createMealLog, MealPhotoAnalysisError, type CreateMealParams } from "@/services/mealApi";
+import { analyzeMealPhoto, completeMeal, createMealLog, MealPhotoAnalysisError, type CreateMealParams } from "@/services/mealApi";
 import { sendRctEvent } from "@/services/futureProjection";
+import { NUTRITION_ADHERENCE_EVENT } from "@/lib/nutritionAdherence";
 import styles from "./QuickLogHub.module.css";
 
 type Mode = "meal" | "water" | "weight";
@@ -33,7 +35,9 @@ type QuickLogHubProps = {
   origin: "today" | "nutrition";
   latestCheckin: CheckinEntry | null;
   currentWeightKg?: number | null;
-  onSaved?: () => Promise<void> | void;
+  defaultMealDate?: string;
+  showLauncher?: boolean;
+  onSaved?: (payload: { mode: Mode; date?: string; mealType?: "BREAKFAST" | "LUNCH" | "DINNER" | "SNACK" }) => Promise<void> | void;
 };
 
 export type QuickLogHubHandle = {
@@ -91,7 +95,7 @@ function checkinFromWeight(date: string, weightKg: number, latestCheckin: Checki
 }
 
 const QuickLogHub = forwardRef<QuickLogHubHandle, QuickLogHubProps>(function QuickLogHub(
-  { origin, latestCheckin, currentWeightKg = null, onSaved },
+  { origin, latestCheckin, currentWeightKg = null, defaultMealDate, showLauncher = true, onSaved },
   ref,
 ) {
   const { t, locale } = useLanguage();
@@ -113,9 +117,9 @@ const QuickLogHub = forwardRef<QuickLogHubHandle, QuickLogHubProps>(function Qui
     void checkAiEntitlement();
   }, []);
 
-  const [mealDate, setMealDate] = useState(toTodayKey());
+  const [mealDate, setMealDate] = useState(defaultMealDate ?? toTodayKey());
   const [mealTitle, setMealTitle] = useState("");
-  const [mealType, setMealType] = useState("meal");
+  const [mealType, setMealType] = useState<"breakfast" | "lunch" | "dinner" | "snack">("lunch");
   const [mealCalories, setMealCalories] = useState(420);
   const [mealProtein, setMealProtein] = useState(28);
   const [mealCarbs, setMealCarbs] = useState(45);
@@ -146,6 +150,20 @@ const QuickLogHub = forwardRef<QuickLogHubHandle, QuickLogHubProps>(function Qui
   const [lookupQuery, setLookupQuery] = useState("");
   const [lookupResult, setLookupResult] = useState<QuickLogFoodItem | null>(null);
 
+  const mealDayLabel = useMemo(() => {
+    const parsedDate = parseDate(mealDate);
+    if (!parsedDate) return "";
+    try {
+      return new Intl.DateTimeFormat(locale, {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+      }).format(parsedDate);
+    } catch {
+      return mealDate;
+    }
+  }, [locale, mealDate]);
+
   const recognitionRef = useRef<InstanceType<SpeechRecognitionCtor> | null>(null);
 
   const supportsSpeech = useMemo(() => {
@@ -156,12 +174,13 @@ const QuickLogHub = forwardRef<QuickLogHubHandle, QuickLogHubProps>(function Qui
     return typeof maybeCtor === "function";
   }, []);
 
-  const openHub = (nextMode: Mode = "meal") => {
+  const openHub = useCallback((nextMode: Mode = "meal") => {
     setStatus(null);
     setMode(nextMode);
+    setMealDate(defaultMealDate ?? toTodayKey());
     setOpen(true);
     trackEvent("quick_log_opened", { target: "nutrition", origin });
-  };
+  }, [defaultMealDate, origin]);
 
   useImperativeHandle(ref, () => ({
     open: (nextMode: Mode = "meal") => {
@@ -169,13 +188,13 @@ const QuickLogHub = forwardRef<QuickLogHubHandle, QuickLogHubProps>(function Qui
     },
   }));
 
-  const closeHub = () => {
+  const closeHub = useCallback(() => {
     setOpen(false);
     setIsListening(false);
     recognitionRef.current?.stop();
     setVoiceDraftNeedsConfirmation(false);
     hasCapturedTranscriptRef.current = false;
-  };
+  }, []);
 
   const resolveVoiceErrorMessage = (errorCode?: string) => {
     if (errorCode === "not-allowed" || errorCode === "service-not-allowed") {
@@ -234,6 +253,14 @@ const QuickLogHub = forwardRef<QuickLogHubHandle, QuickLogHubProps>(function Qui
     recognition.start();
   };
 
+  const normalizeMealType = (value: string): "breakfast" | "lunch" | "dinner" | "snack" => {
+    const normalized = value.toLowerCase();
+    if (normalized.includes("breakfast") || normalized.includes("desayuno") || normalized.includes("pequeno-almoco")) return "breakfast";
+    if (normalized.includes("lunch") || normalized.includes("almuerzo") || normalized.includes("almoco")) return "lunch";
+    if (normalized.includes("dinner") || normalized.includes("cena") || normalized.includes("jantar")) return "dinner";
+    return "snack";
+  };
+
   const applyVoiceDraft = () => {
     if (!voiceText.trim()) {
       setStatus({ type: "error", message: t("quickLog.voiceTranscriptEmpty") });
@@ -241,7 +268,7 @@ const QuickLogHub = forwardRef<QuickLogHubHandle, QuickLogHubProps>(function Qui
     }
     const parsed = parseQuickVoiceMeal(voiceText);
     setMealTitle(parsed.title);
-    setMealType(parsed.mealType);
+    setMealType(normalizeMealType(parsed.mealType));
     setMealCalories(parsed.calories);
     setMealProtein(parsed.protein);
     setMealCarbs(parsed.carbs);
@@ -366,14 +393,25 @@ const QuickLogHub = forwardRef<QuickLogHubHandle, QuickLogHubProps>(function Qui
     setStatus({ type: "success", message: t("quickLog.lookupApplied") });
   };
 
-  const notifySaved = async () => {
+  const notifySaved = async (payload: { mode: Mode; date?: string; mealType?: "BREAKFAST" | "LUNCH" | "DINNER" | "SNACK" }) => {
     trackEvent("quick_log_saved", { target: mode === "weight" ? "checkin" : "nutrition", origin, mode: "quick" });
     void sendRctEvent({
       event: "logging_entry_created",
       context: { origin, mode, target: mode === "weight" ? "checkin" : "nutrition" },
     });
+    if (typeof window !== "undefined" && payload.mode === "meal" && payload.date && payload.mealType) {
+      window.dispatchEvent(
+        new CustomEvent(NUTRITION_ADHERENCE_EVENT, {
+          detail: {
+            dateKey: payload.date,
+            mealType: payload.mealType,
+            title: mealTitle.trim() || t("quickLog.defaultMealTitle"),
+          },
+        }),
+      );
+    }
     if (onSaved) {
-      await onSaved();
+      await onSaved(payload);
     }
   };
 
@@ -416,8 +454,12 @@ const QuickLogHub = forwardRef<QuickLogHubHandle, QuickLogHubProps>(function Qui
               ],
       };
       
-      await createMealLog(mealParams);
-      await notifySaved();
+      const createdMeal = await createMealLog(mealParams);
+      if (createdMeal.id) {
+        await completeMeal(createdMeal.id).catch(() => undefined);
+      }
+      const apiMealType = mapMealType(mealType);
+      await notifySaved({ mode: "meal", date: mealDate, mealType: apiMealType });
       setStatus({ type: "success", message: t("quickLog.mealSaved") });
       setMealTitle("");
       setMealQuantity(1);
@@ -440,7 +482,7 @@ const QuickLogHub = forwardRef<QuickLogHubHandle, QuickLogHubProps>(function Qui
           fats: mealFats,
         });
         await createTrackingEntry("mealLog", entry);
-        await notifySaved();
+        await notifySaved({ mode: "meal", date: mealDate, mealType: mapMealType(mealType) });
         setStatus({ type: "success", message: t("quickLog.mealSavedOffline") });
         setMealTitle("");
         setMealQuantity(1);
@@ -457,11 +499,10 @@ const QuickLogHub = forwardRef<QuickLogHubHandle, QuickLogHubProps>(function Qui
   };
 
   // Helper to map meal type string to API enum
-  function mapMealType(type: string): "BREAKFAST" | "LUNCH" | "DINNER" | "SNACK" {
-    const normalized = type.toLowerCase();
-    if (normalized.includes("breakfast") || normalized.includes("desayuno") || normalized.includes("pequeno-almoco")) return "BREAKFAST";
-    if (normalized.includes("lunch") || normalized.includes("almuerzo") || normalized.includes("almoco")) return "LUNCH";
-    if (normalized.includes("dinner") || normalized.includes("cena") || normalized.includes("jantar")) return "DINNER";
+  function mapMealType(type: "breakfast" | "lunch" | "dinner" | "snack"): "BREAKFAST" | "LUNCH" | "DINNER" | "SNACK" {
+    if (type === "breakfast") return "BREAKFAST";
+    if (type === "lunch") return "LUNCH";
+    if (type === "dinner") return "DINNER";
     return "SNACK";
   }
 
@@ -476,7 +517,7 @@ const QuickLogHub = forwardRef<QuickLogHubHandle, QuickLogHubProps>(function Qui
         foodKey: "water",
         grams: safeMl,
       });
-      await notifySaved();
+      await notifySaved({ mode: "water", date: waterDate });
       setStatus({ type: "success", message: t("quickLog.waterSaved", { amount: safeMl }) });
       setWaterMl(250);
     } catch {
@@ -496,7 +537,7 @@ const QuickLogHub = forwardRef<QuickLogHubHandle, QuickLogHubProps>(function Qui
     setStatus(null);
     try {
       await createTrackingEntry("checkins", checkinFromWeight(weightDate, safeWeight, latestCheckin));
-      await notifySaved();
+      await notifySaved({ mode: "weight", date: weightDate });
       setStatus({ type: "success", message: t("quickLog.weightSaved") });
     } catch {
       setStatus({ type: "error", message: t("quickLog.weightSaveError") });
@@ -507,9 +548,11 @@ const QuickLogHub = forwardRef<QuickLogHubHandle, QuickLogHubProps>(function Qui
 
   return (
     <div className={styles.launcher}>
-      <Button className={styles.launcherButton} variant="secondary" onClick={() => openHub()}>
-        {t("quickLog.launcher")}
-      </Button>
+      {showLauncher ? (
+        <Button className={styles.launcherButton} variant="secondary" onClick={() => openHub()}>
+          {t("quickLog.launcher")}
+        </Button>
+      ) : null}
 
       <Modal
         open={open}
@@ -536,7 +579,18 @@ const QuickLogHub = forwardRef<QuickLogHubHandle, QuickLogHubProps>(function Qui
             <Input label={t("quickLog.fieldMealTitle")} placeholder={t("quickLog.fieldMealPlaceholder")} value={mealTitle} onChange={(event) => setMealTitle(event.target.value)} />
 
             <div className={styles.fieldRow}>
-              <Input label={t("quickLog.fieldMealType")} value={mealType} onChange={(event) => setMealType(event.target.value)} />
+              <label className={styles.selectField}>
+                <span>{t("quickLog.fieldMealType")}</span>
+                <select
+                  value={mealType}
+                  onChange={(event) => setMealType(event.target.value as "breakfast" | "lunch" | "dinner" | "snack")}
+                >
+                  <option value="breakfast">{t("quickLog.mealTypeBreakfast")}</option>
+                  <option value="lunch">{t("quickLog.mealTypeLunch")}</option>
+                  <option value="dinner">{t("quickLog.mealTypeDinner")}</option>
+                  <option value="snack">{t("quickLog.mealTypeSnack")}</option>
+                </select>
+              </label>
               <Input label={t("quickLog.fieldLookup")} placeholder={t("quickLog.lookupPlaceholder")} value={lookupQuery} onChange={(event) => setLookupQuery(event.target.value)} />
             </div>
 
@@ -627,6 +681,46 @@ const QuickLogHub = forwardRef<QuickLogHubHandle, QuickLogHubProps>(function Qui
               <Input label={t("quickLog.fieldCarbs")} type="number" value={mealCarbs} onChange={(event) => setMealCarbs(Number(event.target.value))} />
               <Input label={t("quickLog.fieldFats")} type="number" value={mealFats} onChange={(event) => setMealFats(Number(event.target.value))} />
             </div>
+
+            {mealDetectedItems.length > 0 ? (
+              <div className={styles.reviewBlock}>
+                <div>
+                  <p className={styles.reviewTitle}>{t("quickLog.reviewTitle")}</p>
+                  <p className={styles.smallText}>{t("quickLog.reviewHint")}</p>
+                  {mealDayLabel ? (
+                    <p className={styles.smallText}>{t("quickLog.reviewSelectedDay", { day: mealDayLabel })}</p>
+                  ) : null}
+                </div>
+                <div className={styles.fieldRow}>
+                  <Input
+                    label={t("quickLog.fieldDate")}
+                    type="date"
+                    value={mealDate}
+                    onChange={(event) => setMealDate(event.target.value)}
+                  />
+                  <label className={styles.selectField}>
+                    <span>{t("quickLog.fieldMealType")}</span>
+                    <select
+                      value={mealType}
+                      onChange={(event) =>
+                        setMealType(
+                          event.target.value as
+                            | "breakfast"
+                            | "lunch"
+                            | "dinner"
+                            | "snack",
+                        )
+                      }
+                    >
+                      <option value="breakfast">{t("quickLog.mealTypeBreakfast")}</option>
+                      <option value="lunch">{t("quickLog.mealTypeLunch")}</option>
+                      <option value="dinner">{t("quickLog.mealTypeDinner")}</option>
+                      <option value="snack">{t("quickLog.mealTypeSnack")}</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+            ) : null}
 
             <Button className={styles.saveButton} onClick={() => void saveMeal()} loading={isSaving} disabled={voiceDraftNeedsConfirmation}>
               {t("quickLog.saveMeal")}

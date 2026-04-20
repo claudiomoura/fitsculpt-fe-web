@@ -19,6 +19,10 @@ const { compressAvatarToDataUrlMock } = vi.hoisted(() => ({
   compressAvatarToDataUrlMock: vi.fn(),
 }));
 
+const { fetchAuthMeMock } = vi.hoisted(() => ({
+  fetchAuthMeMock: vi.fn(),
+}));
+
 vi.mock("@/services/tracking", async () => {
   const actual = await vi.importActual<typeof import("@/services/tracking")>("@/services/tracking");
   return {
@@ -41,6 +45,14 @@ vi.mock("@/lib/avatarUpload", () => ({
     compressAvatarToDataUrlMock(...args),
 }));
 
+vi.mock("@/lib/authDedup", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/authDedup")>("@/lib/authDedup");
+  return {
+    ...actual,
+    fetchAuthMe: () => fetchAuthMeMock(),
+  };
+});
+
 describe("QuickLogHub", () => {
   beforeEach(() => {
     createTrackingEntryMock.mockReset();
@@ -60,6 +72,10 @@ describe("QuickLogHub", () => {
     });
     compressAvatarToDataUrlMock.mockReset();
     compressAvatarToDataUrlMock.mockResolvedValue("data:image/jpeg;base64,meal-photo");
+    fetchAuthMeMock.mockReset();
+    fetchAuthMeMock.mockResolvedValue({
+      entitlements: { modules: { ai: { enabled: true } } },
+    });
     window.__fsAnalyticsQueue = [];
   });
 
