@@ -14,7 +14,7 @@ This setup packages the existing FitSculpt web app inside a Capacitor Android sh
 2. Go to **Settings -> Secrets and variables -> Actions -> Variables**.
 3. Create repository variable `CAPACITOR_SERVER_URL` with your production web URL (HTTPS), for example `https://your-fitsculpt-web-url`.
 
-If you do not set it, workflow dispatch defaults to `https://example.com` and the app shell will open that URL.
+The workflow now fails fast if `CAPACITOR_SERVER_URL` is missing or still set to the placeholder `https://example.com`.
 
 ## Build APK from GitHub UI
 
@@ -22,7 +22,7 @@ If you do not set it, workflow dispatch defaults to `https://example.com` and th
 2. Select workflow **Android Beta Build**.
 3. Click **Run workflow**.
 4. Choose branch (`dev` recommended for beta).
-5. Fill `server_url` with your real web URL (or keep default if repository variable is set).
+5. Fill `server_url` with your real web URL, or leave it empty only if repository variable `CAPACITOR_SERVER_URL` is already set.
 6. Keep `include_aab` as `true` only if you also want the unsigned `.aab`.
 7. Click **Run workflow**.
 

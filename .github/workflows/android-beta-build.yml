@@ -12,8 +12,7 @@ on:
     inputs:
       server_url:
         description: "Public HTTPS URL for FitSculpt web app"
-        required: true
-        default: "https://example.com"
+        required: false
         type: string
       include_aab:
         description: "Also build unsigned release AAB"
@@ -29,7 +28,7 @@ jobs:
       run:
         working-directory: apps/web
     env:
-      CAPACITOR_SERVER_URL: ${{ github.event.inputs.server_url || vars.CAPACITOR_SERVER_URL || 'https://example.com' }}
+      CAPACITOR_SERVER_URL: ${{ github.event.inputs.server_url || vars.CAPACITOR_SERVER_URL }}
 
     steps:
       - name: Checkout
@@ -52,6 +51,19 @@ jobs:
 
       - name: Install web dependencies
         run: npm ci
+
+      - name: Validate Capacitor server URL
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${CAPACITOR_SERVER_URL:-}" ]; then
+            echo "::error::Set workflow input 'server_url' or repository variable CAPACITOR_SERVER_URL to your public HTTPS app URL."
+            exit 1
+          fi
+          if [ "${CAPACITOR_SERVER_URL}" = "https://example.com" ]; then
+            echo "::error::CAPACITOR_SERVER_URL cannot use the placeholder https://example.com."
+            exit 1
+          fi
 
       - name: Prepare Capacitor Android project
         run: npm run mobile:android:prepare
