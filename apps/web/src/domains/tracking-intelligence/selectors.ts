@@ -165,9 +165,10 @@ export function selectTrackingPhotoComparison(checkins: CheckinEntry[]): Trackin
 export function selectPassiveSupportSnapshot(
   passiveData: PassiveHealthData | null | undefined,
   rangeDays: number,
+  referenceDate = new Date(),
 ): TrackingPassiveSupportSnapshot {
   const safePassiveData = passiveData ?? defaultPassiveHealthData;
-  const window = buildTrackingTrendWindow(rangeDays);
+  const window = buildTrackingTrendWindow(rangeDays, referenceDate);
   const start = parseDate(window.startDate);
   const end = parseDate(window.endDate);
 

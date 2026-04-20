@@ -113,7 +113,7 @@ describe("tracking intelligence selectors", () => {
       },
       rangeDays: 7,
     });
-    const passiveSnapshot = selectPassiveSupportSnapshot(passiveData, 7);
+    const passiveSnapshot = selectPassiveSupportSnapshot(passiveData, 7, new Date("2026-04-10T12:00:00.000Z"));
 
     expect(context.targetSessionsPerWeek).toBe(4);
     expect(context.professionalInsights).toBeTruthy();

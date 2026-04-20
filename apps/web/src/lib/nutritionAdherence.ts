@@ -50,13 +50,13 @@ import { slugifyExerciseName } from "@/lib/slugify";
 
 /**
  * Convert new API meal logs to adherence store format.
- * Includes meals returned by the API date endpoint and reconstructs
- * the same mealKey format the UI generates: dayKey:mealType:slugifiedTitle
+ * Only includes meals that have been actually logged (completedAt present).
+ * Reconstructs the same mealKey format the UI generates: dayKey:mealType:slugifiedTitle
  */
 export function buildAdherenceStoreFromMeals(meals: MealLogResponse[]): NutritionAdherenceStore {
   const store: NutritionAdherenceStore = {};
   for (const meal of meals) {
-    if (!meal.date || !meal.mealType) continue;
+    if (!meal.date || !meal.mealType || !meal.completedAt) continue;
     const current = store[meal.date] ?? [];
     // Reconstruct the same mealKey format as getNutritionMealKey:
     // dayKey:mealType:slugifiedTitle

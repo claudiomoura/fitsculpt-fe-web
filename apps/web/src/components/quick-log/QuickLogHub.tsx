@@ -13,7 +13,7 @@ import { compressAvatarToDataUrl } from "@/lib/avatarUpload";
 import { findQuickLogFoodByBarcode, searchQuickLogFoods, type QuickLogFoodItem } from "@/lib/quickLogFoodCatalog";
 import { parseQuickVoiceMeal } from "@/lib/quickLogVoiceParser";
 import { createTrackingEntry, type CheckinEntry, type MealLogEntry } from "@/services/tracking";
-import { analyzeMealPhoto, completeMeal, createMealLog, MealPhotoAnalysisError, type CreateMealParams } from "@/services/mealApi";
+import { analyzeMealPhoto, completeMeal, createMealLog, updateMealLog, MealPhotoAnalysisError, type CreateMealParams } from "@/services/mealApi";
 import { sendRctEvent } from "@/services/futureProjection";
 import { NUTRITION_ADHERENCE_EVENT } from "@/lib/nutritionAdherence";
 import styles from "./QuickLogHub.module.css";
@@ -455,8 +455,12 @@ const QuickLogHub = forwardRef<QuickLogHubHandle, QuickLogHubProps>(function Qui
       };
       
       const createdMeal = await createMealLog(mealParams);
-      if (createdMeal.id) {
-        await completeMeal(createdMeal.id).catch(() => undefined);
+      if (createdMeal.id && !createdMeal.completedAt) {
+        try {
+          await completeMeal(createdMeal.id);
+        } catch {
+          await updateMealLog(createdMeal.id, { completed: true }).catch(() => undefined);
+        }
       }
       const apiMealType = mapMealType(mealType);
       await notifySaved({ mode: "meal", date: mealDate, mealType: apiMealType });
