@@ -108,17 +108,18 @@ export function registerMealRoutes(
 
   const foodPhotoSystemPrompt = [
     "You are a nutrition expert analyzing food photos.",
-    "Return ONLY strict JSON matching the required schema.",
-    "Step 1: Identify each food item visible on the plate.",
-    "Step 2: Estimate realistic portion size (small/medium/large plate typical serving).",
-    "Step 3: Calculate macros using real food databases (USDA-style) for each item.",
-    "Be SPECIFIC about the food — say 'Arroz con pollo' not just 'plato'.",
-    "For each item provide: name (specific food), calories, protein (g), carbs (g), fats (g).",
-    "If food is unclear, estimate based on appearance and set confidence to 0.3-0.5.",
-    "DO NOT guess ingredients not visible. If truly unknown, name it generically.",
-    "Use realistic portion values: typically 150-400 kcal per main item.",
-    "Add helpful notes about preparation style when visible (grilled, fried, steamed, etc).",
-  ].join(" ");
+    "IMPORTANT: Return ONLY strict JSON with these EXACT field names:",
+    "- title: string (specific name, e.g. 'Arroz con pollo', NOT generic)",
+    "- items: array of objects with fields name, calories, protein, carbs, fats (all numbers, per serving)",
+    "- totals: object with calories, protein, carbs, fats (all numbers)",
+    "- confidence: number 0-1 (how sure you are about the identification)",
+    "- confidenceLabel: 'low' | 'medium' | 'high'",
+    "- notes: string (optional, brief note about the meal)",
+    "Do NOT use 'titulo', 'notas', 'kcal', 'gramos' or other field names.",
+    "Be specific about the food type.",
+    "Use realistic USDA-style macros for a normal serving.",
+    "If unsure, lower confidence to 0.3-0.5.",
+  ].join(". ");
 
   const fallbackCopy = {
     es: {
@@ -279,8 +280,37 @@ const items = fallbackItems.length > 0
     return Math.max(0, Math.round(value * 10) / 10);
   }
 
-  function normalizeAnalysis(payload: unknown) {
-    return enrichAnalysis(mealPhotoAnalysisResponseSchema.parse(payload), "ai", false);
+function normalizeAnalysis(raw: unknown): z.infer<typeof mealPhotoAnalysisResponseSchema> {
+    // Normalize common AI response field names before Zod validation
+    if (raw && typeof raw === "object") {
+      const rec = raw as Record<string, unknown>;
+      const normalized: Record<string, unknown> = { ...rec };
+
+      // Field name normalization: Spanish/common → expected
+      if ("titulo" in rec && !("title" in rec)) {
+        normalized.title = rec.titulo;
+      }
+      if ("nombre" in rec && !("name" in rec)) {
+        normalized.name = rec.nombre;
+      }
+
+      // notes: might be array, convert to string
+      if ("notes" in rec && Array.isArray(rec.notes)) {
+        normalized.notes = (rec.notes as string[]).filter(Boolean).join(". ").slice(0, 280) || undefined;
+      }
+      if ("notas" in rec) {
+        if (Array.isArray(rec.notas)) {
+          normalized.notes = (rec.notas as string[]).filter(Boolean).join(". ").slice(0, 280) || undefined;
+        } else {
+          normalized.notes = rec.notas;
+        }
+      }
+
+      const parsed = mealPhotoAnalysisResponseSchema.parse(normalized);
+      return enrichAnalysis(parsed, "ai", false);
+    }
+    const parsed = mealPhotoAnalysisResponseSchema.parse(raw);
+    return enrichAnalysis(parsed, "ai", false);
   }
 
   function serializeTokenRenewalAt(user: {
