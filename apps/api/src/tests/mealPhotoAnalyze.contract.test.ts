@@ -136,7 +136,7 @@ async function run() {
   assert.equal(body.analysisSource, "fallback");
   assert.equal(body.degraded, true);
   assert.equal(body.fallbackReason, "UPSTREAM_ERROR");
-  assert.equal(body.kcal, 0);
+assert.equal(body.kcal, 150);
   assert.equal(body.items[0].name, "Comida no identificada");
   assert.equal(body.balanceAfter, 900);
   assert.equal(body.costCents, 0);

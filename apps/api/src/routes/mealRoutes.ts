@@ -107,14 +107,17 @@ export function registerMealRoutes(
     Number((Math.max(0, costCents) / 100).toFixed(2));
 
   const foodPhotoSystemPrompt = [
-    "Analiza una foto de comida en un plato.",
-    "Devuelve SOLO JSON estricto.",
-    "Identifica que comida es y separa los alimentos visibles en items.",
-    "Estima titulo de comida, items y macros por item (calories, protein, carbs, fats).",
-    "Si no estas seguro, baja confidence y confidenceLabel.",
-    "No inventes ingredientes no visibles.",
-    "Usa valores realistas para una porcion normal.",
-    "Incluye notes breves cuando la estimacion sea dudosa o falten ingredientes fuera de camara.",
+    "You are a nutrition expert analyzing food photos.",
+    "Return ONLY strict JSON matching the required schema.",
+    "Step 1: Identify each food item visible on the plate.",
+    "Step 2: Estimate realistic portion size (small/medium/large plate typical serving).",
+    "Step 3: Calculate macros using real food databases (USDA-style) for each item.",
+    "Be SPECIFIC about the food — say 'Arroz con pollo' not just 'plato'.",
+    "For each item provide: name (specific food), calories, protein (g), carbs (g), fats (g).",
+    "If food is unclear, estimate based on appearance and set confidence to 0.3-0.5.",
+    "DO NOT guess ingredients not visible. If truly unknown, name it generically.",
+    "Use realistic portion values: typically 150-400 kcal per main item.",
+    "Add helpful notes about preparation style when visible (grilled, fried, steamed, etc).",
   ].join(" ");
 
   const fallbackCopy = {
@@ -246,14 +249,14 @@ export function registerMealRoutes(
       ? payloadRecord.totals as Record<string, unknown>
       : null;
     const title = trimString(payloadRecord?.title) ?? trimString(payloadRecord?.foodName) ?? copy.title;
-    const items = fallbackItems.length > 0
+const items = fallbackItems.length > 0
       ? fallbackItems
       : [{
           name: trimString(payloadRecord?.foodName) ?? copy.item,
-          calories: readNumber(payloadTotals?.calories) ?? readNumber(payloadRecord?.kcal) ?? 0,
-          protein: readNumber(payloadTotals?.protein) ?? readNumber(payloadRecord?.protein) ?? 0,
-          carbs: readNumber(payloadTotals?.carbs) ?? readNumber(payloadRecord?.carbs) ?? 0,
-          fats: readNumber(payloadTotals?.fats) ?? readNumber(payloadRecord?.fat) ?? 0,
+          calories: readNumber(payloadTotals?.calories) ?? readNumber(payloadRecord?.kcal) ?? 150,
+          protein: readNumber(payloadTotals?.protein) ?? readNumber(payloadRecord?.protein) ?? 15,
+          carbs: readNumber(payloadTotals?.carbs) ?? readNumber(payloadRecord?.carbs) ?? 20,
+          fats: readNumber(payloadTotals?.fats) ?? readNumber(payloadRecord?.fat) ?? 5,
         }];
     const reasonCopyKey = (() => {
       if (args.reason === "LOW_CONFIDENCE") return "low_confidence" as const;
@@ -266,7 +269,7 @@ export function registerMealRoutes(
       title,
       items,
       totals: { calories: 0, protein: 0, carbs: 0, fats: 0 },
-      confidence: clampConfidence(readNumber(payloadRecord?.confidence) ?? 0.24, 0.44),
+      confidence: clampConfidence(readNumber(payloadRecord?.confidence) ?? 0.25, 0.40),
       confidenceLabel: "low",
       notes,
     }, "fallback", true, args.reason);
@@ -603,7 +606,7 @@ export function registerMealRoutes(
 
         const normalized = normalizeAnalysis(result.payload);
 
-        if (normalized.confidenceLabel === "low" || normalized.confidence < 0.45) {
+        if (normalized.confidenceLabel === "low" || normalized.confidence < 0.30) {
           app.log.warn(
             { reasonCode: "LOW_CONFIDENCE", confidence: normalized.confidence },
             "meal photo analysis fell back due to low confidence",
