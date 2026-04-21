@@ -180,7 +180,6 @@ export const mealPhotoAnalysisJsonSchema = {
         type: "object",
         properties: {
           name: { type: "string" },
-          quantity: { type: "number" },
           unit: { type: "string" },
           calories: { type: "number" },
           protein: { type: "number" },

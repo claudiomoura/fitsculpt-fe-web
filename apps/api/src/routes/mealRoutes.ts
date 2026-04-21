@@ -572,15 +572,8 @@ const items = fallbackItems.length > 0
               ? "Escreve titulo e notas em portugues."
               : "Escribe titulo y notas en espanol.";
 
-        const result = await callOpenAi(foodPhotoSystemPrompt, 0, JSON.parse, {
-          responseFormat: {
-            type: "json_schema",
-            json_schema: {
-              name: "meal_photo_analysis",
-              schema: mealPhotoAnalysisJsonSchema as unknown as Record<string, unknown>,
-              strict: true,
-            },
-          },
+const result = await callOpenAi(foodPhotoSystemPrompt, 0, JSON.parse, {
+          responseFormat: { type: "json_object" },
           model: "gpt-4o-mini",
           maxTokens: 700,
           retryOnParseError: false,
