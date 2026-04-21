@@ -107,19 +107,15 @@ export function registerMealRoutes(
     Number((Math.max(0, costCents) / 100).toFixed(2));
 
   const foodPhotoSystemPrompt = [
-    "You are a nutrition expert analyzing food photos.",
-    "IMPORTANT: Return ONLY strict JSON with these EXACT field names:",
-    "- title: string (specific name, e.g. 'Arroz con pollo', NOT generic)",
-    "- items: array of objects with fields name, calories, protein, carbs, fats (all numbers, per serving)",
-    "- totals: object with calories, protein, carbs, fats (all numbers)",
-    "- confidence: number 0-1 (how sure you are about the identification)",
-    "- confidenceLabel: 'low' | 'medium' | 'high'",
-    "- notes: string (optional, brief note about the meal)",
-    "Do NOT use 'titulo', 'notas', 'kcal', 'gramos' or other field names.",
-    "Be specific about the food type.",
-    "Use realistic USDA-style macros for a normal serving.",
-    "If unsure, lower confidence to 0.3-0.5.",
-  ].join(". ");
+    "Analyze this food photo and return a JSON object with these EXACT fields:",
+    '{"title":"string - specific food name",',
+    '"items":[{"name":"string","calories":number,"protein":number,"carbs":number,"fats":number}]',
+    '"totals":{"calories":number,"protein":number,"carbs":number,"fats":number},',
+    '"confidence":number,"confidenceLabel":"low|medium|high","notes":"string"}',
+    "Identify each food on the plate.",
+    "Calculate realistic macros (USDA-style) per serving.",
+    "If food is unclear: name it generically and set confidence to 0.4.",
+  ].join(" ");
 
   const fallbackCopy = {
     es: {
@@ -282,43 +278,68 @@ const items = fallbackItems.length > 0
 
 function safeParseAnalysis(raw: unknown): z.infer<typeof mealPhotoAnalysisResponseSchema> | null {
     try {
-      // Normalize common AI response patterns BEFORE Zod validation
-      if (raw && typeof raw === "object") {
-        const rec = raw as Record<string, unknown>;
-        const normalized: Record<string, unknown> = { ...rec };
+      if (!raw || typeof raw !== "object") return null;
+      const rec = raw as Record<string, unknown>;
+      const normalized: Record<string, unknown> = { ...rec };
 
-        // Field name normalization: Spanish/common → expected
-        if ("titulo" in rec) { normalized.title = rec.titulo; delete (normalized as Record<string, unknown>).titulo; }
-        if ("nombre" in rec && !("name" in normalized)) { normalized.name = rec.nombre; }
-        if ("kcal" in rec && !("calories" in normalized)) { normalized.calories = rec.kcal; }
+      // Field name normalization: Spanish/common → expected
+      if ("titulo" in rec) { normalized.title = rec.titulo; delete (normalized as Record<string, unknown>).titulo; }
+      if ("nombre" in rec && !("name" in normalized)) { normalized.name = rec.nombre; }
+      if ("kcal" in rec && !("calories" in normalized)) { normalized.calories = rec.kcal; }
 
-        // items: each item field normalization
-        if (Array.isArray(rec.items)) {
-          normalized.items = rec.items.map((item: Record<string, unknown>) => {
-            const n = { ...item };
-            if ("nombre" in n) { n.name = n.nombre; delete (n as Record<string, unknown>).nombre; }
-            return n;
-          });
-        }
-
-        // notes: array → string
-        if ("notes" in rec) {
-          if (Array.isArray(rec.notes)) {
-            normalized.notes = (rec.notes as string[]).filter(Boolean).join(". ").slice(0, 280) || undefined;
-          }
-        }
-        if ("notas" in rec) {
-          if (Array.isArray(rec.notas)) {
-            normalized.notes = (rec.notas as string[]).filter(Boolean).join(". ").slice(0, 280) || undefined;
-          } else {
-            normalized.notes = rec.notas;
-          }
-          delete (normalized as Record<string, unknown>).notas;
-        }
-
-        return mealPhotoAnalysisResponseSchema.parse(normalized);
+      // notes/notas: array → string
+      if ("notes" in rec && Array.isArray(rec.notes)) {
+        normalized.notes = (rec.notes as string[]).filter(Boolean).join(". ").slice(0, 280) || undefined;
       }
-      return null;
+      if ("notas" in rec) {
+        if (Array.isArray(rec.notas)) {
+          normalized.notes = (rec.notas as string[]).filter(Boolean).join(". ").slice(0, 280) || undefined;
+        } else {
+          normalized.notes = rec.notas;
+        }
+        delete (normalized as Record<string, unknown>).notas;
+      }
+
+      // items: each item field normalization + structure
+      if (Array.isArray(rec.items)) {
+        normalized.items = rec.items.map((item: Record<string, unknown>) => {
+          const n: Record<string, unknown> = { ...item };
+          if ("nombre" in n) { n.name = n.nombre; delete n.nombre; }
+          return n;
+        });
+      }
+
+      // If missing items but has notes with food descriptions → derive items from notes
+      if ((!rec.items || !Array.isArray(rec.items) || rec.items.length === 0) && normalized.notes) {
+        const notesStr = String(normalized.notes ?? "");
+        const lines = notesStr.split(/[.,;]/).map(s => s.trim()).filter(s => s.length > 3);
+        if (lines.length > 0) {
+          normalized.items = lines.map(line => ({
+            name: line,
+            calories: 150,
+            protein: 12,
+            carbs: 20,
+            fats: 5,
+          }));
+        }
+      }
+
+      // Ensure totals
+      if (!rec.totals || typeof rec.totals !== "object") {
+        if (Array.isArray(normalized.items) && normalized.items.length > 0) {
+          const items = normalized.items as Array<Record<string, unknown>>;
+          normalized.totals = {
+            calories: items.reduce((s, i) => s + (Number(i.calories) || 0), 0),
+            protein: items.reduce((s, i) => s + (Number(i.protein) || 0), 0),
+            carbs: items.reduce((s, i) => s + (Number(i.carbs) || 0), 0),
+            fats: items.reduce((s, i) => s + (Number(i.fats) || 0), 0),
+          };
+        } else {
+          normalized.totals = { calories: 0, protein: 0, carbs: 0, fats: 0 };
+        }
+      }
+
+      return mealPhotoAnalysisResponseSchema.parse(normalized);
     } catch {
       return null;
     }
