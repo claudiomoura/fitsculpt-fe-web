@@ -8,8 +8,9 @@ type MealKeySource = {
 };
 
 export function getNutritionMealKey(meal: MealKeySource, dayKey: string, index: number) {
-  if (typeof meal.id === "string" && meal.id.trim().length > 0) {
-    return meal.id;
+  const mealId = typeof meal.id === "string" ? meal.id.trim() : "";
+  if (mealId.includes(":")) {
+    return mealId;
   }
 
   const title = typeof meal.title === "string" ? meal.title.trim() : "";

@@ -13,7 +13,7 @@ import { compressAvatarToDataUrl } from "@/lib/avatarUpload";
 import { findQuickLogFoodByBarcode, searchQuickLogFoods, type QuickLogFoodItem } from "@/lib/quickLogFoodCatalog";
 import { parseQuickVoiceMeal } from "@/lib/quickLogVoiceParser";
 import { createTrackingEntry, type CheckinEntry, type MealLogEntry } from "@/services/tracking";
-import { analyzeMealPhoto, completeMeal, createMealLog, updateMealLog, MealPhotoAnalysisError, type CreateMealParams } from "@/services/mealApi";
+import { analyzeMealPhoto, completeMeal, createMealLog, MealPhotoAnalysisError, type CreateMealParams } from "@/services/mealApi";
 import { sendRctEvent } from "@/services/futureProjection";
 import { NUTRITION_ADHERENCE_EVENT } from "@/lib/nutritionAdherence";
 import styles from "./QuickLogHub.module.css";
@@ -473,6 +473,7 @@ const QuickLogHub = forwardRef<QuickLogHubHandle, QuickLogHubProps>(function Qui
   const saveMeal = async () => {
     setIsSaving(true);
     setStatus(null);
+    let createdMealId: string | null = null;
     try {
       // Create in backend via BFF (NEW: persist data)
       const mealParams: CreateMealParams = {
@@ -510,11 +511,13 @@ const QuickLogHub = forwardRef<QuickLogHubHandle, QuickLogHubProps>(function Qui
       };
       
       const createdMeal = await createMealLog(mealParams);
+      createdMealId = createdMeal.id ?? null;
       if (createdMeal.id && !createdMeal.completedAt) {
         try {
           await completeMeal(createdMeal.id);
         } catch {
-          await updateMealLog(createdMeal.id, { completed: true }).catch(() => undefined);
+          setStatus({ type: "error", message: t("quickLog.mealSaveError") });
+          return;
         }
       }
       const apiMealType = mapMealType(mealType);
@@ -527,6 +530,11 @@ const QuickLogHub = forwardRef<QuickLogHubHandle, QuickLogHubProps>(function Qui
       clearMealPhoto();
       setVoiceDraftNeedsConfirmation(false);
     } catch (err) {
+      if (createdMealId) {
+        console.error("Failed to complete meal in backend:", err);
+        setStatus({ type: "error", message: t("quickLog.mealSaveError") });
+        return;
+      }
       console.error("Failed to save meal to backend:", err);
       setStatus({ type: "error", message: t("quickLog.mealSaveFallback") });
       // Fallback: save locally anyway so user doesn't lose data

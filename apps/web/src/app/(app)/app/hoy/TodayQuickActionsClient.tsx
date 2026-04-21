@@ -897,16 +897,9 @@ export default function TodayQuickActionsClient() {
                 0,
               );
 
-              // Only count calories from meals that are actually marked as consumed
-              // If no meals are marked as consumed in adherence store, show 0 even if mealLog has entries
-              if (adherenceConsumedCount === 0) {
-                // No meals marked as consumed - show 0
-                nextSignals.nutritionMealsLogged = 0;
-                nextSignals.nutritionConsumedCalories = 0;
-                nextSignals.nutritionProteinG = 0;
-                nextSignals.nutritionCarbsG = 0;
-                nextSignals.nutritionFatsG = 0;
-              } else {
+              // Only override totals from adherence when consumed meals are present.
+              // Otherwise keep previously computed totals from tracking/API payloads.
+              if (adherenceConsumedCount > 0) {
                 // Count only consumed meals from the adherence store
                 nextSignals.nutritionMealsLogged = adherenceConsumedCount;
                 nextSignals.nutritionConsumedCalories = Math.round(

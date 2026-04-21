@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { MealLogEntry, TrackingSnapshot } from "@/services/tracking";
-import { getMealsByDate, createMealLog, updateMealLog, deleteMealLog, type MealLogResponse } from "@/services/mealApi";
+import {
+  getMealsByDate,
+  createMealLog,
+  completeMeal,
+  updateMealLog,
+  deleteMealLog,
+  type MealLogResponse,
+} from "@/services/mealApi";
 
 export const NUTRITION_ADHERENCE_EVENT = "fs:nutrition-adherence-changed";
 
@@ -291,6 +298,9 @@ export const useNutritionAdherence = (dayKey: string) => {
             carbs: payload?.carbs,
             fats: payload?.fats,
           });
+          if (created.id && !created.completedAt) {
+            await completeMeal(created.id);
+          }
           // Store the meal ID in our map for future delete operations
           setMealIdMap(prev => {
             const next = { ...prev };
@@ -535,7 +545,7 @@ export const useNutritionAdherenceWeek = (dateKeys: string[]) => {
       } else {
         // Try new API first for create
         try {
-          await createMealLog({
+          const created = await createMealLog({
             date: normalizedDateKey,
             mealType,
             title: payload?.title ?? normalizedItemKey,
@@ -544,6 +554,9 @@ export const useNutritionAdherenceWeek = (dateKeys: string[]) => {
             carbs: payload?.carbs,
             fats: payload?.fats,
           });
+          if (created.id && !created.completedAt) {
+            await completeMeal(created.id);
+          }
         } catch {
           // Fall back to legacy tracking
           const response = await fetch("/api/tracking", {

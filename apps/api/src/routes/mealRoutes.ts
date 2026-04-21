@@ -114,7 +114,9 @@ export function registerMealRoutes(
     '"confidence":number,"confidenceLabel":"low|medium|high","notes":"string"}',
     "Identify each food on the plate.",
     "Calculate realistic macros (USDA-style) per serving.",
-    "If food is unclear: name it generically and set confidence to 0.4.",
+    "If you can identify the food: use typical portion macros even if exact size is unclear.",
+    "NEVER return 0 kcal — use estimates like: rice ~200kcal/100g, chicken ~165kcal/100g, potato ~80kcal/100g, beer ~150kcal/can.",
+    "Only set confidence to low AND use generic values if food is completely unrecognizable.",
   ].join(" ");
 
   const fallbackCopy = {
@@ -280,71 +282,90 @@ function safeParseAnalysis(raw: unknown): z.infer<typeof mealPhotoAnalysisRespon
     try {
       if (!raw || typeof raw !== "object") return null;
       const rec = raw as Record<string, unknown>;
-      const normalized: Record<string, unknown> = { ...rec };
+      const normalized: Record<string, unknown> = {};
 
-      // Field name normalization: Spanish/common → expected
-      if ("titulo" in rec) { normalized.title = rec.titulo; delete (normalized as Record<string, unknown>).titulo; }
-      if ("nombre" in rec && !("name" in normalized)) { normalized.name = rec.nombre; }
-      if ("kcal" in rec && !("calories" in normalized)) { normalized.calories = rec.kcal; }
+      // Field name normalization: Spanish → English
+      if ("titulo" in rec) normalized.title = rec.titulo;
+      if ("nombre" in rec) normalized.name = rec.nombre;
+      if ("kcal" in rec) normalized.calories = rec.kcal;
 
-      // notes/notas: array → string
-      if ("notes" in rec) {
-        if (Array.isArray(rec.notes)) {
-          normalized.notes = (rec.notes as string[]).filter(Boolean).join(". ").slice(0, 280) || undefined;
-        } else {
-          normalized.notes = rec.notes;
-        }
-      }
-      if ("notas" in rec) {
-        if (Array.isArray(rec.notas)) {
-          normalized.notes = (rec.notas as string[]).filter(Boolean).join(". ").slice(0, 280) || undefined;
-        } else {
-          normalized.notes = rec.notas;
-        }
-        delete (normalized as Record<string, unknown>).notas;
+      // Copy confidence fields directly
+      if (typeof rec.confidence === "number") normalized.confidence = rec.confidence;
+      if (typeof rec.confidenceLabel === "string") normalized.confidenceLabel = rec.confidenceLabel;
+
+      // Detect unrecognized/invalid titles - return null to trigger CONTRACT_DRIFT
+      const title = normalized.title ?? rec.title;
+      if (typeof title === "string" && /^\?{3,}$|^desconocido|no\s*reconoci|no\s*s[eé]|unknown|indeterminado/i.test(title)) {
+        return null;
       }
 
-      // items: each item field normalization + structure
-      if (Array.isArray(rec.items)) {
-        normalized.items = rec.items.map((item: Record<string, unknown>) => {
-          const n: Record<string, unknown> = { ...item };
-          if ("nombre" in n) { n.name = n.nombre; delete n.nombre; }
-          return n;
-        });
-      }
+      // notes/notas: array → string, then derive items
+      const notesText = (() => {
+        if (Array.isArray(rec.notes)) return rec.notes.filter((s): s is string => typeof s === "string").join(". ");
+        if (Array.isArray(rec.notas)) return rec.notas.filter((s): s is string => typeof s === "string").join(". ");
+        if (typeof rec.notes === "string") return rec.notes;
+        if (typeof rec.notas === "string") return rec.notas;
+        return null;
+      })();
 
-      // If missing items but has notes with food descriptions → derive items from notes
-      if (!Array.isArray(normalized.items) || normalized.items.length === 0) {
-        const notesStr = String(normalized.notes ?? "");
-        const lines = notesStr.split(/[.,;]/).map(s => s.trim()).filter(s => s.length > 3);
+      if (notesText) {
+        normalized.notes = notesText.slice(0, 280);
+        // Derive items from notes text - extract actual nutrition values from pattern like "150 kcal, P 12g, C 20g, G 5g"
+        const lines = notesText.split(/[.,;]/).map(s => s.trim()).filter(s => s.length > 3 && s.length < 150);
         if (lines.length > 0) {
-          normalized.items = lines.map(line => ({
-            name: line,
-            calories: 150,
-            protein: 12,
-            carbs: 20,
-            fats: 5,
-          }));
+          normalized.items = lines.slice(0, 6).map(line => {
+            // Extract actual values from patterns like "150 kcal" or "P 12g" or "C 20g" or "G 5g"
+            const parseMacro = (pattern: string): number => {
+              const match = line.match(new RegExp(`\\b${pattern}\\s*(\\d+)\\s*(?:kcal|g)?`, "i"));
+              return match ? Math.max(0, parseInt(match[1], 10)) : 0;
+            };
+            const calories = parseMacro("kcal") || parseMacro("calor");
+            const protein = parseMacro("P");
+            const carbs = parseMacro("C");
+            const fats = parseMacro("G") || parseMacro("grasa");
+            // Clean up line name - remove trailing nutrition info
+            const name = line
+              .replace(/\s*-\s*\d+\s*(?:kcal|g)?/gi, "")
+              .replace(/,\s*P\s*\d+g/gi, "")
+              .replace(/,\s*C\s*\d+g/gi, "")
+              .replace(/,\s*G\s*\d+g/gi, "")
+              .replace(/\s*-\s*$/, "")
+              .trim()
+              || "Food item";
+            return { name, calories, protein, carbs, fats };
+          });
         }
       }
 
-      // Ensure totals from items
-      if (!normalized.totals || typeof normalized.totals !== "object") {
-        if (Array.isArray(normalized.items) && normalized.items.length > 0) {
-          const items = normalized.items as Array<Record<string, unknown>>;
-          normalized.totals = {
-            calories: items.reduce((s, i) => s + (Number(i.calories) || 0), 0),
-            protein: items.reduce((s, i) => s + (Number(i.protein) || 0), 0),
-            carbs: items.reduce((s, i) => s + (Number(i.carbs) || 0), 0),
-            fats: items.reduce((s, i) => s + (Number(i.fats) || 0), 0),
-          };
-        } else {
-          normalized.totals = { calories: 0, protein: 0, carbs: 0, fats: 0 };
-        }
+      // Copy existing items if present
+      if (Array.isArray(rec.items)) {
+        normalized.items = rec.items;
+      }
+
+      // Ensure items array
+      if (!normalized.items || !Array.isArray(normalized.items) || normalized.items.length === 0) {
+        normalized.items = [{ name: "Food item", calories: 150, protein: 15, carbs: 20, fats: 5 }];
+      }
+
+      // Ensure totals
+      const itemsArr = normalized.items as Array<Record<string, unknown>>;
+      normalized.totals = {
+        calories: Math.round(itemsArr.reduce((s, i) => s + (Number(i.calories) || 0), 0)),
+        protein: Math.round(itemsArr.reduce((s, i) => s + (Number(i.protein) || 0), 0)),
+        carbs: Math.round(itemsArr.reduce((s, i) => s + (Number(i.carbs) || 0), 0)),
+        fats: Math.round(itemsArr.reduce((s, i) => s + (Number(i.fats) || 0), 0)),
+      };
+
+      // Set required fields (but preserve original confidence if set)
+      if (!normalized.title) normalized.title = "Comida Analizada";
+      if (normalized.confidence === undefined) {
+        normalized.confidence = 0.5;
+        normalized.confidenceLabel = "medium";
       }
 
       return mealPhotoAnalysisResponseSchema.parse(normalized);
-    } catch {
+    } catch (e) {
+      console.error("safeParseAnalysis failed:", e);
       return null;
     }
   }
@@ -674,13 +695,22 @@ const result = await callOpenAi(foodPhotoSystemPrompt, 0, JSON.parse, {
           responseUsage = providerUsage;
         }
 
-        const normalized = normalizeAnalysis(result.payload);
+const normalized = normalizeAnalysis(result.payload);
 
-        if (normalized.confidenceLabel === "low" || normalized.confidence < 0.30) {
-          app.log.warn(
-            { reasonCode: "LOW_CONFIDENCE", confidence: normalized.confidence },
-            "meal photo analysis fell back due to low confidence",
-          );
+        // Also trigger fallback when AI returns zero calories (can't estimate portions)
+        const hasZeroCalories = !normalized.totals?.calories || normalized.totals.calories === 0;
+        if (normalized.confidenceLabel === "low" || normalized.confidence < 0.30 || hasZeroCalories) {
+if (hasZeroCalories) {
+            app.log.warn(
+              { reasonCode: "ZERO_CALORIES", confidence: normalized.confidence },
+              "meal photo analysis fell back due to zero calories in AI response",
+            );
+          } else {
+            app.log.warn(
+              { reasonCode: "LOW_CONFIDENCE", confidence: normalized.confidence },
+              "meal photo analysis fell back due to low confidence",
+            );
+          }
           const lowConfidenceFallback = buildFallbackAnalysis({
             locale: input.locale,
             payload: normalized,
