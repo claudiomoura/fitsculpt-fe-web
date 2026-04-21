@@ -288,8 +288,12 @@ function safeParseAnalysis(raw: unknown): z.infer<typeof mealPhotoAnalysisRespon
       if ("kcal" in rec && !("calories" in normalized)) { normalized.calories = rec.kcal; }
 
       // notes/notas: array → string
-      if ("notes" in rec && Array.isArray(rec.notes)) {
-        normalized.notes = (rec.notes as string[]).filter(Boolean).join(". ").slice(0, 280) || undefined;
+      if ("notes" in rec) {
+        if (Array.isArray(rec.notes)) {
+          normalized.notes = (rec.notes as string[]).filter(Boolean).join(". ").slice(0, 280) || undefined;
+        } else {
+          normalized.notes = rec.notes;
+        }
       }
       if ("notas" in rec) {
         if (Array.isArray(rec.notas)) {
@@ -310,7 +314,7 @@ function safeParseAnalysis(raw: unknown): z.infer<typeof mealPhotoAnalysisRespon
       }
 
       // If missing items but has notes with food descriptions → derive items from notes
-      if ((!rec.items || !Array.isArray(rec.items) || rec.items.length === 0) && normalized.notes) {
+      if (!Array.isArray(normalized.items) || normalized.items.length === 0) {
         const notesStr = String(normalized.notes ?? "");
         const lines = notesStr.split(/[.,;]/).map(s => s.trim()).filter(s => s.length > 3);
         if (lines.length > 0) {
@@ -324,8 +328,8 @@ function safeParseAnalysis(raw: unknown): z.infer<typeof mealPhotoAnalysisRespon
         }
       }
 
-      // Ensure totals
-      if (!rec.totals || typeof rec.totals !== "object") {
+      // Ensure totals from items
+      if (!normalized.totals || typeof normalized.totals !== "object") {
         if (Array.isArray(normalized.items) && normalized.items.length > 0) {
           const items = normalized.items as Array<Record<string, unknown>>;
           normalized.totals = {
