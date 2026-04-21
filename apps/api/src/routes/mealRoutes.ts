@@ -280,37 +280,59 @@ const items = fallbackItems.length > 0
     return Math.max(0, Math.round(value * 10) / 10);
   }
 
-function normalizeAnalysis(raw: unknown): z.infer<typeof mealPhotoAnalysisResponseSchema> {
-    // Normalize common AI response field names before Zod validation
-    if (raw && typeof raw === "object") {
-      const rec = raw as Record<string, unknown>;
-      const normalized: Record<string, unknown> = { ...rec };
+function safeParseAnalysis(raw: unknown): z.infer<typeof mealPhotoAnalysisResponseSchema> | null {
+    try {
+      // Normalize common AI response patterns BEFORE Zod validation
+      if (raw && typeof raw === "object") {
+        const rec = raw as Record<string, unknown>;
+        const normalized: Record<string, unknown> = { ...rec };
 
-      // Field name normalization: Spanish/common → expected
-      if ("titulo" in rec && !("title" in rec)) {
-        normalized.title = rec.titulo;
-      }
-      if ("nombre" in rec && !("name" in rec)) {
-        normalized.name = rec.nombre;
-      }
+        // Field name normalization: Spanish/common → expected
+        if ("titulo" in rec) { normalized.title = rec.titulo; delete (normalized as Record<string, unknown>).titulo; }
+        if ("nombre" in rec && !("name" in normalized)) { normalized.name = rec.nombre; }
+        if ("kcal" in rec && !("calories" in normalized)) { normalized.calories = rec.kcal; }
 
-      // notes: might be array, convert to string
-      if ("notes" in rec && Array.isArray(rec.notes)) {
-        normalized.notes = (rec.notes as string[]).filter(Boolean).join(". ").slice(0, 280) || undefined;
-      }
-      if ("notas" in rec) {
-        if (Array.isArray(rec.notas)) {
-          normalized.notes = (rec.notas as string[]).filter(Boolean).join(". ").slice(0, 280) || undefined;
-        } else {
-          normalized.notes = rec.notas;
+        // items: each item field normalization
+        if (Array.isArray(rec.items)) {
+          normalized.items = rec.items.map((item: Record<string, unknown>) => {
+            const n = { ...item };
+            if ("nombre" in n) { n.name = n.nombre; delete (n as Record<string, unknown>).nombre; }
+            return n;
+          });
         }
-      }
 
-      const parsed = mealPhotoAnalysisResponseSchema.parse(normalized);
-      return enrichAnalysis(parsed, "ai", false);
+        // notes: array → string
+        if ("notes" in rec) {
+          if (Array.isArray(rec.notes)) {
+            normalized.notes = (rec.notes as string[]).filter(Boolean).join(". ").slice(0, 280) || undefined;
+          }
+        }
+        if ("notas" in rec) {
+          if (Array.isArray(rec.notas)) {
+            normalized.notes = (rec.notas as string[]).filter(Boolean).join(". ").slice(0, 280) || undefined;
+          } else {
+            normalized.notes = rec.notas;
+          }
+          delete (normalized as Record<string, unknown>).notas;
+        }
+
+        return mealPhotoAnalysisResponseSchema.parse(normalized);
+      }
+      return null;
+    } catch {
+      return null;
     }
-    const parsed = mealPhotoAnalysisResponseSchema.parse(raw);
-    return enrichAnalysis(parsed, "ai", false);
+  }
+
+  function normalizeAnalysis(raw: unknown): z.infer<typeof mealPhotoAnalysisResponseSchema> {
+    const parsed = safeParseAnalysis(raw);
+    if (parsed) return enrichAnalysis(parsed, "ai", false);
+
+    // Try raw parse as last resort
+    const rawParsed = mealPhotoAnalysisResponseSchema.safeParse(raw);
+    if (rawParsed.success) return enrichAnalysis(rawParsed.data, "ai", false);
+
+    throw new z.ZodError(rawParsed.error.issues);
   }
 
   function serializeTokenRenewalAt(user: {
