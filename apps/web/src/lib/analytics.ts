@@ -54,6 +54,7 @@ export type AnalyticsEventProps = {
   windowDays?: number;
   confidence?: number;
   itemsCount?: number;
+  fallbackReason?: string | null;
   code?: string;
   capabilityId?: "body-scan" | "projection" | "recommendation";
   capabilityOrigin?: string;

@@ -498,6 +498,7 @@
     "mealPhotoAnalyzeInvalidImage": "A imagem e invalida. Envie uma foto clara do prato.",
     "mealPhotoAnalyzeTimeout": "A analise demorou demasiado. Tente outra foto.",
     "mealPhotoAnalyzeLowConfidence": "Nao tivemos confianca suficiente. Edite os macros manualmente.",
+    "mealPhotoAnalyzeFallbackTechnical": "A IA devolveu um fallback tecnico. Reveja a estimativa antes de guardar.",
     "mealPhotoDetectedItems": "Itens detetados",
     "removePhoto": "Remover foto",
     "voiceStart": "Usar voz",

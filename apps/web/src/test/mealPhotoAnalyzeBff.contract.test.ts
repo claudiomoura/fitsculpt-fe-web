@@ -37,6 +37,7 @@ describe("meal photo analyze BFF contract", () => {
     await expect(response.json()).resolves.toEqual(expect.objectContaining({
       analysisSource: "fallback",
       degraded: true,
+      fallbackReason: "BFF_UPSTREAM_5XX",
       confidenceLabel: "low",
       items: [expect.objectContaining({ name: "Comida no identificada" })],
     }));
@@ -71,6 +72,7 @@ describe("meal photo analyze BFF contract", () => {
     const payload = await response.json();
     expect(payload.analysisSource).toBe("fallback");
     expect(payload.degraded).toBe(true);
+    expect(payload.fallbackReason).toBe("BFF_CONTRACT_DRIFT");
   });
 
   it("maps upstream abort to AI_TIMEOUT", async () => {
@@ -84,7 +86,27 @@ describe("meal photo analyze BFF contract", () => {
     await expect(response.json()).resolves.toEqual(expect.objectContaining({
       analysisSource: "fallback",
       degraded: true,
+      fallbackReason: "BFF_TIMEOUT",
       confidence: 0.2,
     }));
+  });
+
+  it("uses 120s timeout for upstream request", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(mockBackendResponse(200, JSON.stringify({
+      title: "Arroz",
+      items: [{ name: "Arroz", calories: 200, protein: 4, carbs: 42, fats: 1 }],
+      totals: { calories: 200, protein: 4, carbs: 42, fats: 1 },
+      confidence: 0.8,
+      confidenceLabel: "high",
+      analysisSource: "ai",
+      degraded: false,
+    })));
+    const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
+    vi.stubGlobal("fetch", fetchMock);
+
+    await invokeEndpoint();
+
+    expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 120_000);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

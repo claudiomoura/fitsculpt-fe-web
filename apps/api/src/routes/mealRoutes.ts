@@ -148,6 +148,7 @@ export function registerMealRoutes(
   } as const;
 
   type SupportedLocale = keyof typeof fallbackCopy;
+  type MealPhotoFallbackReason = NonNullable<z.infer<typeof mealPhotoAnalysisResponseSchema>["fallbackReason"]>;
 
   function clampConfidence(value: number, max = 1): number {
     return Math.min(max, Math.max(0, roundMacro(value)));
@@ -165,7 +166,12 @@ export function registerMealRoutes(
     return typeof value === "number" && Number.isFinite(value) ? roundMacro(value) : undefined;
   }
 
-  function enrichAnalysis(parsed: z.infer<typeof mealPhotoAnalysisResponseSchema>, analysisSource: "ai" | "fallback", degraded: boolean) {
+  function enrichAnalysis(
+    parsed: z.infer<typeof mealPhotoAnalysisResponseSchema>,
+    analysisSource: "ai" | "fallback",
+    degraded: boolean,
+    fallbackReason?: MealPhotoFallbackReason,
+  ) {
     const normalizedItems = parsed.items.map((item) => ({
       ...item,
       calories: roundMacro(item.calories),
@@ -194,6 +200,7 @@ export function registerMealRoutes(
       fat: totals.fats,
       analysisSource,
       degraded,
+      ...(fallbackReason ? { fallbackReason } : {}),
     };
   }
 
@@ -229,7 +236,7 @@ export function registerMealRoutes(
   function buildFallbackAnalysis(args: {
     locale: string | undefined;
     payload?: unknown;
-    reason: "low_confidence" | "upstream" | "contract_drift";
+    reason: MealPhotoFallbackReason;
   }) {
     const locale = getFallbackLocale(args.locale);
     const copy = fallbackCopy[locale];
@@ -248,7 +255,12 @@ export function registerMealRoutes(
           carbs: readNumber(payloadTotals?.carbs) ?? readNumber(payloadRecord?.carbs) ?? 0,
           fats: readNumber(payloadTotals?.fats) ?? readNumber(payloadRecord?.fat) ?? 0,
         }];
-    const notes = [trimString(payloadRecord?.notes), copy.notes[args.reason]].filter(Boolean).join(" ").slice(0, 280);
+    const reasonCopyKey = (() => {
+      if (args.reason === "LOW_CONFIDENCE") return "low_confidence" as const;
+      if (args.reason === "CONTRACT_DRIFT") return "contract_drift" as const;
+      return "upstream" as const;
+    })();
+    const notes = [trimString(payloadRecord?.notes), copy.notes[reasonCopyKey]].filter(Boolean).join(" ").slice(0, 280);
 
     return enrichAnalysis({
       title,
@@ -257,7 +269,7 @@ export function registerMealRoutes(
       confidence: clampConfidence(readNumber(payloadRecord?.confidence) ?? 0.24, 0.44),
       confidenceLabel: "low",
       notes,
-    }, "fallback", true);
+    }, "fallback", true, args.reason);
   }
 
   function roundMacro(value: number): number {
@@ -278,8 +290,8 @@ export function registerMealRoutes(
 
   function normalizeProviderUsage(usage: OpenAiResponse["usage"]): AiUsageSummary | null {
     if (!usage || typeof usage !== "object") return null;
-    const promptRaw = usage.prompt_tokens ?? usage.input_tokens;
-    const completionRaw = usage.completion_tokens ?? usage.output_tokens;
+    const promptRaw = usage.prompt_tokens;
+    const completionRaw = usage.completion_tokens;
     const totalRaw = usage.total_tokens;
     if (
       typeof promptRaw !== "number"
@@ -589,6 +601,29 @@ export function registerMealRoutes(
           responseUsage = providerUsage;
         }
 
+        const normalized = normalizeAnalysis(result.payload);
+
+        if (normalized.confidenceLabel === "low" || normalized.confidence < 0.45) {
+          app.log.warn(
+            { reasonCode: "LOW_CONFIDENCE", confidence: normalized.confidence },
+            "meal photo analysis fell back due to low confidence",
+          );
+          const lowConfidenceFallback = buildFallbackAnalysis({
+            locale: input.locale,
+            payload: normalized,
+            reason: "LOW_CONFIDENCE",
+          });
+          return reply.status(200).send(
+            attachAiUsageMeta(lowConfidenceFallback, {
+              usage: responseUsage,
+              costCents: responseCostCents,
+              balanceBefore: baseBalanceBefore,
+              balanceAfter: responseBalanceAfter,
+              aiTokenRenewalAt,
+            }),
+          );
+        }
+
         const chargedResult = shouldChargeAi
           ? await chargeAiUsageForResult!({
               prisma: prisma!,
@@ -622,26 +657,6 @@ export function registerMealRoutes(
           responseBalanceAfter = chargedResult.balance;
         }
 
-        const normalized = normalizeAnalysis(chargedResult?.payload ?? result.payload);
-
-        if (normalized.confidenceLabel === "low" || normalized.confidence < 0.45) {
-          app.log.warn({ confidence: normalized.confidence }, "meal photo analysis fell back due to low confidence");
-          const lowConfidenceFallback = buildFallbackAnalysis({
-            locale: input.locale,
-            payload: normalized,
-            reason: "low_confidence",
-          });
-          return reply.status(200).send(
-            attachAiUsageMeta(lowConfidenceFallback, {
-              usage: responseUsage,
-              costCents: responseCostCents,
-              balanceBefore: baseBalanceBefore,
-              balanceAfter: responseBalanceAfter,
-              aiTokenRenewalAt,
-            }),
-          );
-        }
-
         return reply.status(200).send(
           attachAiUsageMeta(normalized, {
             usage: responseUsage,
@@ -654,10 +669,13 @@ export function registerMealRoutes(
       } catch (error) {
         const typed = error as { code?: string; message?: string };
         if (error instanceof z.ZodError) {
-          app.log.warn({ issues: error.issues }, "meal photo analysis response contract drift; using fallback");
+          app.log.warn(
+            { reasonCode: "CONTRACT_DRIFT", issues: error.issues },
+            "meal photo analysis response contract drift; using fallback",
+          );
           const payload = buildFallbackAnalysis({
             locale: input.locale,
-            reason: "contract_drift",
+            reason: "CONTRACT_DRIFT",
           });
           return reply.status(200).send(
             attachAiUsageMeta(payload, {
@@ -670,8 +688,11 @@ export function registerMealRoutes(
           );
         }
         if (typed.code === "AI_REQUEST_FAILED") {
-          app.log.warn({ code: typed.code }, "meal photo analysis upstream failed; using fallback");
-          const payload = buildFallbackAnalysis({ locale: input.locale, reason: "upstream" });
+          app.log.warn(
+            { reasonCode: "UPSTREAM_ERROR", code: typed.code },
+            "meal photo analysis upstream failed; using fallback",
+          );
+          const payload = buildFallbackAnalysis({ locale: input.locale, reason: "UPSTREAM_ERROR" });
           return reply.status(200).send(
             attachAiUsageMeta(payload, {
               usage: responseUsage,
@@ -683,8 +704,11 @@ export function registerMealRoutes(
           );
         }
         if (typed.code === "AI_NOT_CONFIGURED") {
-          app.log.warn({ code: typed.code }, "meal photo analysis AI not configured; using fallback");
-          const payload = buildFallbackAnalysis({ locale: input.locale, reason: "upstream" });
+          app.log.warn(
+            { reasonCode: "AI_NOT_CONFIGURED", code: typed.code },
+            "meal photo analysis AI not configured; using fallback",
+          );
+          const payload = buildFallbackAnalysis({ locale: input.locale, reason: "AI_NOT_CONFIGURED" });
           return reply.status(200).send(
             attachAiUsageMeta(payload, {
               usage: responseUsage,
@@ -698,8 +722,8 @@ export function registerMealRoutes(
         if (typed.message?.includes("Invalid image data URL")) {
           return reply.status(400).send({ error: "INVALID_IMAGE", kind: "validation" });
         }
-        app.log.error({ err: error }, "meal photo analysis unexpected error; using fallback");
-        const payload = buildFallbackAnalysis({ locale: input.locale, reason: "upstream" });
+        app.log.error({ reasonCode: "UNEXPECTED_ERROR", err: error }, "meal photo analysis unexpected error; using fallback");
+        const payload = buildFallbackAnalysis({ locale: input.locale, reason: "UNEXPECTED_ERROR" });
         return reply.status(200).send(
           attachAiUsageMeta(payload, {
             usage: responseUsage,

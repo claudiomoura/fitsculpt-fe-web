@@ -1883,6 +1883,7 @@
     "mealPhotoAnalyzeInvalidImage": "La imagen no es válida. Sube una foto clara del plato.",
     "mealPhotoAnalyzeTimeout": "El análisis tardó demasiado. Intenta otra foto.",
     "mealPhotoAnalyzeLowConfidence": "No logramos una estimación confiable. Edita manualmente los macros.",
+    "mealPhotoAnalyzeFallbackTechnical": "La IA devolvió un fallback técnico. Revisa la estimación antes de guardar.",
     "mealPhotoDetectedItems": "Ítems detectados",
     "removePhoto": "Quitar foto",
     "voiceStart": "Usar voz",

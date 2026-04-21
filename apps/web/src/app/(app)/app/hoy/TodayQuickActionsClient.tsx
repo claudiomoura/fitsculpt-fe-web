@@ -31,7 +31,11 @@ import type {
   NutritionPlanListItem,
   TrainingPlanDetail,
 } from "@/lib/types";
-import { buildNutritionAdherenceStoreFromMealLog } from "@/lib/nutritionAdherence";
+import {
+  buildAdherenceStoreFromMeals,
+  buildNutritionAdherenceStoreFromMealLog,
+  hasConsumedEntryForKey,
+} from "@/lib/nutritionAdherence";
 import { getNutritionMealKey } from "@/lib/nutritionMealKey";
 import { pickWorkoutIdForDateCandidates } from "@/lib/trainingWorkoutSelection";
 import { TodayEmptyState } from "./TodayEmptyState";
@@ -119,6 +123,20 @@ type TrackingPayload = {
     carbs?: number;
     fats?: number;
     completedAt?: string;
+  }>;
+};
+
+type MealsByDatePayload = {
+  items?: Array<{
+    id?: string;
+    date?: string;
+    mealType?: string;
+    title?: string;
+    calories?: number | null;
+    protein?: number | null;
+    carbs?: number | null;
+    fats?: number | null;
+    completedAt?: string | null;
   }>;
 };
 
@@ -627,6 +645,7 @@ export default function TodayQuickActionsClient() {
         mealLog: [],
       };
       const todayDateKey = toDateKey(new Date());
+      let todayMealsFromApi: MealsByDatePayload["items"] = [];
       let todayTrainingDay: TrainingPlanDetail["days"][number] | null = null;
       let profileEstimatedNutritionTarget: number | null = null;
 
@@ -716,6 +735,52 @@ export default function TodayQuickActionsClient() {
           ),
         );
         nextSignals.nutritionReady = todaysMealLog.length > 0;
+
+        try {
+          const mealsResponse = await fetch(`/api/meals/date/${todayDateKey}`, {
+            cache: "no-store",
+            credentials: "include",
+          });
+          if (mealsResponse.ok) {
+            const mealsPayload =
+              (await mealsResponse.json()) as MealsByDatePayload;
+            const completedMeals = (Array.isArray(mealsPayload.items)
+              ? mealsPayload.items
+              : []
+            ).filter((meal) => Boolean(meal?.completedAt));
+            todayMealsFromApi = completedMeals;
+            if (completedMeals.length > 0) {
+              nextSignals.nutritionMealsLogged = completedMeals.length;
+              nextSignals.nutritionConsumedCalories = Math.round(
+                completedMeals.reduce(
+                  (sum, meal) => sum + (Number.isFinite(meal.calories) ? Number(meal.calories) : 0),
+                  0,
+                ),
+              );
+              nextSignals.nutritionProteinG = Math.round(
+                completedMeals.reduce(
+                  (sum, meal) => sum + (Number.isFinite(meal.protein) ? Number(meal.protein) : 0),
+                  0,
+                ),
+              );
+              nextSignals.nutritionCarbsG = Math.round(
+                completedMeals.reduce(
+                  (sum, meal) => sum + (Number.isFinite(meal.carbs) ? Number(meal.carbs) : 0),
+                  0,
+                ),
+              );
+              nextSignals.nutritionFatsG = Math.round(
+                completedMeals.reduce(
+                  (sum, meal) => sum + (Number.isFinite(meal.fats) ? Number(meal.fats) : 0),
+                  0,
+                ),
+              );
+              nextSignals.nutritionReady = true;
+            }
+          }
+        } catch {
+          todayMealsFromApi = [];
+        }
       } else {
         nextSignals.checkinStatus = "error";
       }
@@ -795,20 +860,40 @@ export default function TodayQuickActionsClient() {
               const adherenceStore = buildNutritionAdherenceStoreFromMealLog(
                 trackingPayload.mealLog ?? [],
               );
-              const consumedMealKeys = new Set(
-                adherenceStore[nutritionDayKey] ?? [],
-              );
+              let consumedMealEntries = adherenceStore[nutritionDayKey] ?? [];
+
+              if (nutritionDayKey === todayDateKey && todayMealsFromApi.length > 0) {
+                const apiAdherenceStore = buildAdherenceStoreFromMeals(
+                  todayMealsFromApi.map((meal) => ({
+                    id: String(meal.id ?? ""),
+                    userId: "",
+                    date: String(meal.date ?? nutritionDayKey),
+                    mealType: (meal.mealType as "BREAKFAST" | "LUNCH" | "DINNER" | "SNACK") ?? "SNACK",
+                    title: String(meal.title ?? ""),
+                    items: [],
+                    calories: Number.isFinite(meal.calories) ? Number(meal.calories) : null,
+                    protein: Number.isFinite(meal.protein) ? Number(meal.protein) : null,
+                    carbs: Number.isFinite(meal.carbs) ? Number(meal.carbs) : null,
+                    fats: Number.isFinite(meal.fats) ? Number(meal.fats) : null,
+                    completedAt: meal.completedAt ?? null,
+                    createdAt: "",
+                    updatedAt: "",
+                  })),
+                );
+                consumedMealEntries = apiAdherenceStore[nutritionDayKey] ?? consumedMealEntries;
+              }
               nextSignals.nutritionMealsTotal = nutritionDay.meals.length;
+
+              const isMealConsumed = (meal: NutritionPlanDetail["days"][number]["meals"][number], index: number) =>
+                hasConsumedEntryForKey(
+                  consumedMealEntries,
+                  getNutritionMealKey(meal, nutritionDayKey, index),
+                );
 
               // Count meals that are actually marked as consumed in adherence store
               const adherenceConsumedCount = nutritionDay.meals.reduce(
                 (count, meal, index) =>
-                  count +
-                  (consumedMealKeys.has(
-                    getNutritionMealKey(meal, nutritionDayKey, index),
-                  )
-                    ? 1
-                    : 0),
+                  count + (isMealConsumed(meal, index) ? 1 : 0),
                 0,
               );
 
@@ -828,9 +913,7 @@ export default function TodayQuickActionsClient() {
                   nutritionDay.meals.reduce(
                     (sum, meal, index) =>
                       sum +
-                      (consumedMealKeys.has(
-                        getNutritionMealKey(meal, nutritionDayKey, index),
-                      )
+                      (isMealConsumed(meal, index)
                         ? Number.isFinite(meal.macros?.calories)
                           ? (meal.macros?.calories ?? 0)
                           : 0
@@ -842,9 +925,7 @@ export default function TodayQuickActionsClient() {
                   nutritionDay.meals.reduce(
                     (sum, meal, index) =>
                       sum +
-                      (consumedMealKeys.has(
-                        getNutritionMealKey(meal, nutritionDayKey, index),
-                      )
+                      (isMealConsumed(meal, index)
                         ? Number.isFinite(meal.macros?.protein)
                           ? (meal.macros?.protein ?? 0)
                           : 0
@@ -856,9 +937,7 @@ export default function TodayQuickActionsClient() {
                   nutritionDay.meals.reduce(
                     (sum, meal, index) =>
                       sum +
-                      (consumedMealKeys.has(
-                        getNutritionMealKey(meal, nutritionDayKey, index),
-                      )
+                      (isMealConsumed(meal, index)
                         ? Number.isFinite(meal.macros?.carbs)
                           ? (meal.macros?.carbs ?? 0)
                           : 0
@@ -870,9 +949,7 @@ export default function TodayQuickActionsClient() {
                   nutritionDay.meals.reduce(
                     (sum, meal, index) =>
                       sum +
-                      (consumedMealKeys.has(
-                        getNutritionMealKey(meal, nutritionDayKey, index),
-                      )
+                      (isMealConsumed(meal, index)
                         ? Number.isFinite(meal.macros?.fats)
                           ? (meal.macros?.fats ?? 0)
                           : 0

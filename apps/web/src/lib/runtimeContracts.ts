@@ -280,6 +280,21 @@ export function validateMealPhotoAnalyzePayload(payload: unknown): ContractValid
     return { ok: false, reason: "MEAL_PHOTO_ANALYZE_INVALID_DEGRADED" };
   }
 
+  if (
+    payload.fallbackReason !== undefined
+    && payload.fallbackReason !== "LOW_CONFIDENCE"
+    && payload.fallbackReason !== "UPSTREAM_ERROR"
+    && payload.fallbackReason !== "CONTRACT_DRIFT"
+    && payload.fallbackReason !== "AI_NOT_CONFIGURED"
+    && payload.fallbackReason !== "UNEXPECTED_ERROR"
+    && payload.fallbackReason !== "BFF_UPSTREAM_5XX"
+    && payload.fallbackReason !== "BFF_INVALID_JSON"
+    && payload.fallbackReason !== "BFF_CONTRACT_DRIFT"
+    && payload.fallbackReason !== "BFF_TIMEOUT"
+  ) {
+    return { ok: false, reason: "MEAL_PHOTO_ANALYZE_INVALID_FALLBACK_REASON" };
+  }
+
   if (payload.usage !== undefined && !isUsagePayload(payload.usage)) {
     return { ok: false, reason: "MEAL_PHOTO_ANALYZE_INVALID_USAGE" };
   }

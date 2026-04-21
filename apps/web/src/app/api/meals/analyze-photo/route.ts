@@ -7,7 +7,7 @@ import { validateMealPhotoAnalyzePayload } from "@/lib/runtimeContracts";
 export const dynamic = "force-dynamic";
 
 const ENDPOINT = "/meals/analyze-photo";
-const REQUEST_TIMEOUT_MS = 45_000;
+const REQUEST_TIMEOUT_MS = 120_000;
 const PASSTHROUGH_STATUSES = new Set([400, 403, 422, 429]);
 
 const fallbackCopy = {
@@ -37,7 +37,10 @@ function readLocale(body: string): keyof typeof fallbackCopy {
   return "es";
 }
 
-function buildFallbackResponse(body: string) {
+function buildFallbackResponse(
+  body: string,
+  fallbackReason: "BFF_UPSTREAM_5XX" | "BFF_INVALID_JSON" | "BFF_CONTRACT_DRIFT" | "BFF_TIMEOUT",
+) {
   const locale = readLocale(body);
   const copy = fallbackCopy[locale];
   return {
@@ -54,6 +57,7 @@ function buildFallbackResponse(body: string) {
     notes: copy.notes,
     analysisSource: "fallback",
     degraded: true,
+    fallbackReason,
   };
 }
 
@@ -94,32 +98,31 @@ export async function POST(request: Request) {
       }
       if (payload !== null) {
         if (response.status >= 500) {
-          return NextResponse.json(buildFallbackResponse(body), { status: 200 });
+          return NextResponse.json(buildFallbackResponse(body, "BFF_UPSTREAM_5XX"), { status: 200 });
         }
         return mapAiUpstreamError(response.status, payload);
       }
       return response.status >= 500
-        ? NextResponse.json(buildFallbackResponse(body), { status: 200 })
+        ? NextResponse.json(buildFallbackResponse(body, "BFF_UPSTREAM_5XX"), { status: 200 })
         : aiRequestFailedResponse(response.status);
     }
 
     if (payload === null) {
-      return NextResponse.json(buildFallbackResponse(body), { status: 200 });
+      return NextResponse.json(buildFallbackResponse(body, "BFF_INVALID_JSON"), { status: 200 });
     }
 
     const validation = validateMealPhotoAnalyzePayload(payload);
     if (!validation.ok) {
-      return NextResponse.json(buildFallbackResponse(body), { status: 200 });
+      return NextResponse.json(buildFallbackResponse(body, "BFF_CONTRACT_DRIFT"), { status: 200 });
     }
 
     return NextResponse.json(payload, { status: response.status });
   } catch (error) {
-    const fallback = buildFallbackResponse(body);
     if (isAbortError(error)) {
-      return NextResponse.json(fallback, { status: 200 });
+      return NextResponse.json(buildFallbackResponse(body, "BFF_TIMEOUT"), { status: 200 });
     }
 
-    return NextResponse.json(fallback, { status: 200 });
+    return NextResponse.json(buildFallbackResponse(body, "BFF_UPSTREAM_5XX"), { status: 200 });
   } finally {
     clearTimeout(timeoutId);
   }

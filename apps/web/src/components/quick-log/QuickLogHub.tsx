@@ -339,6 +339,11 @@ const QuickLogHub = forwardRef<QuickLogHubHandle, QuickLogHubProps>(function Qui
     return t("quickLog.mealPhotoAnalyzeError");
   };
 
+  const resolveMealPhotoFallbackMessage = (reason: string | undefined) => {
+    if (reason === "LOW_CONFIDENCE") return t("quickLog.mealPhotoAnalyzeLowConfidence");
+    return t("quickLog.mealPhotoAnalyzeFallbackTechnical");
+  };
+
   const handleMealPhotoAnalyze = async () => {
     if (!aiEntitled) {
       setTokensExhaustedModalOpen(true);
@@ -380,12 +385,21 @@ const QuickLogHub = forwardRef<QuickLogHubHandle, QuickLogHubProps>(function Qui
         result.usage && typeof result.usage.totalTokens === "number"
           ? ` · ${t("nutrition.aiSuccessModal.tokensUsed")}: ${result.usage.totalTokens}${typeof balanceAfter === "number" ? ` · ${t("ai.tokensRemaining")} ${balanceAfter}` : ""}`
           : "";
-      setStatus({ type: "success", message: `${t("quickLog.mealPhotoAnalyzeSuccess")}${usageSuffix}` });
+      const isFallback = result.analysisSource === "fallback" || result.degraded === true;
+      if (isFallback) {
+        setStatus({
+          type: "error",
+          message: `${resolveMealPhotoFallbackMessage(result.fallbackReason)}${usageSuffix}`,
+        });
+      } else {
+        setStatus({ type: "success", message: `${t("quickLog.mealPhotoAnalyzeSuccess")}${usageSuffix}` });
+      }
       trackEvent("quick_log_photo_analysis_success", {
         origin,
         target: "nutrition",
         confidence: result.confidence,
         itemsCount: result.items.length,
+        fallbackReason: result.fallbackReason ?? null,
       });
     } catch (error) {
       const message = resolveMealPhotoAnalyzeError(error);

@@ -149,6 +149,9 @@ export const mealPhotoAnalysisResponseSchema = z.object({
   fat: z.number().nonnegative().optional(),
   analysisSource: z.enum(["ai", "fallback"]).optional(),
   degraded: z.boolean().optional(),
+  fallbackReason: z
+    .enum(["LOW_CONFIDENCE", "UPSTREAM_ERROR", "CONTRACT_DRIFT", "AI_NOT_CONFIGURED", "UNEXPECTED_ERROR"])
+    .optional(),
   aiTokenBalance: z.number().nullable().optional(),
   aiTokenRenewalAt: z.string().nullable().optional(),
   balanceBefore: z.number().nullable().optional(),
@@ -207,6 +210,10 @@ export const mealPhotoAnalysisJsonSchema = {
     fat: { type: "number" },
     analysisSource: { type: "string", enum: ["ai", "fallback"] },
     degraded: { type: "boolean" },
+    fallbackReason: {
+      type: "string",
+      enum: ["LOW_CONFIDENCE", "UPSTREAM_ERROR", "CONTRACT_DRIFT", "AI_NOT_CONFIGURED", "UNEXPECTED_ERROR"],
+    },
   },
   required: ["title", "items", "totals", "confidence", "confidenceLabel"],
   additionalProperties: false,

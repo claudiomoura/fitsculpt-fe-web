@@ -14,14 +14,20 @@ function httpError(statusCode: number, code: string, debug?: Record<string, unkn
   return error;
 }
 
-async function buildApp(callOpenAi: (...args: unknown[]) => Promise<unknown>) {
+async function buildApp(
+  callOpenAi: (...args: unknown[]) => Promise<unknown>,
+  options: { onCharge?: () => void } = {},
+) {
   const app = Fastify();
-  const chargeAiUsageForResult = async (params: { result: { payload: unknown } }) => ({
-    payload: params.result.payload as Record<string, unknown>,
-    balance: 850,
-    costCents: 2,
-    usage: { promptTokens: 110, completionTokens: 90, totalTokens: 200 },
-  });
+  const chargeAiUsageForResult = async (params: { result: { payload: unknown } }) => {
+    options.onCharge?.();
+    return {
+      payload: params.result.payload as Record<string, unknown>,
+      balance: 850,
+      costCents: 2,
+      usage: { promptTokens: 110, completionTokens: 90, totalTokens: 200 },
+    };
+  };
   registerMealRoutes(app, {
     requireUser: async () => ({ id: "user_test" } as never),
     callOpenAi: callOpenAi as never,
@@ -62,6 +68,7 @@ const payload = {
 
 async function run() {
   let app: FastifyInstance | null = null;
+  let chargeCalls = 0;
 
   app = await buildApp(async () => ({
     payload: {
@@ -75,12 +82,13 @@ async function run() {
       confidenceLabel: "high",
       notes: "Plato principal visible.",
     },
-  }));
+  }), { onCharge: () => { chargeCalls += 1; } });
   let response = await app.inject({ method: "POST", url: "/meals/analyze-photo", payload });
   assert.equal(response.statusCode, 200);
   let body = response.json();
   assert.equal(body.analysisSource, "ai");
   assert.equal(body.degraded, false);
+  assert.equal(body.fallbackReason, undefined);
   assert.equal(body.foodName, "Arroz");
   assert.equal(body.kcal, 400);
   assert.equal(body.protein, 35);
@@ -92,8 +100,10 @@ async function run() {
   assert.equal(body.aiTokenBalance, 850);
   assert.equal(body.costCents, 2);
   assert.equal(body.costEur, 0.02);
+  assert.equal(chargeCalls, 1);
   await app.close();
 
+  chargeCalls = 0;
   app = await buildApp(async () => ({
     payload: {
       title: "Pasta",
@@ -102,38 +112,51 @@ async function run() {
       confidence: 0.31,
       confidenceLabel: "low",
     },
-  }));
+  }), { onCharge: () => { chargeCalls += 1; } });
   response = await app.inject({ method: "POST", url: "/meals/analyze-photo", payload });
   assert.equal(response.statusCode, 200);
   body = response.json();
   assert.equal(body.analysisSource, "fallback");
   assert.equal(body.degraded, true);
+  assert.equal(body.fallbackReason, "LOW_CONFIDENCE");
   assert.equal(body.items[0].name, "Pasta");
   assert.match(body.notes, /revisa|ajusta/i);
-  assert.equal(body.balanceAfter, 850);
+  assert.equal(body.balanceAfter, 900);
+  assert.equal(body.costCents, 0);
+  assert.equal(chargeCalls, 0);
   await app.close();
 
+  chargeCalls = 0;
   app = await buildApp(async () => {
     throw httpError(502, "AI_REQUEST_FAILED", { kind: "upstream" });
-  });
+  }, { onCharge: () => { chargeCalls += 1; } });
   response = await app.inject({ method: "POST", url: "/meals/analyze-photo", payload });
   assert.equal(response.statusCode, 200);
   body = response.json();
   assert.equal(body.analysisSource, "fallback");
   assert.equal(body.degraded, true);
+  assert.equal(body.fallbackReason, "UPSTREAM_ERROR");
   assert.equal(body.kcal, 0);
   assert.equal(body.items[0].name, "Comida no identificada");
+  assert.equal(body.balanceAfter, 900);
+  assert.equal(body.costCents, 0);
+  assert.equal(chargeCalls, 0);
   await app.close();
 
+  chargeCalls = 0;
   app = await buildApp(async () => ({
     payload: { title: "???", confidence: 0.8, confidenceLabel: "high" },
-  }));
+  }), { onCharge: () => { chargeCalls += 1; } });
   response = await app.inject({ method: "POST", url: "/meals/analyze-photo", payload });
   assert.equal(response.statusCode, 200);
   body = response.json();
   assert.equal(body.analysisSource, "fallback");
   assert.equal(body.degraded, true);
+  assert.equal(body.fallbackReason, "CONTRACT_DRIFT");
   assert.match(body.notes, /formato incompleto|estimacion editable/i);
+  assert.equal(body.balanceAfter, 900);
+  assert.equal(body.costCents, 0);
+  assert.equal(chargeCalls, 0);
   await app.close();
 
   app = Fastify();

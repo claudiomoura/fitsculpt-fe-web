@@ -1891,6 +1891,7 @@
     "mealPhotoAnalyzeInvalidImage": "The image is invalid. Upload a clear plate photo.",
     "mealPhotoAnalyzeTimeout": "Analysis took too long. Try another photo.",
     "mealPhotoAnalyzeLowConfidence": "We could not estimate with confidence. Please edit macros manually.",
+    "mealPhotoAnalyzeFallbackTechnical": "AI returned a technical fallback. Please review the estimate before saving.",
     "mealPhotoDetectedItems": "Detected items",
     "removePhoto": "Remove photo",
     "voiceStart": "Use voice",

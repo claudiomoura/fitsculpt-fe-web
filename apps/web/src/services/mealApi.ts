@@ -94,6 +94,16 @@ export type MealPhotoAnalysisResponse = {
   notes?: string;
   analysisSource?: "ai" | "fallback";
   degraded?: boolean;
+  fallbackReason?:
+    | "LOW_CONFIDENCE"
+    | "UPSTREAM_ERROR"
+    | "CONTRACT_DRIFT"
+    | "AI_NOT_CONFIGURED"
+    | "UNEXPECTED_ERROR"
+    | "BFF_UPSTREAM_5XX"
+    | "BFF_INVALID_JSON"
+    | "BFF_CONTRACT_DRIFT"
+    | "BFF_TIMEOUT";
   usage?: {
     promptTokens: number;
     completionTokens: number;
