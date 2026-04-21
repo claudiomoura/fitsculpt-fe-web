@@ -81,7 +81,7 @@ function getConfiguredApiKey(apiKey?: string, fallbackApiKey?: string) {
   if (OPENAI_KEY_PLACEHOLDERS.has(normalized.toLowerCase())) {
     return null;
   }
-  if (!normalized.startsWith("sk-")) {
+  if (!normalized.startsWith("sk-") && !normalized.startsWith("sk-proj-")) {
     return null;
   }
   return normalized;
