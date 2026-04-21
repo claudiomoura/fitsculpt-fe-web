@@ -88,6 +88,7 @@ import {
   classifyAiError,
 } from "@/lib/aiErrorMapping";
 import { mapAiErrorToUiState } from "@/lib/aiErrorUi";
+import { getMealsByDate, type MealLogResponse } from "@/services/mealApi";
 import styles from "./NutritionPlanClient.module.css";
 import trainingSharedStyles from "../_styles/TrainingShared.module.css";
 
@@ -286,6 +287,60 @@ type AiUsageSummary = {
   completionTokens?: number;
   balanceAfter?: number;
 };
+
+type ConsumedTotals = {
+  calories: number;
+  protein: number;
+  carbs: number;
+  fats: number;
+};
+
+function normalizeMealTypeKey(
+  value?: string | null,
+): "breakfast" | "lunch" | "dinner" | "snack" {
+  const normalized = String(value ?? "").toLowerCase();
+  if (
+    normalized.includes("breakfast") ||
+    normalized.includes("desayuno") ||
+    normalized.includes("pequeno-almoco")
+  ) {
+    return "breakfast";
+  }
+  if (
+    normalized.includes("lunch") ||
+    normalized.includes("almuerzo") ||
+    normalized.includes("almoco")
+  ) {
+    return "lunch";
+  }
+  if (
+    normalized.includes("dinner") ||
+    normalized.includes("cena") ||
+    normalized.includes("jantar")
+  ) {
+    return "dinner";
+  }
+  return "snack";
+}
+
+function buildMealLogSignature(mealType?: string | null, title?: string | null): string {
+  const type = normalizeMealTypeKey(mealType);
+  const normalizedTitle = slugifyExerciseName(String(title ?? "").trim());
+  return normalizedTitle.length > 0 ? `${type}:${normalizedTitle}` : type;
+}
+
+function sumCompletedMealsTotals(meals: MealLogResponse[]): ConsumedTotals {
+  return meals.reduce<ConsumedTotals>(
+    (acc, meal) => {
+      acc.calories += Number(meal.calories ?? 0);
+      acc.protein += Number(meal.protein ?? 0);
+      acc.carbs += Number(meal.carbs ?? 0);
+      acc.fats += Number(meal.fats ?? 0);
+      return acc;
+    },
+    { calories: 0, protein: 0, carbs: 0, fats: 0 },
+  );
+}
 
 function normalizeAiUsageSummary(value: unknown): AiUsageSummary | null {
   if (!value || typeof value !== "object") return null;
@@ -2193,38 +2248,136 @@ export default function NutritionPlanClient({
     ) ?? [];
   const activeQuickLogDayKey =
     selectedMeal?.dayKey ?? toDateKey(clampedSelectedDate);
+  const [highlightedDayMealLogs, setHighlightedDayMealLogs] =
+    useState<MealLogResponse[]>([]);
+  const [mealLogsReloadToken, setMealLogsReloadToken] = useState(0);
+
+  const refreshHighlightedDayMealLogs = () => {
+    setMealLogsReloadToken((current) => current + 1);
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadMealsForHighlightedDay = async () => {
+      if (!highlightedDayKey) {
+        if (!cancelled) setHighlightedDayMealLogs([]);
+        return;
+      }
+
+      try {
+        const response = await getMealsByDate(highlightedDayKey);
+        if (!cancelled) {
+          setHighlightedDayMealLogs(
+            Array.isArray(response.items) ? response.items : [],
+          );
+        }
+      } catch {
+        if (!cancelled) {
+          setHighlightedDayMealLogs([]);
+        }
+      }
+    };
+
+    void loadMealsForHighlightedDay();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [highlightedDayKey, mealLogsReloadToken]);
+
   // Single shared adherence hook for the entire week — prevents state loss
   // when navigating between days and ensures calendar pills stay in sync
   // with quick-log buttons.
-  const weekDateKeys = useMemo(() => weekDates.map(date => toDateKey(date)), [weekDates]);
+  // Extended to include the highlighted day's week plus adjacent dates to ensure
+  // persistence across week navigation (fixes completion state disappearing after refresh).
+  const adherenceDateRange = useMemo(() => {
+    const allDates = new Set<string>();
+    weekDates.forEach(date => allDates.add(toDateKey(date)));
+    if (highlightedDayKey && !allDates.has(highlightedDayKey)) {
+      const highlightedDate = parseDate(highlightedDayKey);
+      if (highlightedDate) {
+        const highlightedWeekStart = getWeekStart(highlightedDate);
+        for (let i = 0; i < 7; i++) {
+          allDates.add(toDateKey(addDays(highlightedWeekStart, i)));
+        }
+      }
+    }
+    return Array.from(allDates);
+  }, [weekDates, highlightedDayKey]);
   const {
     isConsumed: isConsumedWeek,
     toggle,
     error: adherenceError,
-  } = useNutritionAdherenceWeek(weekDateKeys);
+  } = useNutritionAdherenceWeek(adherenceDateRange);
 
   // Alias for the active day (same underlying store)
   const isConsumedDay = isConsumedWeek;
-  
-  // Calculate consumed totals (only meals marked as consumed in adherence store)
-  const highlightedConsumedTotals = useMemo(
+
+  const {
+    favorites: quickFavorites,
+    loading: quickFavoritesLoading,
+    hasError: quickFavoritesError,
+    toggleFavorite: toggleQuickFavorite,
+  } = useNutritionQuickFavorites();
+  const [quickLogMessage, setQuickLogMessage] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
+  const highlightedPlannedSignatures = useMemo(
     () =>
-      highlightedMeals.reduce(
-        (acc, meal, index) => {
-          const mealKey = getNutritionMealKey(meal, highlightedDayKey, index);
-          if (isConsumedDay(mealKey, highlightedDayKey)) {
-            acc.calories += Number(meal.macros?.calories ?? 0);
-            acc.protein += Number(meal.macros?.protein ?? 0);
-            acc.carbs += Number(meal.macros?.carbs ?? 0);
-            acc.fats += Number(meal.macros?.fats ?? 0);
-          }
-          return acc;
-        },
-        { calories: 0, protein: 0, carbs: 0, fats: 0 },
+      new Set(
+        highlightedMeals.map((meal) =>
+          buildMealLogSignature(meal.type, getMealTitle(meal, t)),
+        ),
       ),
-    [highlightedMeals, highlightedDayKey, isConsumedDay],
+    [highlightedMeals, t],
   );
-  
+
+  const highlightedCompletedMealLogs = useMemo(
+    () => highlightedDayMealLogs.filter((meal) => Boolean(meal.completedAt)),
+    [highlightedDayMealLogs],
+  );
+
+  const highlightedCustomCompletedMealLogs = useMemo(
+    () =>
+      highlightedCompletedMealLogs.filter(
+        (meal) =>
+          !highlightedPlannedSignatures.has(
+            buildMealLogSignature(meal.mealType, meal.title),
+          ),
+      ),
+    [highlightedCompletedMealLogs, highlightedPlannedSignatures],
+  );
+
+  const highlightedConsumedTotals = useMemo(() => {
+    const planTotals = highlightedMeals.reduce<ConsumedTotals>((totals, meal, mealIndex) => {
+      const mealKey = getNutritionMealKey(meal, highlightedDayKey, mealIndex);
+      if (!isConsumedDay(mealKey, highlightedDayKey)) {
+        return totals;
+      }
+
+      totals.calories += Number(meal.macros?.calories ?? 0);
+      totals.protein += Number(meal.macros?.protein ?? 0);
+      totals.carbs += Number(meal.macros?.carbs ?? 0);
+      totals.fats += Number(meal.macros?.fats ?? 0);
+      return totals;
+    }, { calories: 0, protein: 0, carbs: 0, fats: 0 });
+    const customTotals = sumCompletedMealsTotals(highlightedCustomCompletedMealLogs);
+
+    return {
+      calories: planTotals.calories + customTotals.calories,
+      protein: planTotals.protein + customTotals.protein,
+      carbs: planTotals.carbs + customTotals.carbs,
+      fats: planTotals.fats + customTotals.fats,
+    };
+  }, [
+    highlightedCustomCompletedMealLogs,
+    highlightedDayKey,
+    highlightedMeals,
+    isConsumedDay,
+  ]);
+
   const highlightedConsumedMacroTotal =
     highlightedConsumedTotals.protein +
     highlightedConsumedTotals.carbs +
@@ -2261,17 +2414,6 @@ export default function NutritionPlanClient({
       color: "var(--macro-fats)",
     },
   ];
-  
-  const {
-    favorites: quickFavorites,
-    loading: quickFavoritesLoading,
-    hasError: quickFavoritesError,
-    toggleFavorite: toggleQuickFavorite,
-  } = useNutritionQuickFavorites();
-  const [quickLogMessage, setQuickLogMessage] = useState<{
-    type: "success" | "error";
-    message: string;
-  } | null>(null);
 
   const weekGridDays = useMemo(
     () =>
@@ -3932,7 +4074,7 @@ const nutritionNoPlanActions = shouldShowJoinGymCta
 
                       <div className="grid gap-12 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
                         <div className="stack-sm">
-                          {hasHighlightedMeals ? (
+                          {hasHighlightedMeals || highlightedCompletedMealLogs.length > 0 ? (
                             <>
                               <div className="nutrition-v2-meals stack-sm">
                                 <div className="inline-actions-space">
@@ -4011,6 +4153,54 @@ const nutritionNoPlanActions = shouldShowJoinGymCta
                                     );
                                   },
                                 )}
+                                {highlightedCompletedMealLogs.length > 0 && (
+                                  <div className="stack-sm mt-8">
+                                    <h4 className="section-title section-title-sm m-0 text-muted">
+                                      {safeT("nutrition.completedMealsTitle", "Comidas registradas")}
+                                    </h4>
+                                  {highlightedCompletedMealLogs.map((meal) => {
+                                    const mealTypeLabel =
+                                      meal.mealType === "BREAKFAST"
+                                        ? t("nutrition.mealTypeBreakfast")
+                                        : meal.mealType === "LUNCH"
+                                          ? t("nutrition.mealTypeLunch")
+                                          : meal.mealType === "DINNER"
+                                            ? t("nutrition.mealTypeDinner")
+                                            : t("nutrition.mealTypeSnack");
+                                    const firstItem = meal.items?.[0];
+                                    const imageUrl = firstItem?.photoUrl ?? null;
+                                    const description = firstItem?.name ?? null;
+                                    return (
+                                      <div
+                                        key={meal.id}
+                                        className="feature-card feature-card--compact stack-sm nutrition-meal-slot-card nutrition-meal-slot-card--compact"
+                                      >
+                                        <div className="inline-actions-space">
+                                          <div className="inline-actions-sm nutrition-meal-slot-actions">
+                                            <span className="badge">
+                                              {meal.calories ?? 0} {t("units.kcal")}
+                                            </span>
+                                            <span className="btn secondary fit-content text-xs">
+                                              {safeT(
+                                                "nutrition.quickLogButtonConsumed",
+                                                "Consumido",
+                                              )}
+                                            </span>
+                                          </div>
+                                        </div>
+                                        <MealCard
+                                          kicker={mealTypeLabel}
+                                          title={meal.title}
+                                          description={description}
+                                          meta={null}
+                                          imageUrl={imageUrl}
+                                          className="meal-card--horizontal meal-card--horizontal-compact"
+                                        />
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
                               </div>
 
                               {calendarView === "list" ? (
