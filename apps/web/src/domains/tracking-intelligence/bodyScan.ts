@@ -222,11 +222,12 @@ export function buildTrackingBodyScanCapability(request: TrackingBodyScanRequest
   const rangeDays = Math.max(7, request.rangeDays ?? 30);
   const analysisCheckins = selectTrackingAnalysisCheckins(request.checkins, request.profile);
   const sortedCheckins = [...analysisCheckins].sort((a, b) => b.date.localeCompare(a.date));
-  const recentCheckins = selectCheckinsInTrendWindow(sortedCheckins, rangeDays);
   const latestCheckin = selectLatestTrackingCheckin(request.checkins, request.profile);
+  const referenceDate = latestCheckin ? new Date(`${latestCheckin.date}T12:00:00.000Z`) : new Date();
+  const recentCheckins = selectCheckinsInTrendWindow(sortedCheckins, rangeDays, referenceDate);
   const photoComparison = selectTrackingPhotoComparison(sortedCheckins);
   const photoAvailability = selectTrackingPhotoAvailability(photoComparison.current ?? latestCheckin);
-  const passiveSupport = selectPassiveSupportSnapshot(request.passiveData, rangeDays);
+  const passiveSupport = selectPassiveSupportSnapshot(request.passiveData, rangeDays, referenceDate);
 
   const oldestRecentCheckin = recentCheckins[recentCheckins.length - 1] ?? null;
   const weightDeltaKg =
