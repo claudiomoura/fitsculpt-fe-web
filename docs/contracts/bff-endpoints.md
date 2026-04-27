@@ -78,6 +78,7 @@ Generated from `apps/web/src/app/api/**/route.ts` via `npm --prefix apps/web run
 | `/api/review/weekly/decision` | POST | `apps/web/src/app/api/review/weekly/decision/route.ts` |
 | `/api/tracking` | GET, POST, PUT | `apps/web/src/app/api/tracking/route.ts` |
 | `/api/tracking/[collection]/[id]` | DELETE | `apps/web/src/app/api/tracking/[collection]/[id]/route.ts` |
+| `/api/tracking/body-fat-scan/analyze` | POST | `apps/web/src/app/api/tracking/body-fat-scan/analyze/route.ts` |
 | `/api/tracking/health` | GET, PUT | `apps/web/src/app/api/tracking/health/route.ts` |
 | `/api/tracking/health/snapshots` | POST | `apps/web/src/app/api/tracking/health/snapshots/route.ts` |
 | `/api/trainer/assign-training-plan` | POST | `apps/web/src/app/api/trainer/assign-training-plan/route.ts` |

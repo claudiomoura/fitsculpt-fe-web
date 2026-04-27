@@ -534,6 +534,13 @@
       "source": "apps/web/src/app/api/tracking/[collection]/[id]/route.ts"
     },
     {
+      "path": "/api/tracking/body-fat-scan/analyze",
+      "methods": [
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/tracking/body-fat-scan/analyze/route.ts"
+    },
+    {
       "path": "/api/tracking/health",
       "methods": [
         "GET",
