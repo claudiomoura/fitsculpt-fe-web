@@ -30,6 +30,7 @@ export type TrackingTrendWindow = {
 export type TrackingPhotoAvailability = {
   hasFrontPhoto: boolean;
   hasSidePhoto: boolean;
+  hasBackPhoto: boolean;
   hasAnyPhoto: boolean;
 };
 

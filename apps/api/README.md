@@ -31,7 +31,9 @@
 ## Configuração segura de ambiente
 
 - `db:bootstrap` exige `DATABASE_URL` válido com protocolo `postgres://` ou `postgresql://`; sem isso o script falha imediatamente com mensagem de correção.
-- Copie `apps/api/.env.example` para `.env` apenas no ambiente local/servidor.
+- Para desenvolvimento local, copie `apps/api/.env.local.example` para `apps/api/.env.local` e ajuste só os valores necessários.
+- Use `apps/api/.env.example` como contrato completo de variáveis suportadas.
+- Em produção, configure os valores reais no provedor de deploy e não em ficheiros versionados.
 - Nunca commite valores reais de segredos (`JWT_SECRET`, `COOKIE_SECRET`, `DATABASE_URL`, `*_API_KEY`, `*_SECRET`).
 - Gere segredos longos e aleatórios para produção (mínimo recomendado: 32 caracteres).
 - Dumps de banco (`*.dump`, `*.sql`, `*.db`) e arquivos de credenciais devem ficar fora do versionamento.
@@ -325,8 +327,21 @@ Resultado esperado: status consistente/OK, sem pendências bloqueantes para `mig
 1. Crie um produto e um preço recorrente no Stripe.
 2. Copie o `Price ID` e configure em `STRIPE_PRO_PRICE_ID`.
 3. Gere uma chave secreta e configure `STRIPE_SECRET_KEY`.
-4. Crie um endpoint de webhook no Stripe apontando para `POST /billing/webhook` e copie o `Signing secret` para `STRIPE_WEBHOOK_SECRET`.
-5. Após alterar o schema, rode `npm run prisma:migrate` e `npm run db:generate` no ambiente local; em produção/Render use `npm run db:deploy`.
+4. Crie um endpoint de webhook no Stripe apontando para `POST /billing/stripe/webhook` e copie o `Signing secret` para `STRIPE_WEBHOOK_SECRET`.
+5. Configure tambem `STRIPE_PRICE_STRENGTH_AI_MONTHLY` e `STRIPE_PRICE_NUTRI_AI_MONTHLY` para que todos os cards/flows de assinatura retornem planos validos.
+6. Após alterar o schema, rode `npm run prisma:migrate` e `npm run db:generate` no ambiente local; em produção/Render use `npm run db:deploy`.
+
+## Bypass de verificacao de email (dev apenas)
+
+Use somente fora de producao para marcar um usuario local como verificado sem depender do email provider.
+
+```bash
+curl -i -X POST http://localhost:4000/auth/bypass \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com"}'
+```
+
+Tambem aceita `POST /auth/bypass?email=user@example.com`, mas o corpo JSON acima e o formato recomendado.
 
 ## Testes manuais (curl)
 

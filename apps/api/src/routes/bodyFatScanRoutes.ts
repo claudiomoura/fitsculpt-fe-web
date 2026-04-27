@@ -252,7 +252,9 @@ export function registerBodyFatScanRoutes(
           userContent: [
             {
               type: "text",
-              text: "Use front and side images jointly and report uncertainty explicitly.",
+              text: input.dorsalPhotoDataUrl
+                ? "Analyze front, side and dorsal body progress photos for a non-clinical body-fat estimate. Use all three images jointly and report uncertainty explicitly."
+                : "Analyze front and side body progress photos for a non-clinical body-fat estimate. Use both images jointly and report uncertainty explicitly.",
             },
             {
               type: "image_url",
@@ -268,6 +270,17 @@ export function registerBodyFatScanRoutes(
                 detail: "low",
               },
             },
+            ...(input.dorsalPhotoDataUrl
+              ? [
+                  {
+                    type: "image_url" as const,
+                    image_url: {
+                      url: input.dorsalPhotoDataUrl,
+                      detail: "low" as const,
+                    },
+                  },
+                ]
+              : []),
           ],
         });
 

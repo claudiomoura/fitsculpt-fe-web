@@ -72,6 +72,7 @@ function normalizeCheckinEntry(entry: unknown, index: number): CheckinEntry | nu
     recommendation: toText(entry.recommendation),
     frontPhotoUrl: toNullableText(entry.frontPhotoUrl),
     sidePhotoUrl: toNullableText(entry.sidePhotoUrl),
+    backPhotoUrl: toNullableText(entry.backPhotoUrl),
   };
 }
 

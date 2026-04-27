@@ -1709,24 +1709,28 @@ const aiNutritionMealSchema = z
     recipeId: z.string().min(1).nullable().optional(),
     title: z.string().min(1),
     description: z.string().min(1).nullable(),
-    macros: z.object({
-      calories: z.coerce.number().min(50).max(1500),
-      protein: z.coerce.number().min(0).max(200),
-      carbs: z.coerce.number().min(0).max(250),
-      fats: z.coerce.number().min(0).max(150),
-    }),
+    macros: z
+      .object({
+        calories: z.coerce.number().min(50).max(1500),
+        protein: z.coerce.number().min(0).max(200),
+        carbs: z.coerce.number().min(0).max(250),
+        fats: z.coerce.number().min(0).max(150),
+      })
+      .strict(),
     ingredients: z
       .array(
-        z.object({
-          name: z.string().min(1),
-          grams: z.coerce.number().min(5).max(1000),
-        }),
+        z
+          .object({
+            name: z.string().min(1),
+            grams: z.coerce.number().min(5).max(1000),
+          })
+          .strict(),
       )
       .min(0)
       .max(6)
       .nullable(),
   })
-  .passthrough();
+  .strict();
 
 const aiNutritionDaySchema = z
   .object({
@@ -1734,7 +1738,7 @@ const aiNutritionDaySchema = z
     dayLabel: z.string().min(1),
     meals: z.array(aiNutritionMealSchema).min(2).max(6),
   })
-  .passthrough();
+  .strict();
 
 const aiNutritionPlanResponseSchema = z
   .object({
@@ -1747,14 +1751,16 @@ const aiNutritionPlanResponseSchema = z
     days: z.array(aiNutritionDaySchema).min(1).max(14),
     shoppingList: z
       .array(
-        z.object({
-          name: z.string().min(1),
-          grams: z.coerce.number().min(0).max(5000),
-        }),
+        z
+          .object({
+            name: z.string().min(1),
+            grams: z.coerce.number().min(0).max(5000),
+          })
+          .strict(),
       )
       .nullable(),
   })
-  .passthrough();
+  .strict();
 
 function toDateKey(date = new Date()) {
   return date.toISOString().slice(0, 10);
@@ -3277,8 +3283,15 @@ function parseTrainingPlanPayload(
 
     return normalizeTrainingPlanDays(parsed, startDate, daysCount, daysPerWeek);
   } catch (error) {
-    app.log.warn({ err: error, payload }, "ai training response invalid");
-    throw createHttpError(502, "AI_PARSE_ERROR");
+    const validationErrors =
+      error instanceof z.ZodError
+        ? error.errors.map((e) => `${e.path.join(".")}: ${e.message}`).join("; ")
+        : undefined;
+    app.log.warn({ err: error, payload, validationErrors }, "ai training response invalid");
+    throw createHttpError(502, "AI_PARSE_ERROR", {
+      message: validationErrors ?? "Failed to parse AI training plan response",
+      validationErrors: validationErrors,
+    });
   }
 }
 
@@ -3538,8 +3551,17 @@ function parseNutritionPlanPayload(
       daysCount,
     );
   } catch (error) {
-    app.log.warn({ err: error, payload }, "ai nutrition response invalid");
-    throw createHttpError(400, "INVALID_AI_OUTPUT", {
+    const validationErrors =
+      error instanceof z.ZodError
+        ? error.errors.map((issue) => `${issue.path.join(".")}: ${issue.message}`).join("; ")
+        : undefined;
+    app.log.warn(
+      { err: error, payload, validationErrors },
+      "ai nutrition response invalid",
+    );
+    throw createHttpError(502, "AI_PARSE_ERROR", {
+      message: validationErrors ?? "Failed to parse AI nutrition plan response",
+      validationErrors,
       reasonCode: "SCHEMA_PARSE",
       details: {
         parserError:

@@ -8,6 +8,13 @@ const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(scriptDir, "..");
 const isCheckOnly = process.argv.includes("--check") || process.argv.includes("--dry-run");
 
+class LinearApiError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "LinearApiError";
+  }
+}
+
 const TEAM_SPEC = {
   name: "Core",
   key: "CORE",
@@ -138,54 +145,69 @@ const LABEL_SPECS = [
 loadEnvFiles();
 
 const linearApiKey = process.env.LINEAR_API_KEY;
+const runSummary = createRunSummary();
 
-if (!linearApiKey) {
-  fail("Missing LINEAR_API_KEY. Add it to the repo root .env.local or export it in your shell before running this script.");
-}
+await main().catch((error) => {
+  fail(error?.message ?? String(error));
+});
 
-if (typeof fetch !== "function") {
-  fail("This script requires Node.js with global fetch support. Use Node.js 18 or newer.");
-}
-
-const snapshot = await fetchWorkspaceSnapshot();
-const currentTeam = findCoreTeam(snapshot.teams);
-const initialPlan = buildPlan(snapshot, currentTeam);
-
-printHeader(snapshot.viewer, isCheckOnly);
-printPlan(initialPlan, currentTeam, snapshot.teams);
-
-if (isCheckOnly) {
-  process.exit(initialPlan.needsChanges ? 1 : 0);
-}
-
-let team = currentTeam;
-
-if (!team) {
-  console.log(`Creating missing team: ${TEAM_SPEC.name}`);
-  team = await createTeam(TEAM_SPEC);
-}
-
-const labelsByKey = indexLabels(snapshot.labels);
-
-for (const labelSpec of LABEL_SPECS) {
-  await ensureLabelGroup(labelSpec, labelsByKey);
-}
-
-for (const projectSpec of PROJECT_SPECS) {
-  if (!snapshot.projects.some((project) => project.name === projectSpec.name)) {
-    console.log(`Creating project: ${projectSpec.name}`);
-    const project = await createProject(projectSpec);
-    snapshot.projects.push(project);
+async function main() {
+  if (!linearApiKey) {
+    fail("Missing LINEAR_API_KEY. Add it to the repo root .env.local or export it in your shell before running this script.");
   }
+
+  if (typeof fetch !== "function") {
+    fail("This script requires Node.js with global fetch support. Use Node.js 18 or newer.");
+  }
+
+  const snapshot = await fetchWorkspaceSnapshot();
+  const currentTeam = findCoreTeam(snapshot.teams);
+  const initialPlan = buildPlan(snapshot, currentTeam);
+
+  printHeader(snapshot.viewer, isCheckOnly);
+  printPlan(initialPlan, currentTeam, snapshot.teams);
+
+  if (isCheckOnly) {
+    process.exit(initialPlan.needsChanges ? 1 : 0);
+  }
+
+  let team = currentTeam;
+
+  if (!team) {
+    console.log(`Creating missing team: ${TEAM_SPEC.name}`);
+    team = await createTeam(TEAM_SPEC);
+    runSummary.created.push(`team ${team.name} (${team.key})`);
+  } else {
+    runSummary.reused.push(`team ${team.name} (${team.key})`);
+  }
+
+  const labelIndex = indexLabels(snapshot.labels);
+
+  for (const labelSpec of LABEL_SPECS) {
+    await ensureLabelGroup(labelSpec, labelIndex, runSummary);
+  }
+
+  for (const projectSpec of PROJECT_SPECS) {
+    if (!snapshot.projects.some((project) => project.name === projectSpec.name)) {
+      console.log(`Creating project: ${projectSpec.name}`);
+      const projectInput = { ...projectSpec, teamIds: [team.id] };
+      const project = await createProject(projectInput);
+      snapshot.projects.push(project);
+      runSummary.created.push(`project ${project.name}`);
+    } else {
+      runSummary.reused.push(`project ${projectSpec.name}`);
+    }
+  }
+
+  const finalSnapshot = await fetchWorkspaceSnapshot();
+  const finalTeam = findCoreTeam(finalSnapshot.teams);
+  const finalPlan = buildPlan(finalSnapshot, finalTeam);
+
+  console.log("");
+  console.log("Linear Core setup complete.");
+  printPlan(finalPlan, finalTeam, finalSnapshot.teams);
+  printRunSummary(runSummary);
 }
-
-const finalSnapshot = await fetchWorkspaceSnapshot();
-const finalTeam = findCoreTeam(finalSnapshot.teams);
-const finalPlan = buildPlan(finalSnapshot, finalTeam);
-
-console.log("");
-console.log("Linear Core setup complete.");
-printPlan(finalPlan, finalTeam, finalSnapshot.teams);
 
 function loadEnvFiles() {
   const shellEnvKeys = new Set(Object.keys(process.env));
@@ -196,19 +218,7 @@ function loadEnvFiles() {
 }
 
 function getEnvPaths() {
-  const paths = [];
-
-  for (const directory of [repoRoot, process.cwd()]) {
-    for (const fileName of [".env", ".env.local"]) {
-      const envPath = resolve(directory, fileName);
-
-      if (!paths.includes(envPath)) {
-        paths.push(envPath);
-      }
-    }
-  }
-
-  return paths;
+  return [resolve(repoRoot, ".env"), resolve(repoRoot, ".env.local")];
 }
 
 function loadEnvFile(envPath, shellEnvKeys) {
@@ -281,44 +291,28 @@ async function fetchWorkspaceSnapshot() {
           id
           name
           email
-          organization {
-            id
-            name
-          }
         }
-        teams(first: 100) {
+        teams {
           nodes {
             id
             name
             key
-            states(first: 50) {
-              nodes {
-                id
-                name
-                type
-              }
-            }
           }
         }
-        projects(first: 100) {
+        projects {
           nodes {
             id
             name
             description
           }
         }
-        issueLabels(first: 250) {
+        issueLabels {
           nodes {
             id
             name
             color
-            description
             isGroup
             parent {
-              id
-              name
-            }
-            team {
               id
               name
             }
@@ -347,16 +341,17 @@ function buildPlan(snapshot, team) {
   const missingWorkflowStates = DESIRED_WORKFLOW_STATES.filter((name) => !existingStateNames.has(name));
 
   const labelsByKey = indexLabels(snapshot.labels);
+  const labelIndexMap = labelsByKey.byKey;
   const missingLabelGroups = [];
   const missingLabels = [];
 
   for (const labelGroup of LABEL_SPECS) {
-    if (!labelsByKey.has(labelKey(labelGroup.name, null))) {
+    if (!labelIndexMap.has(labelKey(labelGroup.name, null))) {
       missingLabelGroups.push(labelGroup.name);
     }
 
     for (const child of labelGroup.children) {
-      if (!labelsByKey.has(labelKey(child.name, labelGroup.name))) {
+      if (!labelIndexMap.has(labelKey(child.name, labelGroup.name))) {
         missingLabels.push(`${labelGroup.name} / ${child.name}`);
       }
     }
@@ -392,7 +387,7 @@ function buildManualSteps(team, missingWorkflowStates) {
 }
 
 function printHeader(viewer, checkOnly) {
-  console.log(`Linear workspace: ${viewer.organization?.name ?? "Unknown workspace"}`);
+  console.log(`Linear workspace: FitSculpt`);
   console.log(`Authenticated as: ${viewer.name} <${viewer.email}>`);
   console.log(checkOnly ? "Mode: check-only (no mutations)" : "Mode: apply");
   console.log("");
@@ -413,24 +408,58 @@ function printPlan(plan, team, teams) {
   }
 }
 
-async function ensureLabelGroup(groupSpec, labelsByKey) {
-  let parent = labelsByKey.get(labelKey(groupSpec.name, null));
+async function ensureLabelGroup(groupSpec, labelIndex, summary) {
+  const parentKey = labelKey(groupSpec.name, null);
+  let parent = labelIndex.byKey.get(parentKey);
 
-  if (!parent) {
+  if (parent) {
+    summary.reused.push(`label group ${groupSpec.name}`);
+  } else {
+    const conflictingParent = findLabelNameCollision(labelIndex, groupSpec.name);
+
+    if (conflictingParent) {
+      warnLabelCollision(
+        `label group ${groupSpec.name}`,
+        conflictingParent,
+        `Skipping creation of label group ${groupSpec.name}.`,
+        summary,
+      );
+      return;
+    }
+
     console.log(`Creating label group: ${groupSpec.name}`);
     parent = await createLabel({
       name: groupSpec.name,
       color: groupSpec.color,
       description: groupSpec.description,
       isGroup: true,
-    });
-    labelsByKey.set(labelKey(groupSpec.name, null), parent);
+    }).catch((error) => handleDuplicateLabelCreate(error, `label group ${groupSpec.name}`, summary));
+
+    if (!parent) {
+      return;
+    }
+
+    labelIndex.add(parent);
+    summary.created.push(`label group ${groupSpec.name}`);
   }
 
   for (const childSpec of groupSpec.children) {
     const key = labelKey(childSpec.name, groupSpec.name);
 
-    if (labelsByKey.has(key)) {
+    if (labelIndex.byKey.has(key)) {
+      summary.reused.push(`label ${groupSpec.name} / ${childSpec.name}`);
+      continue;
+    }
+
+    const conflictingLabel = findLabelNameCollision(labelIndex, childSpec.name);
+
+    if (conflictingLabel) {
+      warnLabelCollision(
+        `label ${groupSpec.name} / ${childSpec.name}`,
+        conflictingLabel,
+        `Skipping creation of ${groupSpec.name} / ${childSpec.name}.`,
+        summary,
+      );
       continue;
     }
 
@@ -440,23 +469,95 @@ async function ensureLabelGroup(groupSpec, labelsByKey) {
       color: childSpec.color,
       description: childSpec.description,
       parentId: parent.id,
-    });
-    labelsByKey.set(key, label);
+    }).catch((error) => handleDuplicateLabelCreate(error, `label ${groupSpec.name} / ${childSpec.name}`, summary));
+
+    if (!label) {
+      continue;
+    }
+
+    labelIndex.add(label);
+    summary.created.push(`label ${groupSpec.name} / ${childSpec.name}`);
   }
 }
 
 function indexLabels(labels) {
-  const map = new Map();
+  const byKey = new Map();
+  const byName = new Map();
 
-  for (const label of labels) {
+  const add = (label) => {
+    const labelsForName = byName.get(label.name) ?? [];
+    labelsForName.push(label);
+    byName.set(label.name, labelsForName);
+
     if (label.team) {
-      continue;
+      return;
     }
 
-    map.set(labelKey(label.name, label.parent?.name ?? null), label);
+    byKey.set(labelKey(label.name, label.parent?.name ?? null), label);
+  };
+
+  for (const label of labels) {
+    add(label);
   }
 
-  return map;
+  return { byKey, byName, add };
+}
+
+function findLabelNameCollision(labelIndex, labelName) {
+  const matches = labelIndex.byName.get(labelName) ?? [];
+  return matches[0] ?? null;
+}
+
+function warnLabelCollision(target, existingLabel, continuation, summary) {
+  const scope = existingLabel.team ? `team ${existingLabel.team.name}` : "workspace";
+  const grouping = existingLabel.parent?.name ? ` under group ${existingLabel.parent.name}` : existingLabel.isGroup ? " as a label group" : " without a label group";
+  const warning = `Warning: found existing ${scope} label named ${existingLabel.name}${grouping}. ${continuation} Reconcile this label manually if it should belong to ${target}.`;
+  console.warn(warning);
+  summary.skipped.push(target);
+  summary.manualFollowUp.push(warning);
+}
+
+function handleDuplicateLabelCreate(error, target, summary) {
+  if (!isDuplicateLabelError(error)) {
+    throw error;
+  }
+
+  const warning = `Warning: Linear rejected creation for ${target} because a label with that name already exists elsewhere in the workspace. Reconcile that label manually, then rerun the setup script.`;
+  console.warn(warning);
+  summary.skipped.push(target);
+  summary.manualFollowUp.push(warning);
+  return null;
+}
+
+function isDuplicateLabelError(error) {
+  return error instanceof LinearApiError && ( /duplicate label name/i.test(error.message) || /reserved label name/i.test(error.message) );
+}
+
+function createRunSummary() {
+  return {
+    created: [],
+    reused: [],
+    skipped: [],
+    manualFollowUp: [],
+  };
+}
+
+function printRunSummary(summary) {
+  console.log("");
+  console.log("Post-run summary:");
+  console.log(`Created: ${summary.created.join(", ") || "none"}`);
+  console.log(`Reused: ${summary.reused.join(", ") || "none"}`);
+  console.log(`Skipped: ${summary.skipped.join(", ") || "none"}`);
+  console.log("Manual follow-up:");
+
+  if (summary.manualFollowUp.length === 0) {
+    console.log("- none");
+    return;
+  }
+
+  for (const step of summary.manualFollowUp) {
+    console.log(`- ${step}`);
+  }
 }
 
 function labelKey(name, parentName) {
@@ -551,7 +652,7 @@ async function linearRequest(query, variables, action) {
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
   try {
-    const response = await fetch(LINEAR_API_URL, {
+const response = await fetch(LINEAR_API_URL, {
       method: "POST",
       signal: controller.signal,
       headers: {
@@ -564,24 +665,28 @@ async function linearRequest(query, variables, action) {
     const body = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      fail(formatLinearFailure(action, response.status, body));
-    }
+        throw new LinearApiError(formatLinearFailure(action, response.status, body));
+      }
 
-    if (body.errors?.length) {
-      const details = body.errors.map((error) => error.message).join("; ");
-      fail(`Linear API could not ${action}: ${details}`);
-    }
+      if (body.errors?.length) {
+        const details = body.errors.map((error) => error.message).join("; ");
+        throw new LinearApiError(`Linear API could not ${action}: ${details}`);
+      }
 
-    return body.data;
-  } catch (error) {
-    if (error?.name === "AbortError") {
-      fail(`Linear API request timed out while trying to ${action}.`);
-    }
+      return body.data;
+    } catch (error) {
+      if (error instanceof LinearApiError) {
+        throw error;
+      }
 
-    fail(`Linear API request failed while trying to ${action}: ${error?.message ?? String(error)}`);
-  } finally {
-    clearTimeout(timeout);
-  }
+      if (error?.name === "AbortError") {
+        throw new LinearApiError(`Linear API request timed out while trying to ${action}.`);
+      }
+
+      throw new LinearApiError(`Linear API request failed while trying to ${action}: ${error?.message ?? String(error)}`);
+    } finally {
+      clearTimeout(timeout);
+    }
 }
 
 function formatLinearFailure(action, status, body) {

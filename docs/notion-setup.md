@@ -4,7 +4,7 @@ Use the root setup script to create the first-level FitSculpt HQ pages in Notion
 
 ## Required Environment
 
-Add these values to the root `.env.local` file:
+Add these values to the repo root `.env.local` file:
 
 ```bash
 NOTION_API_KEY=secret_...
@@ -83,7 +83,8 @@ Each page receives richer initial sections aligned to the current operating mode
 
 If the script reports missing environment variables even though `.env.local` exists:
 - Keep `.env.local` at the repository root.
-- The script also checks `.env` and the current working directory, but root `.env.local` is the recommended location.
+- The script checks repo-root `.env` and `.env.local`, but root `.env.local` is the recommended location.
+- See `docs/env-strategy.md` for the monorepo env split.
 - Values may be quoted and may include spaces around `=`, for example `NOTION_PARENT_PAGE_ID = "34f1..."`.
 - Run `npm run setup:notion-hq:check` before the real setup command.
 - Run `npm run sync:notion-hq:check` before the real sync command.

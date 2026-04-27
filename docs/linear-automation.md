@@ -4,7 +4,7 @@
 
 - `LINEAR_API_KEY`
 
-The setup script reads the repo root `.env` and `.env.local` files, and shell environment variables still take precedence.
+The setup script reads the repo root `.env` and `.env.local` files, and shell environment variables still take precedence. See `docs/env-strategy.md` for the monorepo env split.
 
 ## Commands
 
@@ -39,6 +39,7 @@ The script is intentionally idempotent:
 - `--check` performs read-only GraphQL queries and exits non-zero when required setup is still missing
 - apply mode only creates missing automatable objects
 - existing objects are left unchanged
+- if a label name already exists elsewhere in the workspace or on a team, the script warns, skips that create, and reports the manual follow-up instead of failing mid-run
 
 ## What Stays Manual
 
@@ -88,3 +89,19 @@ If the workspace already has the intended team under a different name or key:
 ### Workflow states still show as missing
 
 That is expected until the Core team workflow is manually aligned to the desired status model. The script reports the missing states but does not modify them.
+
+### Duplicate label name errors or warnings
+
+If the workspace already contains a label with the same name in a different group or scope, Linear may reject creating the grouped label even when the exact `Group / Label` pair is missing.
+
+The setup script now handles that case by:
+
+- reusing the label when the exact workspace group/name pair already exists
+- warning and skipping creation when the same name exists elsewhere and cannot be safely regrouped by the script
+- continuing the rest of setup and listing the collision in the post-run summary
+
+If you see a warning for a skipped label, reconcile that label manually in Linear, then rerun:
+
+```bash
+npm run setup:linear
+```

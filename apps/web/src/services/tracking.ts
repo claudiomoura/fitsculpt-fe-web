@@ -30,6 +30,7 @@ export type CheckinEntry = {
   recommendation: string;
   frontPhotoUrl: string | null;
   sidePhotoUrl: string | null;
+  backPhotoUrl?: string | null;
 };
 
 export type FoodEntry = {

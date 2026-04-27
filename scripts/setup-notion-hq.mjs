@@ -72,12 +72,12 @@ const notionApiKey = process.env.NOTION_API_KEY;
 const parentPageId = normalizePageId(process.env.NOTION_PARENT_PAGE_ID);
 
 if (!notionApiKey) {
-  fail("Missing NOTION_API_KEY. Add it to .env.local or export it in your shell before running this script.");
+  fail("Missing NOTION_API_KEY. Add it to the repo root .env.local or export it in your shell before running this script.");
 }
 
 if (!parentPageId) {
   fail(
-    "Missing NOTION_PARENT_PAGE_ID. Add NOTION_PARENT_PAGE_ID=34f1adaa113b800dbf29f411f0b45a31 to .env.local or export it in your shell.",
+    "Missing NOTION_PARENT_PAGE_ID. Add it to the repo root .env.local or export it in your shell.",
   );
 }
 
@@ -112,19 +112,7 @@ function loadEnvFiles() {
 }
 
 function getEnvPaths() {
-  const paths = [];
-
-  for (const directory of [repoRoot, process.cwd()]) {
-    for (const fileName of [".env", ".env.local"]) {
-      const envPath = resolve(directory, fileName);
-
-      if (!paths.includes(envPath)) {
-        paths.push(envPath);
-      }
-    }
-  }
-
-  return paths;
+  return [resolve(repoRoot, ".env"), resolve(repoRoot, ".env.local")];
 }
 
 function loadEnvFile(envPath, shellEnvKeys) {

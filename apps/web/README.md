@@ -26,7 +26,7 @@ NEXT_PUBLIC_BACKEND_URL=http://localhost:4000
 NEXT_PUBLIC_API_BASE_URL=http://localhost:4000
 ```
 
-Use o ficheiro `.env.example` na raiz do repositório como referência e mantenha os valores reais apenas no seu ambiente local. Nunca comite `.env`, `.env.local` ou credenciais.
+Use `apps/web/.env.example` como referência para `apps/web/.env.local` e mantenha os valores reais apenas no seu ambiente local. Nunca comite `.env`, `.env.local` ou credenciais. A estratégia completa está em `docs/env-strategy.md`.
 
 Para observabilidade (local/dev), configure tambem:
 

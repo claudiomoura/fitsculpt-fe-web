@@ -1,0 +1,62 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build type'
+        required: true
+        default: 'debug'
+        type: choice
+        options:
+          - debug
+          - release
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Next.js
+        run: pnpm --prefix apps/web run build
+
+      - name: Sync to Android
+        run: pnpm --prefix apps/web run mobile:android:sync
+
+      - name: Build APK
+        working-directory: apps/web/android
+        run: |
+          chmod +x gradlew
+          if [ "${{ github.event.inputs.build_type }}" = "release" ]; then
+            ./gradlew assembleRelease
+          else
+            ./gradlew assembleDebug
+          fi
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fitsculpt-apk-${{ github.event.inputs.build_type }}
+          path: apps/web/android/app/build/outputs/apk/${{ github.event.inputs.build_type }}/app-${{ github.event.inputs.build_type }}.apk
+          retention-days: 30

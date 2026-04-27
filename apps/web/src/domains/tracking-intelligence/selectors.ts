@@ -59,6 +59,7 @@ export function buildTrackingProfileSnapshotFallback(profile: ProfileData): Chec
     recommendation: "",
     frontPhotoUrl: null,
     sidePhotoUrl: null,
+    backPhotoUrl: null,
   };
 }
 
@@ -142,11 +143,13 @@ export function selectCheckinsInTrendWindow(
 export function selectTrackingPhotoAvailability(entry: CheckinEntry | null | undefined): TrackingPhotoAvailability {
   const hasFrontPhoto = Boolean(entry?.frontPhotoUrl);
   const hasSidePhoto = Boolean(entry?.sidePhotoUrl);
+  const hasBackPhoto = Boolean(entry?.backPhotoUrl);
 
   return {
     hasFrontPhoto,
     hasSidePhoto,
-    hasAnyPhoto: hasFrontPhoto || hasSidePhoto,
+    hasBackPhoto,
+    hasAnyPhoto: hasFrontPhoto || hasSidePhoto || hasBackPhoto,
   };
 }
 

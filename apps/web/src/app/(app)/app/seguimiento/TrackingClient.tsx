@@ -348,6 +348,7 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
   const [checkinNotes, setCheckinNotes] = useState("");
   const [checkinFrontPhotoUrl, setCheckinFrontPhotoUrl] = useState<string | null>(null);
   const [checkinSidePhotoUrl, setCheckinSidePhotoUrl] = useState<string | null>(null);
+  const [checkinBackPhotoUrl, setCheckinBackPhotoUrl] = useState<string | null>(null);
   const [checkinPhotoError, setCheckinPhotoError] = useState<string | null>(null);
   const [isCheckinPhotoProcessing, setIsCheckinPhotoProcessing] = useState(false);
   const [energyDate, setEnergyDate] = useState(() =>
@@ -762,7 +763,7 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
   }
 
   async function handleCheckinPhotoUpload(
-    side: "front" | "side",
+    side: "front" | "side" | "back",
     event: React.ChangeEvent<HTMLInputElement>,
   ) {
     const file = event.target.files?.[0];
@@ -773,8 +774,10 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
       const compressed = await compressAvatarToDataUrl(file);
       if (side === "front") {
         setCheckinFrontPhotoUrl(compressed);
-      } else {
+      } else if (side === "side") {
         setCheckinSidePhotoUrl(compressed);
+      } else {
+        setCheckinBackPhotoUrl(compressed);
       }
     } catch {
       setCheckinPhotoError(t("tracking.checkinPhotoUploadError"));
@@ -846,6 +849,10 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
         checkinMode === "full" && supportsCheckinPhotos
           ? checkinSidePhotoUrl
           : null,
+      backPhotoUrl:
+        checkinMode === "full" && supportsCheckinPhotos
+          ? checkinBackPhotoUrl
+          : null,
     };
 
     const nextCheckins = [entry, ...checkins].sort((a, b) =>
@@ -866,6 +873,7 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
       setCheckinNotes("");
       setCheckinFrontPhotoUrl(null);
       setCheckinSidePhotoUrl(null);
+      setCheckinBackPhotoUrl(null);
       setCheckinPhotoError(null);
     }
   }
@@ -2007,6 +2015,7 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
     const result = await analyzeTrackingBodyFatScan({
       frontPhotoDataUrl: latestCheckin.frontPhotoUrl,
       sidePhotoDataUrl: latestCheckin.sidePhotoUrl,
+      dorsalPhotoDataUrl: latestCheckin.backPhotoUrl ?? undefined,
       locale: "es",
     });
     setBodyFatScanRunState(result.ok ? "success" : "error");
@@ -2022,6 +2031,8 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
     setBodyFatScanRunError(null);
     setBodyFatScanResult(null);
   }
+
+  const primaryRecommendation = recommendationCapability.items[0] ?? null;
 
   return (
     <div
@@ -3087,18 +3098,22 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
               </label>
             ) : null}
             {checkinMode === "full" && supportsCheckinPhotos ? (
-              <GuidedBodyScanCapture
-                frontPreviewUrl={checkinFrontPhotoUrl}
-                sidePreviewUrl={checkinSidePhotoUrl}
-                isProcessing={isCheckinPhotoProcessing}
-                errorMessage={checkinPhotoError}
-                onFrontUpload={(event) => {
-                  void handleCheckinPhotoUpload("front", event);
-                }}
-                onSideUpload={(event) => {
-                  void handleCheckinPhotoUpload("side", event);
-                }}
-              />
+                <GuidedBodyScanCapture
+                  frontPreviewUrl={checkinFrontPhotoUrl}
+                  sidePreviewUrl={checkinSidePhotoUrl}
+                  backPreviewUrl={checkinBackPhotoUrl}
+                  isProcessing={isCheckinPhotoProcessing}
+                  errorMessage={checkinPhotoError}
+                  onFrontUpload={(event) => {
+                    void handleCheckinPhotoUpload("front", event);
+                  }}
+                  onSideUpload={(event) => {
+                    void handleCheckinPhotoUpload("side", event);
+                  }}
+                  onBackUpload={(event) => {
+                    void handleCheckinPhotoUpload("back", event);
+                  }}
+                />
             ) : null}
             {submitError ? (
               <div className="status-card status-card--warning" role="alert">

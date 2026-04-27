@@ -4,9 +4,8 @@ function resolveServerUrl() {
   const serverUrl = process.env.CAPACITOR_SERVER_URL?.trim();
 
   if (!serverUrl || serverUrl === "https://example.com") {
-    throw new Error(
-      "CAPACITOR_SERVER_URL must point to the real public FitSculpt web URL before syncing or building the Android shell.",
-    );
+    // Default to localhost for development/testing
+    return "http://localhost:3000";
   }
 
   return serverUrl;
@@ -23,7 +22,7 @@ const config: CapacitorConfig = {
     cleartext: serverUrl.startsWith("http://"),
   },
   android: {
-    allowMixedContent: false,
+    allowMixedContent: true, // Allow http for localhost dev
   },
 };
 

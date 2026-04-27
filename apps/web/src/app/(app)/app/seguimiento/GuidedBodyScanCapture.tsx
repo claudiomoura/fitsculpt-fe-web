@@ -4,14 +4,16 @@ import styles from "./GuidedBodyScanCapture.module.css";
 type GuidedBodyScanCaptureProps = {
   frontPreviewUrl: string | null;
   sidePreviewUrl: string | null;
+  backPreviewUrl: string | null;
   isProcessing: boolean;
   errorMessage: string | null;
   onFrontUpload: (event: ChangeEvent<HTMLInputElement>) => void | Promise<void>;
   onSideUpload: (event: ChangeEvent<HTMLInputElement>) => void | Promise<void>;
+  onBackUpload: (event: ChangeEvent<HTMLInputElement>) => void | Promise<void>;
 };
 
 type StepDefinition = {
-  id: "preparacion" | "frontal" | "lateral" | "confirmacion";
+  id: "preparacion" | "frontal" | "lateral" | "dorsal" | "confirmacion";
   title: string;
 };
 
@@ -19,25 +21,27 @@ const STEPS: StepDefinition[] = [
   { id: "preparacion", title: "Paso 1: Preparacion" },
   { id: "frontal", title: "Paso 2: Foto frontal" },
   { id: "lateral", title: "Paso 3: Foto lateral" },
-  { id: "confirmacion", title: "Paso 4: Confirmacion" },
+  { id: "dorsal", title: "Paso 4: Foto dorsal" },
+  { id: "confirmacion", title: "Paso 5: Confirmacion" },
 ];
 
-function getActiveStep(frontPreviewUrl: string | null, sidePreviewUrl: string | null) {
-  if (!frontPreviewUrl && !sidePreviewUrl) return 0;
+function getActiveStep(frontPreviewUrl: string | null, sidePreviewUrl: string | null, backPreviewUrl: string | null) {
+  if (!frontPreviewUrl && !sidePreviewUrl && !backPreviewUrl) return 0;
   if (!frontPreviewUrl) return 1;
   if (!sidePreviewUrl) return 2;
-  return 3;
+  if (!backPreviewUrl) return 3;
+  return 4;
 }
 
 function getStepStatus(index: number, activeStep: number, allPhotosReady: boolean) {
-  if (index === 3 && allPhotosReady) return "completado";
+  if (index === 4 && allPhotosReady) return "completado";
   if (index < activeStep) return "completado";
   if (index === activeStep) return "actual";
   return "pendiente";
 }
 
-function getNextStepCopy(frontPreviewUrl: string | null, sidePreviewUrl: string | null) {
-  if (!frontPreviewUrl && !sidePreviewUrl) {
+function getNextStepCopy(frontPreviewUrl: string | null, sidePreviewUrl: string | null, backPreviewUrl: string | null) {
+  if (!frontPreviewUrl && !sidePreviewUrl && !backPreviewUrl) {
     return "Prepara el espacio: separa la camara a 1.5-2 m y mantenla a la altura del pecho.";
   }
   if (!frontPreviewUrl) {
@@ -46,7 +50,10 @@ function getNextStepCopy(frontPreviewUrl: string | null, sidePreviewUrl: string 
   if (!sidePreviewUrl) {
     return "Ahora girate 90 grados para la toma lateral, sin inclinar la camara ni el torso.";
   }
-  return "Listo para confirmar: revisa que ambas fotos se vean nitidas y sube tu check-in.";
+  if (!backPreviewUrl) {
+    return "Completa la foto dorsal de espalda, con la misma distancia y luz que las tomas anteriores.";
+  }
+  return "Listo para confirmar: revisa que las tres fotos se vean nitidas y sube tu check-in.";
 }
 
 function getStatusLabel(status: ReturnType<typeof getStepStatus>) {
@@ -58,20 +65,22 @@ function getStatusLabel(status: ReturnType<typeof getStepStatus>) {
 export default function GuidedBodyScanCapture({
   frontPreviewUrl,
   sidePreviewUrl,
+  backPreviewUrl,
   isProcessing,
   errorMessage,
   onFrontUpload,
   onSideUpload,
+  onBackUpload,
 }: GuidedBodyScanCaptureProps) {
-  const activeStep = getActiveStep(frontPreviewUrl, sidePreviewUrl);
-  const allPhotosReady = Boolean(frontPreviewUrl && sidePreviewUrl);
+  const activeStep = getActiveStep(frontPreviewUrl, sidePreviewUrl, backPreviewUrl);
+  const allPhotosReady = Boolean(frontPreviewUrl && sidePreviewUrl && backPreviewUrl);
 
   return (
     <section className={styles.guidedCaptureSection} aria-label="Escaneo corporal guiado">
       <header className={styles.header}>
         <h3 className="section-title section-title-sm">Escaneo corporal guiado</h3>
         <p className="muted">
-          Sigue estos pasos para capturar fotos consistentes y comparar tu progreso semana a semana.
+          Captura frente, lateral y espalda para una referencia visual mas completa. Si solo tienes frente y lateral, el check-in sigue siendo valido.
         </p>
       </header>
 
@@ -153,6 +162,30 @@ export default function GuidedBodyScanCapture({
             />
           </label>
         </article>
+
+        <article className={styles.captureCard}>
+          <strong>Dorsal / espalda</strong>
+          <span className="muted">De espaldas a la camara, postura neutral y brazos relajados.</span>
+          {backPreviewUrl ? (
+            <img
+              src={backPreviewUrl}
+              alt="Preview foto dorsal"
+              className={styles.capturePreview}
+            />
+          ) : (
+            <div className={styles.capturePlaceholder}>Aun no hay foto dorsal</div>
+          )}
+          <label className={styles.uploadButton}>
+            {backPreviewUrl ? "Repetir foto dorsal" : "Subir foto dorsal"}
+            <input
+              type="file"
+              className={styles.uploadInput}
+              accept="image/*"
+              capture="environment"
+              onChange={onBackUpload}
+            />
+          </label>
+        </article>
       </div>
 
       <div
@@ -162,7 +195,7 @@ export default function GuidedBodyScanCapture({
       >
         <span className={styles.statusLabel}>Siguiente paso</span>
         <span className={styles.statusText}>
-          {errorMessage ? errorMessage : getNextStepCopy(frontPreviewUrl, sidePreviewUrl)}
+          {errorMessage ? errorMessage : getNextStepCopy(frontPreviewUrl, sidePreviewUrl, backPreviewUrl)}
         </span>
         {isProcessing ? (
           <span className="muted">Procesando imagen, espera un momento...</span>

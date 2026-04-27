@@ -11,6 +11,12 @@ export const bodyFatScanRequestSchema = z.object({
     .min(40)
     .max(2_000_000)
     .regex(/^data:image\/(png|jpe?g|webp);base64,/i, "Invalid side image data URL"),
+  dorsalPhotoDataUrl: z
+    .string()
+    .min(40)
+    .max(2_000_000)
+    .regex(/^data:image\/(png|jpe?g|webp);base64,/i, "Invalid dorsal image data URL")
+    .optional(),
   locale: z.enum(["es", "en", "pt"]).optional().default("es"),
 });
 

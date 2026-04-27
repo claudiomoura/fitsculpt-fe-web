@@ -1,6 +1,7 @@
 import type { CandidateExercise } from "./candidateSelector.js";
 import type { DaySkeleton } from "./daySkeletonBuilder.js";
 import type { UserContext } from "./contextResolver.js";
+import { validateExerciseSelectionResponse } from "../../lib/ai/schemas/trainingPlanValidation.js";
 
 export type ExerciseSelection = {
   exerciseId: string;
@@ -122,9 +123,13 @@ export async function selectExercisesWithAi(
         retryOnParseError: false,
       });
 
-      const exerciseId = typeof result.payload.exerciseId === "string"
-        ? result.payload.exerciseId.trim()
-        : null;
+      const validation = validateExerciseSelectionResponse(result.payload);
+      if (!validation.success) {
+        console.warn("training-v2: invalid exercise selection response", { payload: result.payload, error: validation.error });
+        continue;
+      }
+
+      const exerciseId = validation.data.exerciseId.trim();
 
       if (exerciseId && candidates.some((c) => c.id === exerciseId)) {
         selections.push({ exerciseId });

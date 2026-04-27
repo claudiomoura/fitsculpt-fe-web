@@ -13,11 +13,29 @@ import { normalizeExerciseName } from "../../utils/normalizeExerciseName.js";
 // Types (inlined - would come from schemas)
 // ============================================================================
 
+const trainingDaySchema = z.object({
+  date: z.string().nullable(),
+  label: z.string(),
+  focus: z.string(),
+  duration: z.number(),
+  exercises: z.array(
+    z.object({
+      exerciseId: z.string().min(1),
+      name: z.string(),
+      sets: z.number().min(1),
+      reps: z.string(),
+      tempo: z.string().nullable(),
+      rest: z.number().nullable(),
+      notes: z.string().nullable(),
+    }),
+  ),
+});
+
 const aiTrainingPlanResponseSchema = z.object({
   title: z.string(),
   startDate: z.string().nullable(),
   notes: z.string().nullable(),
-  days: z.array(z.any()),
+  days: z.array(trainingDaySchema),
 });
 
 // ============================================================================

@@ -182,6 +182,37 @@ export function registerAuthRoutes(
     }
   });
 
+  // POST /auth/bypass - Development-only endpoint to bypass email verification
+  app.post("/auth/bypass", async (request: FastifyRequest, reply: FastifyReply) => {
+    const schema = z.object({ email: z.string().email() });
+    try {
+      const input =
+        request.body && typeof request.body === "object"
+          ? request.body
+          : request.query;
+      const { email } = schema.parse(input);
+
+      // Only allow in development
+      if (process.env.NODE_ENV === "production") {
+        return reply.status(403).send({ error: "BYPASS_NOT_ALLOWED_IN_PRODUCTION" });
+      }
+
+      const user = await prisma.user.findUnique({ where: { email } });
+      if (!user) {
+        return reply.status(404).send({ error: "USER_NOT_FOUND" });
+      }
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { emailVerifiedAt: new Date() },
+      });
+
+      return reply.status(200).send({ ok: true, message: "Email verification bypassed" });
+    } catch (error) {
+      return handleRequestError(reply, error, (err) => app.log.error({ err }, "bypass error"));
+    }
+  });
+
   // POST /auth/reset-password
   app.post("/auth/reset-password", async (request: FastifyRequest, reply: FastifyReply) => {
     const schema = z.object({

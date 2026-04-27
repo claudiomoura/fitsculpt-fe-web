@@ -12,9 +12,9 @@ import {
 } from "@/services/trackingBodyFatScan";
 import styles from "./BodyScanClient.module.css";
 
-type FlowStep = "intro" | "front" | "side" | "review" | "analyzing" | "result" | "error";
+type FlowStep = "intro" | "front" | "side" | "dorsal" | "review" | "analyzing" | "result" | "error";
 
-const ESTIMATED_BODY_SCAN_TOKENS = 260;
+const ESTIMATED_BODY_SCAN_TOKENS = 350;
 
 function formatConfidence(confidence: BodyFatScanExecutionResult["confidence"]): string {
   if (confidence === "high") return "Alta";
@@ -30,6 +30,7 @@ export default function BodyScanClient() {
   const [step, setStep] = useState<FlowStep>("intro");
   const [frontPhotoDataUrl, setFrontPhotoDataUrl] = useState<string | null>(null);
   const [sidePhotoDataUrl, setSidePhotoDataUrl] = useState<string | null>(null);
+  const [dorsalPhotoDataUrl, setDorsalPhotoDataUrl] = useState<string | null>(null);
   const [isPhotoProcessing, setIsPhotoProcessing] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [isEntitlementLoading, setIsEntitlementLoading] = useState(true);
@@ -61,9 +62,9 @@ export default function BodyScanClient() {
   }, []);
 
   const isTokenBlocked = typeof tokenBalance === "number" && tokenBalance < ESTIMATED_BODY_SCAN_TOKENS;
-  const canAnalyze = Boolean(frontPhotoDataUrl && sidePhotoDataUrl && isProEligible && !isTokenBlocked);
+  const canAnalyze = Boolean(frontPhotoDataUrl && sidePhotoDataUrl && dorsalPhotoDataUrl && isProEligible && !isTokenBlocked);
 
-  async function handlePhotoUpload(kind: "front" | "side", event: ChangeEvent<HTMLInputElement>) {
+  async function handlePhotoUpload(kind: "front" | "side" | "dorsal", event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0] ?? null;
     event.target.value = "";
     if (!file) return;
@@ -74,10 +75,13 @@ export default function BodyScanClient() {
       const dataUrl = await compressAvatarToDataUrl(file);
       if (kind === "front") {
         setFrontPhotoDataUrl(dataUrl);
-        setStep(sidePhotoDataUrl ? "review" : "side");
-      } else {
+        setStep(sidePhotoDataUrl ? "review" : sidePhotoDataUrl ?? dorsalPhotoDataUrl ? "review" : "side");
+      } else if (kind === "side") {
         setSidePhotoDataUrl(dataUrl);
-        setStep(frontPhotoDataUrl ? "review" : "front");
+        setStep(frontPhotoDataUrl ? (dorsalPhotoDataUrl ? "review" : "dorsal") : "front");
+      } else {
+        setDorsalPhotoDataUrl(dataUrl);
+        setStep(frontPhotoDataUrl && sidePhotoDataUrl ? "review" : frontPhotoDataUrl ? "side" : "front");
       }
     } catch (_error) {
       setPhotoError("No pudimos procesar la imagen. Usa una foto JPG, PNG o WEBP menor a 10 MB.");
@@ -87,8 +91,8 @@ export default function BodyScanClient() {
   }
 
   async function analyze() {
-    if (!frontPhotoDataUrl || !sidePhotoDataUrl) {
-      setErrorMessage("Necesitas subir foto frontal y lateral antes de analizar.");
+    if (!frontPhotoDataUrl || !sidePhotoDataUrl || !dorsalPhotoDataUrl) {
+      setErrorMessage("Necesitas subir foto frontal, lateral y dorsal antes de analizar.");
       setStep("error");
       return;
     }
@@ -105,6 +109,7 @@ export default function BodyScanClient() {
     const response = await analyzeTrackingBodyFatScan({
       frontPhotoDataUrl,
       sidePhotoDataUrl,
+      dorsalPhotoDataUrl,
       locale: "es",
     });
 
@@ -127,12 +132,25 @@ export default function BodyScanClient() {
   function retry() {
     setResult(null);
     setErrorMessage(null);
-    setStep(frontPhotoDataUrl && sidePhotoDataUrl ? "review" : frontPhotoDataUrl ? "side" : "front");
+    const hasAll = frontPhotoDataUrl && sidePhotoDataUrl && dorsalPhotoDataUrl;
+    const hasFront = frontPhotoDataUrl;
+    const hasSide = sidePhotoDataUrl;
+    const hasDorsal = dorsalPhotoDataUrl;
+    if (hasAll) {
+      setStep("review");
+    } else if (hasDorsal) {
+      setStep(sidePhotoDataUrl ? "review" : frontPhotoDataUrl ? "side" : "front");
+    } else if (hasSide) {
+      setStep(dorsalPhotoDataUrl ? "review" : "dorsal");
+    } else {
+      setStep("front");
+    }
   }
 
   function resetPhotos() {
     setFrontPhotoDataUrl(null);
     setSidePhotoDataUrl(null);
+    setDorsalPhotoDataUrl(null);
     setResult(null);
     setErrorMessage(null);
     setStep("front");
@@ -143,9 +161,9 @@ export default function BodyScanClient() {
       <section className={styles.hero}>
         <div className={styles.heroCopy}>
           <p className={styles.eyebrow}>Escaneo Corporal IA</p>
-          <h1>Estima tu porcentaje graso con dos fotos guiadas.</h1>
+          <h1>Estima tu porcentaje graso con tres fotos guiadas.</h1>
           <p>
-            Un flujo independiente para capturar foto frontal y lateral, revisar calidad y ejecutar el analisis sin pasar por Tracking.
+            Un flujo independiente para capturar foto frontal, lateral y dorsal, revisar calidad y ejecutar el analisis sin pasar por Tracking.
           </p>
         </div>
         <div className={styles.tokenCard}>
@@ -181,6 +199,7 @@ export default function BodyScanClient() {
             ["intro", "Aprender"],
             ["front", "Frontal"],
             ["side", "Lateral"],
+            ["dorsal", "Dorsal"],
             ["review", "Revisar"],
             ["result", "Resultado"],
           ].map(([id, label]) => (
@@ -201,7 +220,7 @@ export default function BodyScanClient() {
           </div>
         ) : null}
 
-        {step === "front" || step === "side" || step === "review" ? (
+        {step === "front" || step === "side" || step === "dorsal" || step === "review" ? (
           <div className={styles.captureLayout}>
             <PhotoCard
               title="Foto frontal"
@@ -212,17 +231,24 @@ export default function BodyScanClient() {
             />
             <PhotoCard
               title="Foto lateral"
-              body="Gira 90 grados y conserva distancia y altura de camara."
+              body="Gira 90 grados hacia un lado. Conserva distancia y altura."
               previewUrl={sidePhotoDataUrl}
               buttonLabel={sidePhotoDataUrl ? "Repetir lateral" : "Subir lateral"}
               onChange={(event) => handlePhotoUpload("side", event)}
             />
+            <PhotoCard
+              title="Foto dorsal"
+              body="Gira 180 grados. Mira de espalda, postura erguida."
+              previewUrl={dorsalPhotoDataUrl}
+              buttonLabel={dorsalPhotoDataUrl ? "Repetir dorsal" : "Subir dorsal"}
+              onChange={(event) => handlePhotoUpload("dorsal", event)}
+            />
             <div className={styles.reviewPanel}>
-              <h2>{frontPhotoDataUrl && sidePhotoDataUrl ? "Listo para analizar" : "Captura pendiente"}</h2>
+              <h2>{frontPhotoDataUrl && sidePhotoDataUrl && dorsalPhotoDataUrl ? "Listo para analizar" : "Captura pendiente"}</h2>
               <p>
-                {frontPhotoDataUrl && sidePhotoDataUrl
-                  ? "Revisa que ambas fotos esten nitidas y ejecuta el analisis."
-                  : "Sube las dos vistas para activar el analisis IA."}
+                {frontPhotoDataUrl && sidePhotoDataUrl && dorsalPhotoDataUrl
+                  ? "Revisa que las tres fotos esten nitidas y ejecuta el analisis."
+                  : "Sube las tres vistas (frontal, lateral, dorsal) para activar el analisis IA."}
               </p>
               {photoError ? <p className={styles.inlineError} role="alert">{photoError}</p> : null}
               {isPhotoProcessing ? <p className="muted">Procesando imagen...</p> : null}
@@ -241,8 +267,8 @@ export default function BodyScanClient() {
         {step === "analyzing" ? (
           <div className={styles.loadingPanel} role="status" aria-live="polite">
             <span className={styles.spinner} aria-hidden="true" />
-            <h2>Analizando composicion corporal...</h2>
-            <p>Esto puede tardar unos segundos mientras validamos calidad, postura y estimacion.</p>
+            <h2>Calculando porcentaje graso...</h2>
+            <p className="muted">La IA esta analizando las 3 fotos. Esto usa modelos de vision para estimar tu composicion corporal.</p>
           </div>
         ) : null}
 

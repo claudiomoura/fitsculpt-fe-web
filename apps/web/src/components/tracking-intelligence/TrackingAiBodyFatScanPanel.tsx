@@ -47,46 +47,42 @@ export default function TrackingAiBodyFatScanPanel({
       id="ai-body-fat-scan"
       className="rounded-3xl border border-[rgba(15,23,42,0.08)] bg-[linear-gradient(135deg,rgba(16,185,129,0.06),rgba(255,255,255,0.98),rgba(59,130,246,0.06))] p-5 shadow-sm"
     >
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="max-w-[42rem]">
-          <p className="m-0 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-primary)]">
+          <p className="m-0 text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--color-primary)]">
             {t("tracking.aiBodyScan.eyebrow")}
           </p>
-          <h3 className="m-0 mt-2 text-xl font-semibold text-[var(--text)]">{t("tracking.aiBodyScan.title")}</h3>
-          <p className="m-0 mt-2 text-sm leading-6 text-[var(--muted)]">{t("tracking.aiBodyScan.subtitle")}</p>
+          <h3 className="m-0 mt-1 text-lg font-semibold text-[var(--text)]">{t("tracking.aiBodyScan.title")}</h3>
+          <p className="m-0 mt-1 text-xs leading-5 text-[var(--muted)]">{t("tracking.aiBodyScan.subtitle")}</p>
         </div>
-        <div className="rounded-2xl border border-[var(--border)] bg-white/90 px-3 py-2 text-right text-xs text-[var(--muted)]">
-          <p className="m-0">{t("ai.tokensRemaining")} {tokenBalance ?? "-"}</p>
-          <p className="m-0 mt-1">est. {estimatedTokens}</p>
+        <div className="rounded-xl border border-[var(--border)] bg-white/90 px-2 py-1 text-[10px] text-right text-[var(--muted)]">
+          <p className="m-0">{tokenBalance ?? "-"} tokens</p>
         </div>
       </div>
 
       {isResultReady ? (
-        <div className="mt-4 grid gap-3 md:grid-cols-[1.1fr_0.9fr]">
+        <div className="mt-4 grid gap-3 md:grid-cols-[1fr_0.8fr]">
           <div className="rounded-2xl border border-[rgba(59,130,246,0.16)] bg-white/90 p-4">
             <p className="m-0 text-xs uppercase tracking-[0.16em] text-[var(--muted)]">{t("tracking.aiBodyScan.resultTitle")}</p>
-            <div className="mt-3 flex items-end justify-between gap-3">
+            <div className="mt-2 flex items-end justify-between gap-2">
               <div>
                 <p className="m-0 text-4xl font-semibold text-[var(--text)]">{result.estimate?.pointPercent.toFixed(1)}%</p>
-                <p className="m-0 mt-2 text-sm text-[var(--muted)]">{result.summary}</p>
+                <p className="m-0 mt-1 text-xs text-[var(--muted)]">{formatConfidence(result.confidence, t)} · {result.confidenceScore ?? "-"}/100</p>
               </div>
-              <div className="rounded-2xl bg-[rgba(15,23,42,0.04)] px-3 py-2 text-right">
-                <p className="m-0 text-[11px] uppercase tracking-[0.14em] text-[var(--muted)]">{t("tracking.aiBodyScan.rangeLabel")}</p>
-                <p className="m-0 mt-1 text-sm font-semibold text-[var(--text)]">
-                  {result.estimate?.range.min.toFixed(1)}% - {result.estimate?.range.max.toFixed(1)}%
-                </p>
-                <p className="m-0 mt-1 text-xs text-[var(--muted)]">
-                  {t("tracking.aiBodyScan.confidenceLabel")} {formatConfidence(result.confidence, t)}
+              <div className="rounded-xl bg-[rgba(15,23,42,0.04)] px-2 py-1 text-right">
+                <p className="m-0 text-[10px] uppercase tracking-[0.12em] text-[var(--muted)]">rango</p>
+                <p className="m-0 text-sm font-semibold text-[var(--text)]">
+                  {result.estimate?.range.min.toFixed(0)}-{result.estimate?.range.max.toFixed(0)}%
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="rounded-2xl border border-[var(--border)] bg-white/85 p-4">
-            <p className="m-0 text-xs uppercase tracking-[0.16em] text-[var(--muted)]">{t("tracking.aiBodyScan.nextActionsTitle")}</p>
-            <div className="mt-3 space-y-2">
-              {(result.nextActions.length > 0 ? result.nextActions : capability.nextBestInputs).slice(0, 3).map((item: string, index: number) => (
-                <p key={`scan-next-${index}`} className="m-0 text-sm leading-6 text-[var(--text)]">• {item}</p>
+          <div className="rounded-2xl border border-[var(--border)] bg-white/85 p-3">
+            <p className="m-0 text-[10px] uppercase tracking-[0.14em] text-[var(--muted)]">{t("tracking.aiBodyScan.nextActionsTitle")}</p>
+            <div className="mt-2 space-y-1">
+              {(result.nextActions.length > 0 ? result.nextActions : capability.nextBestInputs).slice(0, 2).map((item: string, index: number) => (
+                <p key={`scan-next-${index}`} className="m-0 text-xs leading-4 text-[var(--text)]">{item}</p>
               ))}
             </div>
           </div>
@@ -125,11 +121,11 @@ export default function TrackingAiBodyFatScanPanel({
         </div>
       ) : null}
 
-      <div className="mt-4 flex flex-wrap items-center gap-3">
+      <div className="mt-4 flex items-center gap-2">
         <Link href={openHref} className="btn primary fit-content">{t("tracking.aiBodyScan.analyzeCta")}</Link>
         {!isResultReady && isProEligible && !hasInsufficientData && !isTokenBlocked ? (
           <button type="button" className={`btn secondary ${isLoading ? "is-loading" : ""}`} onClick={onAnalyze} disabled={isLoading}>
-            {isLoading ? t("tracking.aiBodyScan.analyzing") : "Usar últimas fotos"}
+            {isLoading ? t("tracking.aiBodyScan.analyzing") : "Usar fotos"}
           </button>
         ) : null}
       </div>
@@ -143,7 +139,7 @@ export default function TrackingAiBodyFatScanPanel({
         </div>
       ) : null}
 
-      <p className="m-0 mt-4 text-xs leading-5 text-[var(--muted)]">{capability.compliance.disclaimer}</p>
+      <p className="m-0 mt-3 text-[10px] leading-4 text-[var(--muted)] opacity-70">{capability.compliance.disclaimer}</p>
     </section>
   );
 }

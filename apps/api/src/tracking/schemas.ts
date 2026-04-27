@@ -18,6 +18,7 @@ export const checkinSchema = z.object({
   recommendation: z.string(),
   frontPhotoUrl: z.string().nullable(),
   sidePhotoUrl: z.string().nullable(),
+  backPhotoUrl: z.string().nullable().optional().default(null),
 });
 
 export const foodEntrySchema = z.object({

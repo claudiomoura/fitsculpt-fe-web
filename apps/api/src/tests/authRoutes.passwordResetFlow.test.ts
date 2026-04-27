@@ -135,6 +135,47 @@ async function main() {
   assert.equal(resetReply.statusCode, 400);
   assert.deepEqual(resetReply.payload, { error: "INVALID_TOKEN" });
 
+  const bypassHandler = routes.get("POST /auth/bypass");
+  assert.ok(bypassHandler, "Expected /auth/bypass route to be registered");
+
+  const previousNodeEnv = process.env.NODE_ENV;
+  process.env.NODE_ENV = "development";
+
+  const bypassBodyReply = createReplyStub();
+  await bypassHandler?.(
+    { body: { email: "user@fitsculpt.test" }, query: {} },
+    bypassBodyReply,
+  );
+  assert.equal(bypassBodyReply.statusCode, 200);
+  assert.deepEqual(bypassBodyReply.payload, {
+    ok: true,
+    message: "Email verification bypassed",
+  });
+
+  const bypassQueryReply = createReplyStub();
+  await bypassHandler?.(
+    { body: undefined, query: { email: "user@fitsculpt.test" } },
+    bypassQueryReply,
+  );
+  assert.equal(bypassQueryReply.statusCode, 200);
+  assert.deepEqual(bypassQueryReply.payload, {
+    ok: true,
+    message: "Email verification bypassed",
+  });
+
+  process.env.NODE_ENV = "production";
+  const bypassProdReply = createReplyStub();
+  await bypassHandler?.(
+    { body: { email: "user@fitsculpt.test" }, query: {} },
+    bypassProdReply,
+  );
+  assert.equal(bypassProdReply.statusCode, 403);
+  assert.deepEqual(bypassProdReply.payload, {
+    error: "BYPASS_NOT_ALLOWED_IN_PRODUCTION",
+  });
+
+  process.env.NODE_ENV = previousNodeEnv;
+
   console.log("auth routes password reset flow tests passed");
 }
 

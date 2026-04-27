@@ -41,6 +41,7 @@ export type BodyFatScanExecutionResult = {
 export type AnalyzeBodyFatScanPayload = {
   frontPhotoDataUrl: string;
   sidePhotoDataUrl: string;
+  dorsalPhotoDataUrl?: string;
   locale?: "es" | "en" | "pt";
 };
 
@@ -98,7 +99,13 @@ export function parseTrackingBodyFatScanExecutionResult(value: unknown): BodyFat
   }
 
   const estimateRaw = asRecord(source.estimate ?? {});
-  const rangeRaw = asRecord(estimateRaw.range ?? {});
+  const estimateRangeRaw = asRecord(estimateRaw.range ?? {});
+  const rootRangeRaw = asRecord(source.range ?? {});
+  // Range can be at root level or inside estimate — prefer estimate.range, fallback to root
+  const rangeRaw =
+    asNumber(estimateRangeRaw.min) !== null || asNumber(estimateRangeRaw.max) !== null
+      ? estimateRangeRaw
+      : rootRangeRaw;
   const pointPercent = asNumber(estimateRaw.bodyFatPercent ?? estimateRaw.pointPercent);
   const rangeMin = asNumber(rangeRaw.min);
   const rangeMax = asNumber(rangeRaw.max);
@@ -140,7 +147,7 @@ export function parseTrackingBodyFatScanExecutionResult(value: unknown): BodyFat
       status: "failed",
       estimate: null,
       summary: "El scan no devolvio una estimacion valida de grasa corporal.",
-      errorMessage: "No pudimos obtener una estimacion valida. Reintenta con fotos frontal y lateral claras.",
+      errorMessage: "No pudimos obtener una estimacion valida. Reintenta con fotos frontal, lateral y dorsal claras.",
       failureReason: "invalid_estimate",
     };
   }
