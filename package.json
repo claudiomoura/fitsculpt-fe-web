@@ -11,6 +11,10 @@
     "ci:test": "npm --prefix apps/web run test && npm --prefix apps/api run test",
     "ci:e2e:smoke": "npm --prefix apps/web run e2e -- e2e/library-smoke.spec.ts",
     "seed:demo": "npm --prefix apps/api run seed:demo",
+    "setup:notion-hq": "node scripts/setup-notion-hq.mjs",
+    "setup:notion-hq:check": "node scripts/setup-notion-hq.mjs --check",
+    "sync:notion-hq": "node scripts/sync-notion-hq.mjs",
+    "sync:notion-hq:check": "node scripts/sync-notion-hq.mjs --check",
     "android:prepare": "npm --prefix apps/web run mobile:android:prepare",
     "android:sync": "npm --prefix apps/web run mobile:android:sync",
     "android:doctor": "npm --prefix apps/web run mobile:android:doctor"
