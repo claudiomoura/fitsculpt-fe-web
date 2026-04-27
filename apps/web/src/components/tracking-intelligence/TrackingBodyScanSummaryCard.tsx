@@ -38,9 +38,9 @@ export default function TrackingBodyScanSummaryCard({ capability }: TrackingBody
     <section className="rounded-3xl border border-[rgba(15,23,42,0.08)] bg-white/85 p-4 shadow-sm sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="m-0 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Analisis corporal</p>
-          <h3 className="m-0 mt-2 text-xl font-semibold text-[var(--text)]">Lectura de progreso</h3>
-          <p className="m-0 mt-2 text-sm leading-6 text-[var(--muted)]">{capability.summary}</p>
+          <p className="m-0 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Body scan</p>
+          <h3 className="m-0 mt-2 text-xl font-semibold text-[var(--text)]">Composicion corporal</h3>
+          <p className="m-0 mt-2 text-sm leading-6 text-[var(--muted)]">Lectura orientativa basada en fotos, medidas y registros recientes.</p>
         </div>
         <div
           className="rounded-2xl border border-[var(--border)] px-3 py-2 text-right"
@@ -58,20 +58,20 @@ export default function TrackingBodyScanSummaryCard({ capability }: TrackingBody
         <>
           <div className="mt-4 grid grid-cols-2 gap-3">
             <article className="rounded-2xl border border-[var(--border)] bg-[rgba(248,250,252,0.95)] p-3 sm:p-4">
-              <p className="m-0 text-xs uppercase tracking-[0.16em] text-[var(--muted)]">Grasa estimada</p>
-              <p className="m-0 mt-2 text-2xl font-semibold text-[var(--text)]">{composition.bodyFatRangePct.min.toFixed(1)}-{composition.bodyFatRangePct.max.toFixed(1)}%</p>
-              <p className="m-0 mt-2 text-sm text-[var(--muted)]">Centro: {composition.bodyFatPercent.toFixed(1)}%</p>
+              <p className="m-0 text-xs uppercase tracking-[0.16em] text-[var(--muted)]">% grasa estimado</p>
+              <p className="m-0 mt-2 text-2xl font-semibold text-[var(--text)]">{composition.bodyFatPercent.toFixed(1)}%</p>
+              <p className="m-0 mt-2 text-sm text-[var(--muted)]">Rango: {composition.bodyFatRangePct.min.toFixed(1)}-{composition.bodyFatRangePct.max.toFixed(1)}%</p>
             </article>
             <article className="rounded-2xl border border-[var(--border)] bg-[rgba(248,250,252,0.95)] p-3 sm:p-4">
-              <p className="m-0 text-xs uppercase tracking-[0.16em] text-[var(--muted)]">Masa magra</p>
+              <p className="m-0 text-xs uppercase tracking-[0.16em] text-[var(--muted)]">Composicion</p>
               <p className="m-0 mt-2 text-2xl font-semibold text-[var(--text)]">{formatNumber(composition.leanMassKg, "kg")}</p>
-              <p className="m-0 mt-2 text-sm text-[var(--muted)]">Grasa: {formatNumber(composition.fatMassKg, "kg")}</p>
+              <p className="m-0 mt-2 text-sm text-[var(--muted)]">Masa grasa: {formatNumber(composition.fatMassKg, "kg")}</p>
             </article>
           </div>
 
           <div className="mt-4 rounded-2xl border border-[var(--border)] bg-[linear-gradient(135deg,rgba(245,158,11,0.08),rgba(59,130,246,0.08))] p-3 sm:p-4">
             <div className="flex items-center justify-between gap-3">
-              <p className="m-0 text-xs uppercase tracking-[0.16em] text-[var(--muted)]">Rango visual</p>
+              <p className="m-0 text-xs uppercase tracking-[0.16em] text-[var(--muted)]">Rango estimado</p>
               <p className="m-0 text-sm font-semibold text-[var(--text)]">{composition.bodyFatRangePct.min.toFixed(1)}% a {composition.bodyFatRangePct.max.toFixed(1)}%</p>
             </div>
             <div className="mt-4 h-3 rounded-full bg-white/80">
@@ -92,7 +92,7 @@ export default function TrackingBodyScanSummaryCard({ capability }: TrackingBody
       </div>
 
       <details className="mt-4 rounded-2xl border border-[var(--border)] bg-[rgba(248,250,252,0.8)] p-4 text-sm text-[var(--text)]">
-        <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">Ver detalles tecnicos</summary>
+        <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">Ver detalles</summary>
         {composition ? (
           <div className="mt-3 grid gap-3">
             <p className="m-0 leading-6">{composition.accuracyNote}</p>
@@ -106,10 +106,10 @@ export default function TrackingBodyScanSummaryCard({ capability }: TrackingBody
           </div>
         ) : null}
         <div className="mt-3 grid gap-2">
-          {capability.observations.slice(0, 4).map((item, index) => (
+          {capability.observations.slice(0, 2).map((item, index) => (
             <p key={`body-scan-observation-${index}`} className="m-0 leading-6">{item}</p>
           ))}
-          {capability.nextBestInputs.slice(1, 4).map((item, index) => (
+          {capability.nextBestInputs.slice(1, 3).map((item, index) => (
             <p key={`body-scan-next-${index}`} className="m-0 leading-6">{item}</p>
           ))}
         </div>

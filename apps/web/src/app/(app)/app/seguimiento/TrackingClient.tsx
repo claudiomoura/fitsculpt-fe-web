@@ -2050,9 +2050,9 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
           <div className="rounded-3xl border border-[rgba(15,23,42,0.08)] bg-[linear-gradient(135deg,rgba(255,245,235,0.9),rgba(255,255,255,0.96),rgba(239,246,255,0.9))] p-5 shadow-sm">
             <p className="m-0 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">AI Body Fat Scan</p>
             <h1 className="m-0 mt-2 text-2xl font-semibold text-[var(--text)]">Escaneo corporal AI</h1>
-            <p className="m-0 mt-2 text-sm leading-6 text-[var(--muted)]">
-              Ejecuta el scan con tus fotos frontal y lateral mas recientes. Si faltan fotos, crea primero un check-in completo.
-            </p>
+              <p className="m-0 mt-2 text-sm leading-6 text-[var(--muted)]">
+                Ejecuta el scan con tus fotos frontal, lateral y dorsal mas recientes. Si faltan fotos, crea primero un check-in completo.
+              </p>
             <div className="mt-4 flex flex-wrap gap-3">
               <Link href="/app/seguimiento/check-in" className="btn secondary fit-content">
                 Crear check-in base
@@ -2723,9 +2723,9 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
           >
             <summary>
               <div className={styles.advancedDisclosureTitle}>
-                <strong>Body scan + recommendation</strong>
-                <span className="muted">Vista modular temprana sobre la nueva base reusable.</span>
-                <span className="muted">Fallback determinista con compliance y proximo mejor paso.</span>
+                <strong>Body scan y plan recomendado</strong>
+                <span className="muted">Lectura rapida de composicion corporal y siguiente mejor paso.</span>
+                <span className="muted">Vista compacta para mobile. Abre detalles solo cuando los necesites.</span>
               </div>
               <span className={styles.advancedDisclosureIndicator}>
                 {isIntelligencePreviewOpen ? t("ui.showLess") : t("ui.viewAll")}
@@ -2780,13 +2780,11 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
                 )}
 
                 <section className="rounded-3xl border border-[rgba(15,23,42,0.08)] bg-[linear-gradient(135deg,rgba(255,245,235,0.88),rgba(255,255,255,0.96),rgba(239,246,255,0.88))] p-5 shadow-sm">
-                  <p className="m-0 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Recommendation / transformation program</p>
+                  <p className="m-0 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Plan recomendado</p>
                   <h3 className="m-0 mt-2 text-xl font-semibold text-[var(--text)]">{recommendationCapability.summary}</h3>
                   {!hasAdjustmentEntitlement ? (
                     <div className="mt-3 rounded-2xl border border-[var(--surface-border-default)] bg-white/85 p-3">
-                      <p className="m-0 text-sm text-[var(--text)]">
-                        {t("pro.aiLockedSubtitle")}
-                      </p>
+                      <p className="m-0 text-sm text-[var(--text)]">{t("pro.aiLockedSubtitle")}</p>
                       <div className="mt-3">
                         <Link href="/app/settings/billing" className="btn primary fit-content">
                           {t("pro.aiLockedCta")}
@@ -2794,40 +2792,21 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
                       </div>
                     </div>
                   ) : null}
-                  <div className="mt-4 rounded-2xl border border-white/80 bg-white/85 p-4">
-                    <p className="m-0 text-xs uppercase tracking-[0.16em] text-[var(--muted)]">Projection integration</p>
-                    {projectionCapabilityStatus === "loading" ? (
-                      <LoadingState
-                        ariaLabel="Cargando projection para recommendation"
-                        showCard={false}
-                        variant="inline"
-                        lines={2}
-                        className="mt-3"
-                      />
-                    ) : (
-                      <>
-                        <p className="m-0 mt-2 text-sm leading-6 text-[var(--text)]">
-                          {recommendationCapability.explainability.summary}
-                        </p>
-                        <div className="mt-2 space-y-1">
-                          {recommendationCapability.explainability.rationale
-                            .slice(0, 2)
-                            .map((item, index) => (
-                              <p key={`recommendation-explainability-${index}`} className="m-0 text-xs leading-5 text-[var(--muted)]">
-                                {item}
-                              </p>
-                            ))}
-                        </div>
-                        {recommendationCapability.explainability.fallbackLabel ? (
-                          <p className="m-0 mt-2 text-xs text-[var(--muted)]">
-                            Fallback activo: {recommendationCapability.explainability.fallbackLabel}
-                          </p>
-                        ) : null}
-                      </>
-                    )}
-                  </div>
+
+                  {projectionCapabilityStatus === "loading" ? (
+                    <LoadingState
+                      ariaLabel="Cargando recomendacion"
+                      showCard={false}
+                      variant="inline"
+                      lines={2}
+                      className="mt-3"
+                    />
+                  ) : (
+                    <p className="m-0 mt-3 text-sm leading-6 text-[var(--text)]">{recommendationCapability.explainability.summary}</p>
+                  )}
+
                   <div className="mt-4 space-y-3">
-                    {recommendationCapability.items.slice(0, 2).map((item) => (
+                    {recommendationCapability.items.slice(0, 1).map((item) => (
                       <article key={item.id} className="rounded-2xl border border-white/80 bg-white/85 p-4">
                         <div className="flex flex-wrap items-start justify-between gap-3">
                           <div>
@@ -2838,11 +2817,9 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
                             {item.confidence}
                           </span>
                         </div>
-                        <div className="mt-3 space-y-1">
-                          {item.rationale.slice(0, 2).map((reason, index) => (
-                            <p key={`${item.id}-reason-${index}`} className="m-0 text-sm leading-6 text-[var(--text)]">{reason}</p>
-                          ))}
-                        </div>
+                        {item.rationale[0] ? (
+                          <p className="m-0 mt-3 text-sm leading-6 text-[var(--text)]">{item.rationale[0]}</p>
+                        ) : null}
                         <div className="mt-4 flex flex-wrap items-center gap-3">
                           <Link
                             href={item.cta.href}
@@ -2866,26 +2843,31 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
                               disabled={recommendationAiStatus.state === "loading"}
                               onClick={() => void handleApplyRecommendationAiPlan(item)}
                             >
-                              {recommendationAiStatus.state === "loading"
-                                ? "Aplicando plan AI..."
-                                : "Aplicar plan AI desde recommendation"}
+                              {recommendationAiStatus.state === "loading" ? "Aplicando plan IA..." : "Aplicar plan IA"}
                             </button>
                           ) : null}
-                          <span className="text-xs text-[var(--muted)]">
-                            Fuentes: {item.sourceCapabilities.join(" + ")}
-                          </span>
                         </div>
                       </article>
                     ))}
                   </div>
-                  {recommendationAiStatus.message ? (
-                    <p className="m-0 mt-3 text-xs text-[var(--muted)]">
-                      {recommendationAiStatus.message}
-                    </p>
-                  ) : null}
-                  <p className="m-0 mt-3 text-xs text-[var(--muted)]">
-                    {recommendationCapability.compliance.disclaimer}
-                  </p>
+
+                  <details className="mt-4 rounded-2xl border border-white/80 bg-white/85 p-3">
+                    <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Ver detalles del modelo</summary>
+                    <div className="mt-3 space-y-2">
+                      {recommendationCapability.explainability.rationale.slice(0, 3).map((item, index) => (
+                        <p key={`recommendation-detail-${index}`} className="m-0 text-xs leading-5 text-[var(--muted)]">
+                          {item}
+                        </p>
+                      ))}
+                      {recommendationCapability.explainability.fallbackLabel ? (
+                        <p className="m-0 text-xs text-[var(--muted)]">Fallback activo: {recommendationCapability.explainability.fallbackLabel}</p>
+                      ) : null}
+                      <p className="m-0 text-xs text-[var(--muted)]">{recommendationCapability.compliance.disclaimer}</p>
+                      {recommendationAiStatus.message ? (
+                        <p className="m-0 text-xs text-[var(--muted)]">{recommendationAiStatus.message}</p>
+                      ) : null}
+                    </div>
+                  </details>
                 </section>
               </div>
             </div>

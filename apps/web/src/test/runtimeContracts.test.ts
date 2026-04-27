@@ -9,6 +9,37 @@ import {
   validateTrackingSnapshot,
 } from "@/lib/runtimeContracts";
 
+const validNutritionPlan = {
+  title: "Plan semanal",
+  startDate: "2026-01-01",
+  dailyCalories: 2200,
+  proteinG: 140,
+  fatG: 70,
+  carbsG: 250,
+  days: [
+    {
+      date: "2026-01-01",
+      dayLabel: "Lunes",
+      meals: [
+        {
+          type: "breakfast",
+          recipeId: null,
+          title: "Avena con fruta",
+          description: null,
+          macros: {
+            calories: 450,
+            protein: 25,
+            carbs: 60,
+            fats: 12,
+          },
+          ingredients: [{ name: "Avena", grams: 60 }],
+        },
+      ],
+    },
+  ],
+  shoppingList: [{ name: "Avena", grams: 420 }],
+} as const;
+
 describe("runtimeContracts", () => {
   it("accepts valid auth/me shape", () => {
     expect(
@@ -57,13 +88,19 @@ describe("runtimeContracts", () => {
   });
 
   it("accepts ai nutrition valid shape", () => {
-    expect(validateAiNutritionGeneratePayload({ plan: {}, aiTokenBalance: 2, aiTokenRenewalAt: null }).ok).toBe(true);
+    expect(
+      validateAiNutritionGeneratePayload({
+        plan: validNutritionPlan,
+        aiTokenBalance: 2,
+        aiTokenRenewalAt: null,
+      }).ok,
+    ).toBe(true);
   });
 
   it("accepts optional AI usage fields", () => {
     expect(
       validateAiNutritionGeneratePayload({
-        plan: {},
+        plan: validNutritionPlan,
         usage: { total_tokens: 123, prompt_tokens: 45, completion_tokens: 78 },
         mode: "AI",
         aiRequestId: "123e4567-e89b-42d3-a456-426614174000",
@@ -72,12 +109,28 @@ describe("runtimeContracts", () => {
   });
 
   it("rejects invalid AI usage fields", () => {
-    expect(validateAiNutritionGeneratePayload({ plan: {}, usage: { total_tokens: "123" } }).ok).toBe(false);
+    expect(
+      validateAiNutritionGeneratePayload({
+        plan: validNutritionPlan,
+        usage: { total_tokens: "123" },
+      }).ok,
+    ).toBe(false);
+  });
+
+  it("rejects nutrition plan missing required fields", () => {
+    expect(validateAiNutritionGeneratePayload({ plan: { title: "x" } }).ok).toBe(
+      false,
+    );
   });
 
   it("rejects invalid aiRequestId format", () => {
     expect(validateAiTrainingGeneratePayload({ plan: {}, aiRequestId: "req_123" }).ok).toBe(false);
-    expect(validateAiNutritionGeneratePayload({ plan: {}, aiRequestId: "req_123" }).ok).toBe(false);
+    expect(
+      validateAiNutritionGeneratePayload({
+        plan: validNutritionPlan,
+        aiRequestId: "req_123",
+      }).ok,
+    ).toBe(false);
   });
 });
 

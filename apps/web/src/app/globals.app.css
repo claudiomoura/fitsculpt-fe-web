@@ -897,7 +897,7 @@ textarea:disabled {
   }
 
   .page-with-tabbar-safe-area {
-    padding-bottom: calc(var(--mobile-tab-bar-offset-effective) + 16px);
+    padding-bottom: calc(var(--mobile-tab-bar-offset-effective) + 8px);
   }
 }
 
@@ -1731,7 +1731,8 @@ html.theme-dark :focus-visible {
 @media (max-width: 640px) {
   .page.page-with-tabbar-safe-area.tracking-page-shell {
     gap: 12px;
-    padding-bottom: calc(var(--mobile-tab-bar-offset-effective) + 40px);
+    padding-top: 4px;
+    padding-bottom: calc(var(--mobile-tab-bar-offset-effective) + 8px);
   }
 
 }

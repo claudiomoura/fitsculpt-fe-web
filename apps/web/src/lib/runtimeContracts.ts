@@ -4,6 +4,7 @@ export type ContractValidationResult = {
 };
 
 import { isUuid } from "@/lib/aiRequestId";
+import { z } from "zod";
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -153,6 +154,92 @@ function isUsagePayload(value: unknown): boolean {
   return true;
 }
 
+const nutritionMacrosSchema = z
+  .object({
+    calories: z.number(),
+    protein: z.number(),
+    carbs: z.number(),
+    fats: z.number(),
+  })
+  .strict();
+
+const nutritionIngredientSchema = z
+  .object({
+    name: z.string().min(1),
+    grams: z.number(),
+  })
+  .strict();
+
+const nutritionMealSchema = z
+  .object({
+    type: z.enum(["breakfast", "lunch", "dinner", "snack"]),
+    recipeId: z.string().min(1).nullable().optional(),
+    title: z.string().min(1),
+    description: z.string().nullable(),
+    macros: nutritionMacrosSchema,
+    ingredients: z.array(nutritionIngredientSchema).nullable(),
+  })
+  .strict();
+
+const nutritionDaySchema = z
+  .object({
+    date: z.string().min(1),
+    dayLabel: z.string().min(1),
+    meals: z.array(nutritionMealSchema).min(1),
+  })
+  .strict();
+
+const nutritionPlanSchema = z
+  .object({
+    title: z.string().min(1),
+    startDate: z.string().nullable(),
+    dailyCalories: z.number(),
+    proteinG: z.number(),
+    fatG: z.number(),
+    carbsG: z.number(),
+    days: z.array(nutritionDaySchema).min(1),
+    shoppingList: z
+      .array(
+        z
+          .object({
+            name: z.string().min(1),
+            grams: z.number(),
+          })
+          .strict(),
+      )
+      .nullable(),
+  })
+  .strict();
+
+const nutritionGenerateResponseSchema = z
+  .object({
+    plan: nutritionPlanSchema,
+    aiTokenBalance: z.number().optional(),
+    aiTokenRenewalAt: z.string().nullable().optional(),
+    usage: z
+      .object({
+        total_tokens: z.number().optional(),
+        prompt_tokens: z.number().optional(),
+        completion_tokens: z.number().optional(),
+        totalTokens: z.number().optional(),
+        promptTokens: z.number().optional(),
+        completionTokens: z.number().optional(),
+        balanceAfter: z.number().optional(),
+      })
+      .strict()
+      .optional(),
+    mode: z.string().optional(),
+    aiRequestId: z
+      .string()
+      .uuid()
+      .optional(),
+    balanceAfter: z.number().optional(),
+    balanceBefore: z.number().optional(),
+    costCents: z.number().optional(),
+    costEur: z.number().optional(),
+  })
+  .passthrough();
+
 export function validateAiTrainingGeneratePayload(payload: unknown): ContractValidationResult {
   if (!isRecord(payload)) return { ok: false, reason: "AI_TRAINING_NOT_OBJECT" };
   if (!(isRecord(payload.plan) || isString(payload.plan))) return { ok: false, reason: "AI_TRAINING_INVALID_PLAN" };
@@ -187,36 +274,19 @@ export function validateAiTrainingGeneratePayload(payload: unknown): ContractVal
 }
 
 export function validateAiNutritionGeneratePayload(payload: unknown): ContractValidationResult {
-  if (!isRecord(payload)) return { ok: false, reason: "AI_NUTRITION_NOT_OBJECT" };
-  if (!isRecord(payload.plan)) return { ok: false, reason: "AI_NUTRITION_INVALID_PLAN" };
-  if (payload.aiTokenBalance !== undefined && !isNumber(payload.aiTokenBalance)) {
-    return { ok: false, reason: "AI_NUTRITION_INVALID_TOKEN_BALANCE" };
+  const parsed = nutritionGenerateResponseSchema.safeParse(payload);
+  if (parsed.success) {
+    return { ok: true };
   }
-  if (payload.aiTokenRenewalAt !== undefined && payload.aiTokenRenewalAt !== null && typeof payload.aiTokenRenewalAt !== "string") {
-    return { ok: false, reason: "AI_NUTRITION_INVALID_TOKEN_RENEWAL" };
+
+  const firstIssue = parsed.error.issues[0];
+  if (!firstIssue) {
+    return { ok: false, reason: "AI_NUTRITION_INVALID_PAYLOAD" };
   }
-  if (payload.usage !== undefined && !isUsagePayload(payload.usage)) {
-    return { ok: false, reason: "AI_NUTRITION_INVALID_USAGE" };
-  }
-  if (payload.mode !== undefined && typeof payload.mode !== "string") {
-    return { ok: false, reason: "AI_NUTRITION_INVALID_MODE" };
-  }
-  if (payload.aiRequestId !== undefined && (!isString(payload.aiRequestId) || !isUuid(payload.aiRequestId))) {
-    return { ok: false, reason: "AI_NUTRITION_INVALID_AI_REQUEST_ID" };
-  }
-  if (payload.balanceAfter !== undefined && !isNumber(payload.balanceAfter)) {
-    return { ok: false, reason: "AI_NUTRITION_INVALID_BALANCE_AFTER" };
-  }
-  if (payload.balanceBefore !== undefined && !isNumber(payload.balanceBefore)) {
-    return { ok: false, reason: "AI_NUTRITION_INVALID_BALANCE_BEFORE" };
-  }
-  if (payload.costCents !== undefined && !isNumber(payload.costCents)) {
-    return { ok: false, reason: "AI_NUTRITION_INVALID_COST_CENTS" };
-  }
-  if (payload.costEur !== undefined && !isNumber(payload.costEur)) {
-    return { ok: false, reason: "AI_NUTRITION_INVALID_COST_EUR" };
-  }
-  return { ok: true };
+
+  const path = firstIssue.path.join(".");
+  const normalizedPath = path ? path.toUpperCase().replace(/[^A-Z0-9]+/g, "_") : "PAYLOAD";
+  return { ok: false, reason: `AI_NUTRITION_INVALID_${normalizedPath}` };
 }
 
 export function validateMealPhotoAnalyzePayload(payload: unknown): ContractValidationResult {

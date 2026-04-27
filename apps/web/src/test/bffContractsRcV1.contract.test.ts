@@ -287,7 +287,31 @@ describe("BFF contract drift gate (Contracts RC v1 critical endpoints)", () => {
       "fetch",
       vi.fn().mockResolvedValue(
         jsonResponse(200, {
-          plan: { dailyCalories: 2200 },
+          plan: {
+            title: "Plan semanal",
+            startDate: "2026-02-28",
+            dailyCalories: 2200,
+            proteinG: 140,
+            fatG: 70,
+            carbsG: 250,
+            days: [
+              {
+                date: "2026-02-28",
+                dayLabel: "Lunes",
+                meals: [
+                  {
+                    type: "breakfast",
+                    recipeId: null,
+                    title: "Avena",
+                    description: null,
+                    macros: { calories: 450, protein: 25, carbs: 60, fats: 12 },
+                    ingredients: [{ name: "Avena", grams: 60 }],
+                  },
+                ],
+              },
+            ],
+            shoppingList: [{ name: "Avena", grams: 420 }],
+          },
           aiTokenBalance: 9,
           aiTokenRenewalAt: "2026-02-28T00:00:00.000Z",
         }),
