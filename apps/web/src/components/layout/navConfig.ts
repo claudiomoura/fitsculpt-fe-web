@@ -163,6 +163,7 @@ export const sidebarUser: NavSectionGroup[] = [
     labelKey: "navSections.account",
     items: [
       { id: "tracking", href: "/app/seguimiento", labelKey: "nav.tracking" },
+      { id: "body-scan", href: "/app/body-scan", labelKey: "nav.bodyScan" },
       { id: "settings", href: "/app/settings", labelKey: "nav.settings" },
       { id: "profile", href: "/app/profile", labelKey: "nav.profile" },
     ],

@@ -64,6 +64,7 @@ const billingRoute = "/app/settings/billing";
 const manualPlanRoute = "/app/entrenamiento/editar";
 const aiPlanRoute = "/app/entrenamiento?ai=1";
 const checkinRoute = "/app/seguimiento/check-in";
+const bodyScanRoute = "/app/seguimiento/body-scan";
 
 type ViewStatus = "loading" | "success" | "error";
 type TrainingState = "workout" | "rest" | "no-plan";
@@ -101,10 +102,20 @@ type TodaySignals = {
   nutritionStatus: ModuleStatus;
   checkinStatus: ModuleStatus;
   checkinTrend: Array<{ label: string; weightKg: number }>;
+  hasBodyScanBaseline: boolean;
+  latestBodyScanDate: string | null;
+};
+
+type TrackingCheckinSummary = {
+  date?: string | null;
+  weightKg?: number | null;
+  bodyFatPercent?: number | null;
+  frontPhotoUrl?: string | null;
+  sidePhotoUrl?: string | null;
 };
 
 type TrackingPayload = {
-  checkins?: Array<{ date?: string | null; weightKg?: number | null }>;
+  checkins?: TrackingCheckinSummary[];
   passiveData?: {
     snapshots?: Array<{
       date?: string | null;
@@ -543,6 +554,8 @@ export default function TodayQuickActionsClient() {
     nutritionStatus: "empty",
     checkinStatus: "empty",
     checkinTrend: [],
+    hasBodyScanBaseline: false,
+    latestBodyScanDate: null,
   });
   const hasTrackedViewRef = useRef(false);
 
@@ -628,6 +641,8 @@ export default function TodayQuickActionsClient() {
         nutritionStatus: "empty",
         checkinStatus: "empty",
         checkinTrend: [],
+        hasBodyScanBaseline: false,
+        latestBodyScanDate: null,
       };
 
       if (weeklyCoachSummary?.ok) {
@@ -686,6 +701,16 @@ export default function TodayQuickActionsClient() {
         nextSignals.checkinDoneThisWeek = hasWeeklyCheckin(trackingPayload);
         nextSignals.currentWeightKg = getLatestWeight(trackingPayload);
         nextSignals.previousWeightKg = getPreviousWeight(trackingPayload);
+        const latestBodyScanCheckin = [...(trackingPayload.checkins ?? [])]
+          .filter(
+            (entry) =>
+              typeof entry.date === "string" &&
+              ((typeof entry.bodyFatPercent === "number" && entry.bodyFatPercent > 0) ||
+                (Boolean(entry.frontPhotoUrl) && Boolean(entry.sidePhotoUrl))),
+          )
+          .sort((a, b) => String(b.date).localeCompare(String(a.date)))[0];
+        nextSignals.hasBodyScanBaseline = Boolean(latestBodyScanCheckin);
+        nextSignals.latestBodyScanDate = latestBodyScanCheckin?.date ?? null;
         if (!isPositiveNumber(nextSignals.currentWeightKg)) {
           nextSignals.currentWeightKg = getLatestPassiveWeight(trackingPayload);
         }
@@ -1181,6 +1206,31 @@ export default function TodayQuickActionsClient() {
         : checkinGoalGapKg > 0
           ? `Te faltan ${Math.abs(checkinGoalGapKg).toFixed(1)} kg para tu objetivo. Vas por buen camino.`
           : `Ya superaste tu objetivo por ${Math.abs(checkinGoalGapKg).toFixed(1)} kg. Mantenerlo tambien es progreso.`;
+  const bodyScanCard = !hasAiAccess
+    ? {
+        title: "Escaneo corporal IA",
+        body: "Convierte tus fotos frontal y lateral en una lectura corporal premium. Disponible con Pro.",
+        ctaLabel: "Desbloquear Pro",
+        href: billingHref,
+        origin: "today_body_scan_upsell",
+      }
+    : signals.hasBodyScanBaseline
+      ? {
+          title: "Tu próximo escaneo corporal",
+          body: signals.latestBodyScanDate
+            ? `Última base: ${signals.latestBodyScanDate}. Repite el escaneo cuando tengas nuevas fotos comparables.`
+            : "Ya tienes una base corporal. Repite el escaneo cuando tengas nuevas fotos comparables.",
+          ctaLabel: "Abrir escaneo",
+          href: bodyScanRoute,
+          origin: "today_body_scan_returning",
+        }
+      : {
+          title: "Crea tu línea base corporal",
+          body: "Sube fotos frontal y lateral para activar tu primera lectura de grasa corporal con contexto visual.",
+          ctaLabel: "Empezar escaneo",
+          href: bodyScanRoute,
+          origin: "today_body_scan_baseline",
+        };
   const nutritionProgressPercent =
     nutritionGoalKcal && nutritionGoalKcal > 0
       ? Math.max(
@@ -1553,6 +1603,51 @@ export default function TodayQuickActionsClient() {
               weeklyCoachCheckInDue={signals.weeklyCoachCheckInDue}
               checkinTrend={signals.checkinTrend}
             />
+
+            <section className="card" style={{ border: "1px solid var(--surface-border-default)", padding: "clamp(16px, 3vw, 24px)", borderRadius: 16, background: "linear-gradient(135deg, rgba(16,185,129,0.06), rgba(255,255,255,0.98), rgba(59,130,246,0.06))" }}>
+              <div className="flex flex-wrap items-center gap-4">
+                <div
+                  style={{
+                    width: 52,
+                    height: 52,
+                    borderRadius: 16,
+                    background: hasAiAccess ? "linear-gradient(135deg, #14b8a6, #22c55e)" : "rgba(20,184,166,0.10)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                    color: hasAiAccess ? "white" : "var(--color-primary)",
+                    fontSize: "1.2rem",
+                    fontWeight: 700,
+                  }}
+                >
+                  %
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p className="m-0 text-xs font-semibold uppercase tracking-[0.18em] text-muted">Escaneo corporal IA</p>
+                  <h3 style={{ margin: "6px 0 0", fontSize: "1rem", fontWeight: 600, color: "var(--text-primary)" }}>
+                    {bodyScanCard.title}
+                  </h3>
+                  <p className="muted m-0 mt-1" style={{ fontSize: "0.875rem", lineHeight: 1.45 }}>
+                    {bodyScanCard.body}
+                  </p>
+                </div>
+                <ButtonLink
+                  as={Link}
+                  href={bodyScanCard.href}
+                  variant={hasAiAccess ? "primary" : "secondary"}
+                  className="fit-content"
+                  onClick={() =>
+                    trackEvent("today_cta_click", {
+                      target: hasAiAccess ? "checkin" : "billing",
+                      origin: bodyScanCard.origin,
+                    })
+                  }
+                >
+                  {bodyScanCard.ctaLabel}
+                </ButtonLink>
+              </div>
+            </section>
 
             {/* Block 7: Weekly Summary - Week at a glance */}
             <TodayWeeklySummaryCard weekData={weeklyData} />

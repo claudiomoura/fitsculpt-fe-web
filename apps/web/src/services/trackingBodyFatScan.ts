@@ -65,9 +65,33 @@ function toStringArray(value: unknown): string[] {
   return value.map((entry) => asString(entry)!).filter(Boolean);
 }
 
-function parseExecutionResult(value: unknown): BodyFatScanExecutionResult | null {
+function isValidBodyFatEstimate(estimate: BodyFatScanExecutionResult["estimate"]): boolean {
+  if (!estimate) return false;
+  const { pointPercent, range } = estimate;
+  return (
+    pointPercent > 0 &&
+    pointPercent <= 60 &&
+    range.min > 0 &&
+    range.max <= 60 &&
+    range.min <= range.max &&
+    pointPercent >= range.min &&
+    pointPercent <= range.max
+  );
+}
+
+export function parseTrackingBodyFatScanExecutionResult(value: unknown): BodyFatScanExecutionResult | null {
   const source = asRecord(value);
-  const status = asString(source.status) as BodyFatScanExecutionStatus;
+  const executionStatus = asString(source.executionStatus);
+  const status: BodyFatScanExecutionStatus | null =
+    executionStatus === "completed"
+      ? "completed"
+      : executionStatus === "blocked"
+        ? "blocked"
+        : executionStatus === "fallback" || executionStatus === "error"
+          ? "failed"
+          : executionStatus === "insufficient_data"
+            ? "insufficient_data"
+            : (asString(source.status) as BodyFatScanExecutionStatus | null);
 
   if (!status || !["completed", "insufficient_data", "blocked", "failed"].includes(status)) {
     return null;
@@ -92,7 +116,7 @@ function parseExecutionResult(value: unknown): BodyFatScanExecutionResult | null
 
   const usageRaw = asRecord(source.usage ?? {});
 
-  return {
+  const parsed: BodyFatScanExecutionResult = {
     status,
     summary: asString(source.summary) ?? "No pudimos interpretar el resultado del scan AI.",
     estimate,
@@ -109,6 +133,19 @@ function parseExecutionResult(value: unknown): BodyFatScanExecutionResult | null
       balanceAfter: asNumber(source.balanceAfter ?? source.aiTokenBalance),
     },
   };
+
+  if (parsed.status === "completed" && !isValidBodyFatEstimate(parsed.estimate)) {
+    return {
+      ...parsed,
+      status: "failed",
+      estimate: null,
+      summary: "El scan no devolvio una estimacion valida de grasa corporal.",
+      errorMessage: "No pudimos obtener una estimacion valida. Reintenta con fotos frontal y lateral claras.",
+      failureReason: "invalid_estimate",
+    };
+  }
+
+  return parsed;
 }
 
 export async function analyzeTrackingBodyFatScan(
@@ -124,7 +161,7 @@ export async function analyzeTrackingBodyFatScan(
     return { ok: false, reason: "invalidResponse" as const };
   }
 
-  const typed = parseExecutionResult(response.data);
+  const typed = parseTrackingBodyFatScanExecutionResult(response.data);
   if (!typed) {
     return { ok: false, reason: "invalidResponse" as const };
   }

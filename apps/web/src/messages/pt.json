@@ -17,6 +17,7 @@
     "dietPlans": "Planos alimentares",
     "trainingPlan": "Plano de treino",
     "tracking": "Progresso",
+    "bodyScan": "Escaneamento corporal IA",
     "feed": "Feed",
     "coach": "Coach",
     "library": "Biblioteca",
@@ -460,7 +461,28 @@
     "checkinPhotoCompareTitle": "Comparacao visual basica",
     "checkinPhotoCompareSubtitle": "Comparamos o check-in atual com a referencia inicial para mostrar mudancas.",
     "checkinPhotoCompareBaseline": "Referencia ({date})",
-    "checkinPhotoCompareCurrent": "Atual ({date})"
+    "checkinPhotoCompareCurrent": "Atual ({date})",
+    "aiBodyScan": {
+      "eyebrow": "Escaneamento corporal IA",
+      "title": "Abrir o scan premium",
+      "subtitle": "Use o fluxo completo com fotos frontal e lateral, revisão visual e resultado mais claro.",
+      "lockedTitle": "Disponível com Pro",
+      "lockedBody": "Desbloqueie o AI Body Scan para estimar gordura corporal e guardar histórico comparativo.",
+      "insufficientDataTitle": "Crie primeiro uma base visual",
+      "insufficientDataBody": "Precisamos de fotos frontal e lateral recentes antes de executar um scan fiável.",
+      "tokenBlockedTitle": "Sem tokens suficientes",
+      "tokenBlockedBody": "Esta funcionalidade usa análise IA real. Recarregue ou gira o plano para voltar a executar.",
+      "analyzeCta": "Abrir scan completo",
+      "analyzing": "A analisar...",
+      "resultTitle": "Último resultado IA",
+      "rangeLabel": "Intervalo orientativo",
+      "confidenceLabel": "Confiança:",
+      "confidenceHigh": "Alta",
+      "confidenceMedium": "Média",
+      "confidenceLow": "Baixa",
+      "limitationsTitle": "O que limita esta leitura",
+      "nextActionsTitle": "Como melhorar o próximo scan"
+    }
   },
   "quickLog": {
     "launcher": "Quick log",

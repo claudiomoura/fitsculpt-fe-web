@@ -70,6 +70,7 @@ describe("navConfig", () => {
   it("groups sidebar items into fitness, nutrition, and account sections", () => {
     const fitnessSection = sidebarUser.find((section) => section.id === "fitness");
     const nutritionSection = sidebarUser.find((section) => section.id === "nutrition");
+    const accountSection = sidebarUser.find((section) => section.id === "account");
     const moreSection = sidebarUser.find((section) => section.id === "more");
 
     expect(fitnessSection?.items.map((item) => item.href)).toEqual([
@@ -79,6 +80,13 @@ describe("navConfig", () => {
 
     expect(nutritionSection?.items.map((item) => item.href)).toEqual([
       "/app/nutricion",
+    ]);
+
+    expect(accountSection?.items.map((item) => item.href)).toEqual([
+      "/app/seguimiento",
+      "/app/body-scan",
+      "/app/settings",
+      "/app/profile",
     ]);
 
     expect(moreSection?.items.map((item) => item.href)).toEqual([

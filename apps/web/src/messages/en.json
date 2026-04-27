@@ -17,6 +17,7 @@
     "dietPlans": "Diet plans",
     "trainingPlan": "Training plan",
     "tracking": "Progress",
+    "bodyScan": "AI Body Fat Scan",
     "feed": "Feed",
     "coach": "Coach",
     "library": "Library",
@@ -1853,7 +1854,28 @@
     "thighCm": "Thigh (cm)",
     "calfCm": "Calf (cm)",
     "neckCm": "Neck (cm)",
-    "bodyFatPercent": "Body fat %"
+    "bodyFatPercent": "Body fat %",
+    "aiBodyScan": {
+      "eyebrow": "AI body scan",
+      "title": "Open the premium scan",
+      "subtitle": "Use the full guided flow with front and side photos, visual review, and a clearer result screen.",
+      "lockedTitle": "Available with Pro",
+      "lockedBody": "Unlock AI Body Scan to estimate body fat and keep a comparison history.",
+      "insufficientDataTitle": "Create a visual baseline first",
+      "insufficientDataBody": "We need recent front and side photos before running a reliable scan.",
+      "tokenBlockedTitle": "Not enough tokens",
+      "tokenBlockedBody": "This feature uses real AI analysis. Recharge or manage your plan to run it again.",
+      "analyzeCta": "Open full scan",
+      "analyzing": "Analyzing...",
+      "resultTitle": "Latest AI result",
+      "rangeLabel": "Guidance range",
+      "confidenceLabel": "Confidence:",
+      "confidenceHigh": "High",
+      "confidenceMedium": "Medium",
+      "confidenceLow": "Low",
+      "limitationsTitle": "What limits this reading",
+      "nextActionsTitle": "How to improve the next scan"
+    }
   },
   "quickLog": {
     "launcher": "Quick log",

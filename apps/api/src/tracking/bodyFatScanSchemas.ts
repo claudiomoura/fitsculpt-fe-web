@@ -104,7 +104,7 @@ export const bodyFatScanModelOutputJsonSchema = {
     disclaimer: { type: "string", minLength: 1, maxLength: 320 },
     summary: { type: "string", minLength: 1, maxLength: 280 },
   },
-  required: ["estimateBodyFatPercent", "range", "confidence", "qualityScore", "issues", "disclaimer"],
+  required: ["estimateBodyFatPercent", "range", "confidence", "qualityScore", "issues", "disclaimer", "summary"],
   additionalProperties: false,
 } as const;
 

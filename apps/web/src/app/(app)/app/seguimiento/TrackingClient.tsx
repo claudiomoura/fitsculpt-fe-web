@@ -176,7 +176,7 @@ type WorkoutDbItem = {
 };
 
 type TrackingClientProps = {
-  view?: "all" | "checkin";
+  view?: "all" | "checkin" | "body-scan";
 };
 
 function normalizeWorkoutEntriesFromDb(
@@ -328,6 +328,7 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
   const { t } = useLanguage();
   const router = useRouter();
   const isCheckinOnly = view === "checkin";
+  const isBodyScanOnly = view === "body-scan";
   const CHECKIN_MODE_KEY = "fs_checkin_mode_v1";
   const [checkins, setCheckins] = useState<CheckinEntry[]>([]);
   const [checkinDate, setCheckinDate] = useState(() =>
@@ -1996,15 +1997,98 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
     });
   }
 
+  async function handleAnalyzeBodyFatScan() {
+    if (!latestCheckin?.frontPhotoUrl || !latestCheckin?.sidePhotoUrl) {
+      setBodyFatScanRunError("Necesitas fotos frontal y lateral en tu último check-in");
+      return;
+    }
+    setBodyFatScanRunState("loading");
+    setBodyFatScanRunError(null);
+    const result = await analyzeTrackingBodyFatScan({
+      frontPhotoDataUrl: latestCheckin.frontPhotoUrl,
+      sidePhotoDataUrl: latestCheckin.sidePhotoUrl,
+      locale: "es",
+    });
+    setBodyFatScanRunState(result.ok ? "success" : "error");
+    if (result.ok && result.data) {
+      setBodyFatScanResult(result.data);
+    } else {
+      setBodyFatScanRunError("Error al ejecutar el scan");
+    }
+  }
+
+  function resetBodyFatScan() {
+    setBodyFatScanRunState("idle");
+    setBodyFatScanRunError(null);
+    setBodyFatScanResult(null);
+  }
+
   return (
     <div
       className={
         isCheckinOnly
           ? `${styles.checkinOnlyBody} nutrition-page-shell`
-          : styles.trackingPageContent
+          : isBodyScanOnly
+            ? styles.trackingPageContent
+            : styles.trackingPageContent
       }
       data-testid="tracking-page"
     >
+      {isBodyScanOnly ? (
+        <section className="grid gap-4">
+          <div className="rounded-3xl border border-[rgba(15,23,42,0.08)] bg-[linear-gradient(135deg,rgba(255,245,235,0.9),rgba(255,255,255,0.96),rgba(239,246,255,0.9))] p-5 shadow-sm">
+            <p className="m-0 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">AI Body Fat Scan</p>
+            <h1 className="m-0 mt-2 text-2xl font-semibold text-[var(--text)]">Escaneo corporal AI</h1>
+            <p className="m-0 mt-2 text-sm leading-6 text-[var(--muted)]">
+              Ejecuta el scan con tus fotos frontal y lateral mas recientes. Si faltan fotos, crea primero un check-in completo.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <Link href="/app/seguimiento/check-in" className="btn secondary fit-content">
+                Crear check-in base
+              </Link>
+              <Link href="/app/seguimiento" className="btn secondary fit-content">
+                Ver progreso
+              </Link>
+            </div>
+          </div>
+
+          {!hasAdjustmentEntitlement ? (
+            <div className="rounded-3xl border border-[rgba(245,158,11,0.3)] bg-[rgba(255,247,237,0.9)] p-5 shadow-sm">
+              <p className="m-0 text-sm font-semibold text-[var(--text)]">Body Scan Avanzado</p>
+              <p className="m-0 mt-2 text-sm leading-6 text-[var(--text)]">Desbloquea analisis corporal avanzado y recomendaciones personalizadas con Pro.</p>
+              <div className="mt-3">
+                <Link href="/app/settings/billing" className="btn primary fit-content">
+                  Desbloquea con Pro
+                </Link>
+              </div>
+            </div>
+          ) : null}
+
+          <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
+            {hasAdjustmentEntitlement ? <TrackingBodyScanSummaryCard capability={bodyScanCapability} /> : null}
+            <TrackingAiBodyFatScanPanel
+              capability={{
+                state: bodyScanCapability.state,
+                nextBestInputs: bodyScanCapability.nextBestInputs,
+                compliance: bodyScanCapability.compliance,
+              }}
+              estimatedTokens={estimatedBodyFatScanTokens}
+              tokenBalance={adjustmentTokenBalance}
+              isProEligible={hasAdjustmentEntitlement}
+              isLoading={bodyFatScanRunState === "loading"}
+              errorMessage={bodyFatScanRunError}
+              result={bodyFatScanResult}
+              onAnalyze={() => void handleAnalyzeBodyFatScan()}
+              onRetry={resetBodyFatScan}
+              t={t}
+              openHref="/app/body-scan"
+            />
+          </div>
+        </section>
+      ) : null}
+
+      {isBodyScanOnly ? null : (
+        <>
       {actionMessage && !isCheckinOnly && (
         <div
           className="status-card status-card--success"
@@ -2671,31 +2755,10 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
                       isLoading={bodyFatScanRunState === "loading"}
                       errorMessage={bodyFatScanRunError}
                       result={bodyFatScanResult}
-                      onAnalyze={async () => {
-                        if (!latestCheckin?.frontPhotoUrl || !latestCheckin?.sidePhotoUrl) {
-                          setBodyFatScanRunError("Necesitas fotos frontal y lateral en tu último check-in");
-                          return;
-                        }
-                        setBodyFatScanRunState("loading");
-                        setBodyFatScanRunError(null);
-                        const result = await analyzeTrackingBodyFatScan({
-                          frontPhotoDataUrl: latestCheckin.frontPhotoUrl,
-                          sidePhotoDataUrl: latestCheckin.sidePhotoUrl,
-                          locale: "es",
-                        });
-                        setBodyFatScanRunState(result.ok ? "success" : "error");
-                        if (result.ok && result.data) {
-                          setBodyFatScanResult(result.data);
-                        } else {
-                          setBodyFatScanRunError("Error al ejecutar el scan");
-                        }
-                      }}
-                      onRetry={() => {
-                        setBodyFatScanRunState("idle");
-                        setBodyFatScanRunError(null);
-                        setBodyFatScanResult(null);
-                      }}
+                      onAnalyze={() => void handleAnalyzeBodyFatScan()}
+                      onRetry={resetBodyFatScan}
                       t={t}
+                      openHref="/app/body-scan"
                     />
                   </>
                 ) : (
@@ -3180,6 +3243,8 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
           </div>
         </section>
       ) : null}
+        </>
+      )}
     </div>
   );
 }

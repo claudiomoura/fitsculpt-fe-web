@@ -17,6 +17,7 @@
     "dietPlans": "Dietas",
     "trainingPlan": "Plan de entrenamiento",
     "tracking": "Seguimiento",
+    "bodyScan": "Escaneo corporal IA",
     "feed": "Feed",
     "coach": "Coach",
     "library": "Biblioteca",
@@ -1845,7 +1846,28 @@
     "thighCm": "Muslo (cm)",
     "calfCm": "Gemelo (cm)",
     "neckCm": "Cuello (cm)",
-    "bodyFatPercent": "% grasa corporal"
+    "bodyFatPercent": "% grasa corporal",
+    "aiBodyScan": {
+      "eyebrow": "Escaneo corporal IA",
+      "title": "Activa tu análisis premium",
+      "subtitle": "Haz el escaneo completo en una pantalla guiada con fotos frontal y lateral, revisión visual y resultado claro.",
+      "lockedTitle": "Disponible con Pro",
+      "lockedBody": "Desbloquea el escaneo corporal IA para estimar tu grasa corporal y guardar historial comparativo.",
+      "insufficientDataTitle": "Primero crea una base visual",
+      "insufficientDataBody": "Necesitamos fotos frontal y lateral recientes para lanzar un análisis fiable.",
+      "tokenBlockedTitle": "No tienes tokens suficientes",
+      "tokenBlockedBody": "Este análisis usa IA real. Recarga o gestiona tu plan para volver a ejecutarlo.",
+      "analyzeCta": "Abrir escaneo completo",
+      "analyzing": "Analizando...",
+      "resultTitle": "Último resultado IA",
+      "rangeLabel": "Rango orientativo",
+      "confidenceLabel": "Confianza:",
+      "confidenceHigh": "Alta",
+      "confidenceMedium": "Media",
+      "confidenceLow": "Baja",
+      "limitationsTitle": "Qué limita la lectura",
+      "nextActionsTitle": "Cómo mejorar el siguiente scan"
+    }
   },
   "quickLog": {
     "launcher": "Quick log",
