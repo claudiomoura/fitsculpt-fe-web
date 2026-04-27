@@ -1604,49 +1604,50 @@ export default function TodayQuickActionsClient() {
               checkinTrend={signals.checkinTrend}
             />
 
-            <section className="card" style={{ border: "1px solid var(--surface-border-default)", padding: "clamp(16px, 3vw, 24px)", borderRadius: 16, background: "linear-gradient(135deg, rgba(16,185,129,0.06), rgba(255,255,255,0.98), rgba(59,130,246,0.06))" }}>
-              <div className="flex flex-wrap items-center gap-4">
-                <div
-                  style={{
-                    width: 52,
-                    height: 52,
-                    borderRadius: 16,
-                    background: hasAiAccess ? "linear-gradient(135deg, #14b8a6, #22c55e)" : "rgba(20,184,166,0.10)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                    color: hasAiAccess ? "white" : "var(--color-primary)",
-                    fontSize: "1.2rem",
-                    fontWeight: 700,
-                  }}
-                >
-                  %
+            <section className="card" style={{ border: "1px solid var(--surface-border-default)", padding: "clamp(16px, 3vw, 24px)", borderRadius: 16 }}>
+              <Link
+                href={bodyScanCard.href}
+                className="block no-underline"
+                onClick={() =>
+                  trackEvent("today_cta_click", {
+                    target: hasAiAccess ? "checkin" : "billing",
+                    origin: bodyScanCard.origin,
+                  })
+                }
+              >
+                <div className="flex items-start gap-4">
+                  <div
+                    style={{
+                      width: 52,
+                      height: 52,
+                      borderRadius: 14,
+                      background: hasAiAccess ? "linear-gradient(135deg, #16e0c4, #22c55e)" : "rgba(20,184,166,0.12)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                      color: hasAiAccess ? "white" : "var(--color-primary)",
+                      fontSize: "1.2rem",
+                      fontWeight: 700,
+                      boxShadow: hasAiAccess ? "0 10px 24px rgba(20,184,166,0.18)" : "none",
+                    }}
+                  >
+                    %
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 600, color: "var(--text-primary)" }}>
+                      Escaneo corporal IA
+                    </h3>
+                    <p className="muted m-0 mt-1" style={{ fontSize: "0.875rem", lineHeight: 1.45 }}>
+                      {bodyScanCard.body}
+                    </p>
+                    <p style={{ margin: "10px 0 0", fontSize: "0.875rem", fontWeight: 600, color: "var(--color-primary)" }}>
+                      {bodyScanCard.ctaLabel}
+                    </p>
+                  </div>
+                  <div style={{ color: "var(--text-tertiary)", fontSize: "1.25rem", lineHeight: 1, paddingTop: 4 }}>›</div>
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p className="m-0 text-xs font-semibold uppercase tracking-[0.18em] text-muted">Escaneo corporal IA</p>
-                  <h3 style={{ margin: "6px 0 0", fontSize: "1rem", fontWeight: 600, color: "var(--text-primary)" }}>
-                    {bodyScanCard.title}
-                  </h3>
-                  <p className="muted m-0 mt-1" style={{ fontSize: "0.875rem", lineHeight: 1.45 }}>
-                    {bodyScanCard.body}
-                  </p>
-                </div>
-                <ButtonLink
-                  as={Link}
-                  href={bodyScanCard.href}
-                  variant={hasAiAccess ? "primary" : "secondary"}
-                  className="fit-content"
-                  onClick={() =>
-                    trackEvent("today_cta_click", {
-                      target: hasAiAccess ? "checkin" : "billing",
-                      origin: bodyScanCard.origin,
-                    })
-                  }
-                >
-                  {bodyScanCard.ctaLabel}
-                </ButtonLink>
-              </div>
+              </Link>
             </section>
 
             {/* Block 7: Weekly Summary - Week at a glance */}
