@@ -33,6 +33,7 @@ import {
 import {
   consumeTrackingRecommendationForAiPlan,
   buildTrackingBodyScanCapability,
+  estimateTrackingBodyScanTokens,
   buildTrackingProfileSnapshotFallback,
   buildTrackingRecommendationCapability,
   detectTrackingSupport,
@@ -63,6 +64,7 @@ import TrainingAdjustmentDiffSummary, {
 import PassiveHealthSummaryCard from "@/components/tracking/PassiveHealthSummaryCard";
 import TrackingProfessionalInsights from "@/components/tracking/TrackingProfessionalInsights";
 import TrackingBodyScanSummaryCard from "@/components/tracking-intelligence/TrackingBodyScanSummaryCard";
+import TrackingAiBodyFatScanPanel from "@/components/tracking-intelligence/TrackingAiBodyFatScanPanel";
 import {
   type CheckinEntry,
   type FoodEntry,
@@ -80,6 +82,10 @@ import TrackingSummaryPreview, {
   type TrackingSummaryRange,
 } from "./TrackingSummaryPreview";
 import GuidedBodyScanCapture from "./GuidedBodyScanCapture";
+import {
+  analyzeTrackingBodyFatScan,
+  type BodyFatScanExecutionResult,
+} from "@/services/trackingBodyFatScan";
 import styles from "./TrackingClient.module.css";
 
 type CheckinMetrics = {
@@ -410,6 +416,14 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
     state: "idle" | "loading" | "success" | "blocked" | "error";
     message: string | null;
   }>({ state: "idle", message: null });
+  const [bodyFatScanRunState, setBodyFatScanRunState] = useState<
+    "idle" | "loading" | "success" | "error"
+  >("idle");
+  const [bodyFatScanRunError, setBodyFatScanRunError] = useState<string | null>(
+    null,
+  );
+  const [bodyFatScanResult, setBodyFatScanResult] =
+    useState<BodyFatScanExecutionResult | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isEnergySubmitting, setIsEnergySubmitting] = useState(false);
@@ -1272,16 +1286,28 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
     [checkins, mealLog, workoutLog, passiveData, profile, progressRange],
   );
   const professionalInsights = adherenceContext.professionalInsights;
+  const capabilityOrigin = isCheckinOnly ? "checkin_page" : "tracking";
   const bodyScanCapability = useMemo(
     () =>
       buildTrackingBodyScanCapability({
-        origin: isCheckinOnly ? "checkin_page" : "tracking",
+        origin: capabilityOrigin,
         profile,
         checkins,
         passiveData,
         rangeDays: Number(progressRange),
       }),
-    [checkins, isCheckinOnly, passiveData, profile, progressRange],
+    [capabilityOrigin, checkins, passiveData, profile, progressRange],
+  );
+  const estimatedBodyFatScanTokens = useMemo(
+    () =>
+      estimateTrackingBodyScanTokens({
+        origin: capabilityOrigin,
+        profile,
+        checkins,
+        passiveData,
+        rangeDays: Number(progressRange),
+      }),
+    [capabilityOrigin, checkins, passiveData, profile, progressRange],
   );
   const recommendationProjectionInput = useMemo(
     () => toTrackingRecommendationProjectionInput(projectionCapability),
@@ -1290,7 +1316,7 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
   const recommendationCapability = useMemo(
     () =>
       buildTrackingRecommendationCapability({
-        origin: isCheckinOnly ? "checkin_page" : "tracking",
+        origin: capabilityOrigin,
         profile,
         adherenceContext,
         bodyScan: bodyScanCapability,
@@ -1299,13 +1325,13 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
     [
       adherenceContext,
       bodyScanCapability,
-      isCheckinOnly,
+      capabilityOrigin,
       profile,
       recommendationProjectionInput,
     ],
   );
   useEffect(() => {
-    const origin = isCheckinOnly ? "checkin_page" : "tracking";
+    const origin = capabilityOrigin;
     const bodyScanKey = `body-scan:${origin}:${bodyScanCapability.status}:${bodyScanCapability.analysisMode}:${bodyScanCapability.confidence}`;
     const recommendationKey = `recommendation:${origin}:${recommendationCapability.status}:${recommendationCapability.analysisMode}:${recommendationCapability.items.length}`;
 
@@ -1341,10 +1367,10 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
       }
     }
   }, [
+    capabilityOrigin,
     bodyScanCapability.analysisMode,
     bodyScanCapability.confidence,
     bodyScanCapability.status,
-    isCheckinOnly,
     recommendationCapability.analysisMode,
     recommendationCapability.explainability.fallbackLabel,
     recommendationCapability.items.length,
@@ -1353,7 +1379,7 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
 
   useEffect(() => {
     if (!isIntelligencePreviewOpen) return;
-    const origin = isCheckinOnly ? "checkin_page" : "tracking";
+    const origin = capabilityOrigin;
     trackTrackingCapabilityEvent({
       event: "viewed",
       capabilityId: "body-scan",
@@ -1370,10 +1396,10 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
       analysisMode: recommendationCapability.analysisMode,
     });
   }, [
+    capabilityOrigin,
     bodyScanCapability.analysisMode,
     bodyScanCapability.confidence,
     bodyScanCapability.status,
-    isCheckinOnly,
     isIntelligencePreviewOpen,
     recommendationCapability.analysisMode,
     recommendationCapability.status,
@@ -2631,7 +2657,47 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
               ) : null}
               <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
                 {hasAdjustmentEntitlement ? (
-                  <TrackingBodyScanSummaryCard capability={bodyScanCapability} />
+                  <>
+                    <TrackingBodyScanSummaryCard capability={bodyScanCapability} />
+                    <TrackingAiBodyFatScanPanel
+                      capability={{
+                        state: bodyScanCapability.state,
+                        nextBestInputs: bodyScanCapability.nextBestInputs,
+                        compliance: bodyScanCapability.compliance,
+                      }}
+                      estimatedTokens={estimatedBodyFatScanTokens}
+                      tokenBalance={adjustmentTokenBalance}
+                      isProEligible={hasAdjustmentEntitlement}
+                      isLoading={bodyFatScanRunState === "loading"}
+                      errorMessage={bodyFatScanRunError}
+                      result={bodyFatScanResult}
+                      onAnalyze={async () => {
+                        if (!latestCheckin?.frontPhotoUrl || !latestCheckin?.sidePhotoUrl) {
+                          setBodyFatScanRunError("Necesitas fotos frontal y lateral en tu último check-in");
+                          return;
+                        }
+                        setBodyFatScanRunState("loading");
+                        setBodyFatScanRunError(null);
+                        const result = await analyzeTrackingBodyFatScan({
+                          frontPhotoDataUrl: latestCheckin.frontPhotoUrl,
+                          sidePhotoDataUrl: latestCheckin.sidePhotoUrl,
+                          locale: "es",
+                        });
+                        setBodyFatScanRunState(result.ok ? "success" : "error");
+                        if (result.ok && result.data) {
+                          setBodyFatScanResult(result.data);
+                        } else {
+                          setBodyFatScanRunError("Error al ejecutar el scan");
+                        }
+                      }}
+                      onRetry={() => {
+                        setBodyFatScanRunState("idle");
+                        setBodyFatScanRunError(null);
+                        setBodyFatScanResult(null);
+                      }}
+                      t={t}
+                    />
+                  </>
                 ) : (
                   <div className="rounded-3xl border border-[rgba(15,23,42,0.08)] bg-white/80 p-5 shadow-sm">
                     <p className="m-0 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Body scan</p>

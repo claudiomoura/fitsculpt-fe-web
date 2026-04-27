@@ -1,0 +1,168 @@
+import Link from "next/link";
+import type { TrackingBodyScanCapability } from "@/domains/tracking-intelligence";
+import type { BodyFatScanExecutionResult } from "@/services/trackingBodyFatScan";
+
+type MinimalCapability = Pick<TrackingBodyScanCapability, "state" | "nextBestInputs" | "compliance">;
+
+type TrackingAiBodyFatScanPanelProps = {
+  capability: MinimalCapability;
+  estimatedTokens: number;
+  tokenBalance: number | null;
+  isProEligible: boolean;
+  isLoading: boolean;
+  errorMessage: string | null;
+  result: BodyFatScanExecutionResult | null;
+  onAnalyze: () => void;
+  onRetry: () => void;
+  t: (key: string) => string;
+};
+
+function formatConfidence(confidence: "low" | "medium" | "high", t: (key: string) => string): string {
+  if (confidence === "high") return t("tracking.aiBodyScan.confidenceHigh");
+  if (confidence === "medium") return t("tracking.aiBodyScan.confidenceMedium");
+  return t("tracking.aiBodyScan.confidenceLow");
+}
+
+export default function TrackingAiBodyFatScanPanel({
+  capability,
+  estimatedTokens,
+  tokenBalance,
+  isProEligible,
+  isLoading,
+  errorMessage,
+  result,
+  onAnalyze,
+  onRetry,
+  t,
+}: TrackingAiBodyFatScanPanelProps) {
+  const hasInsufficientData = capability.state === "insufficient_data";
+  const isTokenBlocked = typeof tokenBalance === "number" && tokenBalance < estimatedTokens;
+  const isResultReady = result?.status === "completed";
+  const showRetry = Boolean(errorMessage) || result?.status === "failed";
+
+  return (
+    <section id="ai-body-fat-scan" className="rounded-3xl border border-[rgba(15,23,42,0.08)] bg-white/90 p-5 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="m-0 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+            {t("tracking.aiBodyScan.eyebrow")}
+          </p>
+          <h3 className="m-0 mt-2 text-xl font-semibold text-[var(--text)]">
+            {t("tracking.aiBodyScan.title")}
+          </h3>
+          <p className="m-0 mt-2 text-sm leading-6 text-[var(--muted)]">
+            {t("tracking.aiBodyScan.subtitle")}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-[var(--border)] bg-[rgba(248,250,252,0.95)] px-3 py-2 text-xs text-[var(--muted)]">
+          {t("ai.tokensRemaining")} {tokenBalance ?? "-"} · est. {estimatedTokens}
+        </div>
+      </div>
+
+      {!isProEligible ? (
+        <div className="mt-4 rounded-2xl border border-[rgba(245,158,11,0.3)] bg-[rgba(255,247,237,0.85)] p-4">
+          <p className="m-0 text-sm font-semibold text-[var(--text)]">{t("tracking.aiBodyScan.lockedTitle")}</p>
+          <p className="m-0 mt-2 text-sm leading-6 text-[var(--text)]">{t("tracking.aiBodyScan.lockedBody")}</p>
+          <div className="mt-3">
+            <Link href="/app/settings/billing" className="btn primary fit-content">
+              {t("billing.upgradePro")}
+            </Link>
+          </div>
+        </div>
+      ) : null}
+
+      {isProEligible && hasInsufficientData ? (
+        <div className="mt-4 rounded-2xl border border-[rgba(148,163,184,0.28)] bg-[rgba(248,250,252,0.9)] p-4">
+          <p className="m-0 text-sm font-semibold text-[var(--text)]">{t("tracking.aiBodyScan.insufficientDataTitle")}</p>
+          <p className="m-0 mt-2 text-sm leading-6 text-[var(--text)]">{t("tracking.aiBodyScan.insufficientDataBody")}</p>
+          <div className="mt-3 space-y-1">
+            {capability.nextBestInputs.slice(0, 3).map((item, index) => (
+              <p key={`scan-input-${index}`} className="m-0 text-xs text-[var(--muted)]">• {item}</p>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {isProEligible && !hasInsufficientData && isTokenBlocked ? (
+        <div className="mt-4 rounded-2xl border border-[rgba(239,68,68,0.24)] bg-[rgba(254,242,242,0.9)] p-4">
+          <p className="m-0 text-sm font-semibold text-[var(--text)]">{t("tracking.aiBodyScan.tokenBlockedTitle")}</p>
+          <p className="m-0 mt-2 text-sm leading-6 text-[var(--text)]">{t("tracking.aiBodyScan.tokenBlockedBody")}</p>
+          <div className="mt-3">
+            <Link href="/app/settings/billing" className="btn secondary fit-content">
+              {t("billing.manageBilling")}
+            </Link>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          className={`btn ${isLoading ? "is-loading" : ""}`}
+          onClick={onAnalyze}
+          disabled={!isProEligible || hasInsufficientData || isTokenBlocked || isLoading}
+        >
+          {isLoading ? t("tracking.aiBodyScan.analyzing") : t("tracking.aiBodyScan.analyzeCta")}
+        </button>
+        {showRetry ? (
+          <button type="button" className="btn secondary" onClick={onRetry} disabled={isLoading}>
+            {t("tracking.adjustmentRetry")}
+          </button>
+        ) : null}
+      </div>
+
+      {errorMessage ? (
+        <div className="mt-4 rounded-2xl border border-[rgba(239,68,68,0.24)] bg-[rgba(254,242,242,0.9)] p-4" role="alert">
+          <p className="m-0 text-sm text-[var(--text)]">{errorMessage}</p>
+        </div>
+      ) : null}
+
+      {isResultReady ? (
+        <div className="mt-4 rounded-2xl border border-[rgba(59,130,246,0.18)] bg-[linear-gradient(135deg,rgba(239,246,255,0.9),rgba(255,255,255,0.96),rgba(255,247,237,0.86))] p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="m-0 text-xs uppercase tracking-[0.16em] text-[var(--muted)]">{t("tracking.aiBodyScan.resultTitle")}</p>
+              <p className="m-0 mt-2 text-2xl font-semibold text-[var(--text)]">
+                {result.estimate ? `${result.estimate.pointPercent.toFixed(1)}%` : "-"}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="m-0 text-xs uppercase tracking-[0.16em] text-[var(--muted)]">{t("tracking.aiBodyScan.rangeLabel")}</p>
+              <p className="m-0 mt-1 text-sm font-semibold text-[var(--text)]">
+                {result.estimate ? `${result.estimate.range.min.toFixed(1)}% - ${result.estimate.range.max.toFixed(1)}%` : "-"}
+              </p>
+              <p className="m-0 mt-1 text-xs text-[var(--muted)]">
+                {t("tracking.aiBodyScan.confidenceLabel")} {formatConfidence(result.confidence, t)}
+                {typeof result.confidenceScore === "number" ? ` · ${result.confidenceScore}/100` : ""}
+              </p>
+            </div>
+          </div>
+
+          <p className="m-0 mt-3 text-sm leading-6 text-[var(--text)]">{result.summary}</p>
+
+          {result.limitations.length > 0 ? (
+            <div className="mt-3 rounded-xl border border-[var(--border)] bg-white/75 p-3">
+              <p className="m-0 text-xs uppercase tracking-[0.16em] text-[var(--muted)]">{t("tracking.aiBodyScan.limitationsTitle")}</p>
+              {result.limitations.slice(0, 3).map((item, index) => (
+                <p key={`scan-limitation-${index}`} className="m-0 mt-2 text-sm text-[var(--text)]">• {item}</p>
+              ))}
+            </div>
+          ) : null}
+
+          {result.nextActions.length > 0 ? (
+            <div className="mt-3 rounded-xl border border-[var(--border)] bg-white/75 p-3">
+              <p className="m-0 text-xs uppercase tracking-[0.16em] text-[var(--muted)]">{t("tracking.aiBodyScan.nextActionsTitle")}</p>
+              {result.nextActions.slice(0, 3).map((item, index) => (
+                <p key={`scan-next-${index}`} className="m-0 mt-2 text-sm text-[var(--text)]">• {item}</p>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {!isResultReady ? (
+        <p className="m-0 mt-4 text-xs leading-5 text-[var(--muted)]">{capability.compliance.disclaimer}</p>
+      ) : null}
+    </section>
+  );
+}

@@ -98,6 +98,7 @@ import { authRateLimitMiddleware } from "./middleware/authRateLimit.js";
 import { registerProfileRoutes } from "./routes/profile.js";
 import { registerFeedRoutes } from "./routes/feed.js";
 import { registerTrackingRoutes } from "./routes/tracking.js";
+import { registerBodyFatScanRoutes } from "./routes/bodyFatScanRoutes.js";
 import { registerNutritionRoutes } from "./routes/nutrition.js";
 import { registerGymRoutes } from "./routes/gym.js";
 import { registerTrainerRoutes } from "./routes/trainer.js";
@@ -546,6 +547,7 @@ const AI_FEATURE_ESTIMATED_TOKENS: Record<string, number> = {
   training: 800,
   nutrition: 800,
   "meal-photo-analysis": 700,
+  "body-fat-scan-analysis": 900,
   "training-generate": 1200,
   "nutrition-generate": 1200,
   tip: 300,
@@ -8126,6 +8128,22 @@ registerTrackingRoutes(app, {
   requireUser,
   getOrCreateProfile,
   handleRequestError,
+});
+
+registerBodyFatScanRoutes(app, {
+  requireUser,
+  getOrCreateProfile,
+  callOpenAi,
+  createHttpError,
+  aiAccessGuard,
+  getUserEntitlements,
+  getEffectiveTokenBalance,
+  assertSufficientAiTokenBalance,
+  getEstimatedAiFeatureTokens,
+  enforceAiQuota,
+  chargeAiUsageForResult,
+  prisma,
+  aiPricing,
 });
 
 // Nutrition, Gym, Trainer, Admin routes are registered directly in index.ts

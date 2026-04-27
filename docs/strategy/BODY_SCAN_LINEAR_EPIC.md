@@ -405,3 +405,70 @@ Start with:
 3. Issue 4 — reusable projection capability
 
 Only after those are clear should the team start building Body Scan v1 UX and recommendation flows.
+
+## PRO AI Body Fat Scan: Linear-Ready Delivery Backlog
+
+This section converts the existing body-scan platform work into a concrete Linear-ready backlog for the new `PRO AI Body Fat Scan` delivery.
+
+Positioning rule:
+
+- This is a follow-on feature load, not a restart of `FIT-30..FIT-40`.
+- The team should reuse the modular tracking-intelligence foundation already shipped.
+- The backlog below focuses on productization, PRO gating, AI execution policy, result UX, analytics, and release readiness.
+
+### Suggested Linear project
+
+| Field | Value |
+| --- | --- |
+| Project | `PRO AI Body Fat Scan` |
+| Owner team | `App` |
+| Supporting teams | `Product`, `Intelligence` |
+| Goal | launch a PRO-only AI body-fat scan flow that is trustworthy, entitlement-aware, measurable, and releasable without rewriting the current body-scan foundation |
+
+### Suggested epics
+
+| Epic | Goal | Recommended owner |
+| --- | --- | --- |
+| `EP-01 PRO Scope, Entitlements & Trust` | freeze product promise, PRO gating, contract boundaries, and compliance rules | Product + Staff/Lead engineer |
+| `EP-02 Scan Flow, AI Execution & Result UX` | ship the user-visible capture, execution, persistence, and results loop | App |
+| `EP-03 Analytics, QA & Launch Readiness` | make the feature measurable, supportable, and launch-safe | Intelligence + Product |
+
+### Suggested execution cycles
+
+| Cycle | Focus |
+| --- | --- |
+| `C1 - Scope + Contract Freeze` | feature definition, AI contract, trust rules, analytics taxonomy |
+| `C2 - PRO Scan Build` | paywall/gating, execution orchestration, results, retry states |
+| `C3 - QA + Launch Readiness` | QA matrix, observability, rollout, post-launch review |
+
+### Issue set
+
+| Key | Title | Priority | Epic | Cycle |
+| --- | --- | --- | --- | --- |
+| `BFS-001` | Freeze PRO AI Body Fat Scan promise and eligibility | P0 | EP-01 | C1 |
+| `BFS-002` | Define AI body-fat scan request and result contract | P0 | EP-01 | C1 |
+| `BFS-003` | Define trust, disclaimer, and low-confidence policy | P0 | EP-01 | C1 |
+| `BFS-004` | Define analytics taxonomy and success funnel | P0 | EP-03 | C1 |
+| `BFS-005` | Wire PRO entitlement and token preflight for scan execution | P0 | EP-02 | C2 |
+| `BFS-006` | Finalize insufficient-data and validation rules for scan input | P1 | EP-02 | C2 |
+| `BFS-007` | Build PRO entrypoints, locked states, and upgrade path | P1 | EP-02 | C2 |
+| `BFS-008` | Build AI execution orchestration and persisted scan lifecycle | P0 | EP-02 | C2 |
+| `BFS-009` | Build scan results UX with confidence and next actions | P0 | EP-02 | C2 |
+| `BFS-010` | Add retry, failure, and support states for blocked scans | P1 | EP-02 | C2 |
+| `BFS-011` | Create end-to-end QA matrix and release checklist | P0 | EP-03 | C3 |
+| `BFS-012` | Define launch dashboard, alerts, and post-launch review | P1 | EP-03 | C3 |
+
+### Delivery rules
+
+- `BFS-005` and `BFS-008` must explicitly respect the existing fail-closed AI preflight policy.
+- `BFS-009` must keep all messaging non-medical and non-diagnostic.
+- `BFS-011` is mandatory before any broad rollout; do not treat QA as cleanup work.
+- Do not duplicate core orchestration inside a page-level component if the modular domain already provides the boundary.
+
+### Import artifacts
+
+Use these repo files for Linear loading:
+
+- `docs/strategy/PRO_AI_BODY_FAT_SCAN_LINEAR_PLAN.md`
+- `docs/strategy/PRO_AI_BODY_FAT_SCAN_LINEAR_IMPORT.csv`
+- `docs/strategy/PRO_AI_BODY_FAT_SCAN_LINEAR_COPYPASTE.md`
