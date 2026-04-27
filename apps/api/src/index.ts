@@ -3266,6 +3266,23 @@ function normalizeTrainingPlanDays(
   };
 }
 
+function formatZodIssuePath(path: Array<string | number>) {
+  if (path.length === 0) return "(root)";
+  return path.reduce<string>((acc, segment) => {
+    if (typeof segment === "number") {
+      return `${acc}[${segment}]`;
+    }
+    const next = String(segment);
+    return acc.length > 0 ? `${acc}.${next}` : next;
+  }, "");
+}
+
+function formatZodValidationErrors(error: z.ZodError) {
+  return error.issues
+    .map((issue) => `${formatZodIssuePath(issue.path)}: ${issue.message}`)
+    .join("; ");
+}
+
 function parseTrainingPlanPayload(
   payload: Record<string, unknown>,
   startDate: Date,
@@ -3284,9 +3301,7 @@ function parseTrainingPlanPayload(
     return normalizeTrainingPlanDays(parsed, startDate, daysCount, daysPerWeek);
   } catch (error) {
     const validationErrors =
-      error instanceof z.ZodError
-        ? error.errors.map((e) => `${e.path.join(".")}: ${e.message}`).join("; ")
-        : undefined;
+      error instanceof z.ZodError ? formatZodValidationErrors(error) : undefined;
     app.log.warn({ err: error, payload, validationErrors }, "ai training response invalid");
     throw createHttpError(502, "AI_PARSE_ERROR", {
       message: validationErrors ?? "Failed to parse AI training plan response",
@@ -3545,23 +3560,38 @@ function parseNutritionPlanPayload(
   daysCount: number,
 ) {
   try {
+    const maybeSchema = payload["schema"];
+    const unwrapped =
+      maybeSchema && typeof maybeSchema === "object"
+        ? (maybeSchema as Record<string, unknown>)
+        : payload;
+
     return normalizeNutritionPlanDays(
-      aiNutritionPlanResponseSchema.parse(payload),
+      aiNutritionPlanResponseSchema.parse(unwrapped),
       startDate,
       daysCount,
     );
   } catch (error) {
+    const validationIssues =
+      error instanceof z.ZodError
+        ? error.issues.map((issue) => ({
+            path: formatZodIssuePath(issue.path),
+            message: issue.message,
+            code: issue.code,
+          }))
+        : undefined;
     const validationErrors =
       error instanceof z.ZodError
-        ? error.errors.map((issue) => `${issue.path.join(".")}: ${issue.message}`).join("; ")
+        ? formatZodValidationErrors(error)
         : undefined;
     app.log.warn(
-      { err: error, payload, validationErrors },
+      { err: error, payload, validationErrors, validationIssues },
       "ai nutrition response invalid",
     );
     throw createHttpError(502, "AI_PARSE_ERROR", {
       message: validationErrors ?? "Failed to parse AI nutrition plan response",
       validationErrors,
+      validationIssues,
       reasonCode: "SCHEMA_PARSE",
       details: {
         parserError:

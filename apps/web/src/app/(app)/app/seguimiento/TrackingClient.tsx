@@ -3169,6 +3169,13 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
                           className={styles.photoPreview}
                         />
                       ) : null}
+                      {baselineCheckinPhoto.backPhotoUrl ? (
+                        <img
+                          src={baselineCheckinPhoto.backPhotoUrl}
+                          alt={t("tracking.checkinBackPhotoLabel")}
+                          className={styles.photoPreview}
+                        />
+                      ) : null}
                     </div>
                   </div>
                   <div className={styles.photoCompareColumn}>
@@ -3189,6 +3196,13 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
                         <img
                           src={currentCheckinPhoto.sidePhotoUrl}
                           alt={t("tracking.checkinSidePhotoLabel")}
+                          className={styles.photoPreview}
+                        />
+                      ) : null}
+                      {currentCheckinPhoto.backPhotoUrl ? (
+                        <img
+                          src={currentCheckinPhoto.backPhotoUrl}
+                          alt={t("tracking.checkinBackPhotoLabel")}
                           className={styles.photoPreview}
                         />
                       ) : null}
