@@ -108,6 +108,19 @@ function createRecord(args: SaveBodyFatScanPayload): StoredBodyFatScanRecord {
   };
 }
 
+function toPersistenceRecord(record: StoredBodyFatScanRecord): BodyFatScanPersistenceRecord {
+  return {
+    id: record.id,
+    capability: record.capability,
+    executionStatus: record.executionStatus,
+    origin: record.origin,
+    state: record.state,
+    confidence: record.confidence,
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt,
+  };
+}
+
 function appendToTracking(tracking: unknown, record: StoredBodyFatScanRecord): unknown {
   const trackingRecord = asRecord(tracking) ?? {};
   const existing = normalizeStoredRecords(trackingRecord.aiBodyFatScans);
@@ -130,7 +143,7 @@ export function createBodyFatScanRepository(params: { prisma?: PrismaLike }) {
     memoryStore.set(payload.userId, [record, ...current].slice(0, 30));
     return {
       adapter: "memory",
-      record,
+      record: toPersistenceRecord(record),
     };
   }
 
@@ -161,7 +174,7 @@ export function createBodyFatScanRepository(params: { prisma?: PrismaLike }) {
 
       return {
         adapter: "tracking_json",
-        record,
+        record: toPersistenceRecord(record),
       };
     } catch {
       return saveToMemory(payload);
