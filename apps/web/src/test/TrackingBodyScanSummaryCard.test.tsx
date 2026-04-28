@@ -78,11 +78,11 @@ describe("TrackingBodyScanSummaryCard", () => {
 
     renderWithProviders(<TrackingBodyScanSummaryCard capability={capability} />);
 
-    expect(screen.getByText(/estimated body fat/i)).toBeInTheDocument();
-    expect(screen.getByText(/lean mass estimate/i)).toBeInTheDocument();
-    expect(screen.getByText(/fat mass estimate/i)).toBeInTheDocument();
-    expect(screen.getByText(/precision honesta/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/body fat manual/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/(% grasa estimado|estimated body fat)/i)).toBeInTheDocument();
+    expect(screen.getByText(/(^composicion$|lean mass estimate)/i)).toBeInTheDocument();
+    expect(screen.getByText(/(masa grasa|fat mass estimate)/i)).toBeInTheDocument();
+    expect(screen.getByText(/(estimacion hibrida|precision honesta)/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/(grasa corporal manual|body fat manual)/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/medidas corporales/i).length).toBeGreaterThan(0);
   });
 });

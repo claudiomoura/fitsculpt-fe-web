@@ -14,6 +14,14 @@ const envSchema = z.object({
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   GOOGLE_REDIRECT_URI: z.string().optional(),
   APP_BASE_URL: z.string().default("http://localhost:3000"),
+  BILLING_ALLOW_REQUEST_ORIGIN_FALLBACK: z
+    .string()
+    .optional()
+    .transform((value) => {
+      if (!value) return false;
+      const normalized = value.trim().toLowerCase();
+      return normalized === "1" || normalized === "true" || normalized === "yes";
+    }),
   EMAIL_PROVIDER: z.string().default("console"),
   EMAIL_FROM: z.string().default("no-reply@fitsculpt.app"),
   RESEND_API_KEY: z.string().optional(),
@@ -52,6 +60,8 @@ export function getEnv(): Env {
     GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
     GOOGLE_REDIRECT_URI: process.env.GOOGLE_REDIRECT_URI,
     APP_BASE_URL: process.env.APP_BASE_URL,
+    BILLING_ALLOW_REQUEST_ORIGIN_FALLBACK:
+      process.env.BILLING_ALLOW_REQUEST_ORIGIN_FALLBACK,
     EMAIL_PROVIDER: process.env.EMAIL_PROVIDER,
     EMAIL_FROM: process.env.EMAIL_FROM,
     RESEND_API_KEY: process.env.RESEND_API_KEY,

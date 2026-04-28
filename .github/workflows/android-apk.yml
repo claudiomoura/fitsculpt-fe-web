@@ -25,6 +25,7 @@ jobs:
         with:
           node-version: 20
           cache: 'pnpm'
+          cache-dependency-path: apps/web/pnpm-lock.yaml
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -36,13 +37,13 @@ jobs:
         run: npm install -g pnpm
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm --dir apps/web install --frozen-lockfile
 
       - name: Build Next.js
-        run: pnpm --prefix apps/web run build
+        run: pnpm --dir apps/web run build
 
       - name: Sync to Android
-        run: pnpm --prefix apps/web run mobile:android:sync
+        run: pnpm --dir apps/web run mobile:android:sync
 
       - name: Build APK
         working-directory: apps/web/android
@@ -58,5 +59,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: fitsculpt-apk-${{ github.event.inputs.build_type }}
-          path: apps/web/android/app/build/outputs/apk/${{ github.event.inputs.build_type }}/app-${{ github.event.inputs.build_type }}.apk
+          path: apps/web/android/app/build/outputs/apk/${{ github.event.inputs.build_type }}/app-${{ github.event.inputs.build_type }}*.apk
+          if-no-files-found: error
           retention-days: 30

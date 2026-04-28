@@ -81,6 +81,10 @@ import { runDatabasePreflight } from "./dbPreflight.js";
 import { isStripePriceNotFoundError } from "./billing/stripeErrors.js";
 import { getStripeSubscriptionPeriodEnd } from "./billing/stripeSubscriptionPeriods.js";
 import {
+  buildBillingSettingsUrl,
+  resolveBillingBaseUrl,
+} from "./billing/urlBase.js";
+import {
   shouldGrantTokensForBillingCycle,
   tokenGrantForPlan,
 } from "./billing/tokenPolicy.js";
@@ -7244,6 +7248,18 @@ const billingCheckoutHandler = async (request: FastifyRequest, reply: FastifyRep
         }
       });
     const payload = checkoutSchema.parse(request.body);
+    const billingBaseUrl = resolveBillingBaseUrl({
+      appBaseUrl: env.APP_BASE_URL,
+      nodeEnv: process.env.NODE_ENV,
+      allowRequestOriginFallback: env.BILLING_ALLOW_REQUEST_ORIGIN_FALLBACK,
+      requestProtocol: request.protocol,
+      headers: {
+        host: request.headers.host,
+        origin: request.headers.origin,
+        "x-forwarded-host": request.headers["x-forwarded-host"],
+        "x-forwarded-proto": request.headers["x-forwarded-proto"],
+      },
+    });
     const resolvedPriceId =
       payload.priceId ?? resolvePriceIdByPlanKey(payload.planKey ?? "");
     const normalizedReturnTo = typeof payload.returnTo === "string" && payload.returnTo.startsWith("/app/") ? payload.returnTo : "/app/settings/billing";
@@ -7272,7 +7288,7 @@ const billingCheckoutHandler = async (request: FastifyRequest, reply: FastifyRep
           "billing_portal/sessions",
           {
             customer: customerId,
-            return_url: `${env.APP_BASE_URL}/app/settings/billing`,
+            return_url: buildBillingSettingsUrl(billingBaseUrl).toString(),
           },
         );
         portalUrl = session.url ?? null;
@@ -7295,10 +7311,10 @@ const billingCheckoutHandler = async (request: FastifyRequest, reply: FastifyRep
       return reply.status(200).send({ alreadySubscribed: true });
     }
 
-    const successUrl = new URL(`${env.APP_BASE_URL}/app/settings/billing`);
+    const successUrl = buildBillingSettingsUrl(billingBaseUrl);
     successUrl.searchParams.set("checkout", "success");
     successUrl.searchParams.set("returnTo", normalizedReturnTo);
-    const cancelUrl = new URL(`${env.APP_BASE_URL}/app/settings/billing`);
+    const cancelUrl = buildBillingSettingsUrl(billingBaseUrl);
     cancelUrl.searchParams.set("checkout", "cancel");
     cancelUrl.searchParams.set("returnTo", normalizedReturnTo);
 
@@ -7432,12 +7448,24 @@ const billingPlansHandler = async (request: FastifyRequest, reply: FastifyReply)
 const billingPortalHandler = async (request: FastifyRequest, reply: FastifyReply) => {
   try {
     const user = await requireUser(request);
+    const billingBaseUrl = resolveBillingBaseUrl({
+      appBaseUrl: env.APP_BASE_URL,
+      nodeEnv: process.env.NODE_ENV,
+      allowRequestOriginFallback: env.BILLING_ALLOW_REQUEST_ORIGIN_FALLBACK,
+      requestProtocol: request.protocol,
+      headers: {
+        host: request.headers.host,
+        origin: request.headers.origin,
+        "x-forwarded-host": request.headers["x-forwarded-host"],
+        "x-forwarded-proto": request.headers["x-forwarded-proto"],
+      },
+    });
     const customerId = await getOrCreateStripeCustomer(user);
     const session = await stripeRequest<StripePortalSession>(
       "billing_portal/sessions",
       {
         customer: customerId,
-        return_url: `${env.APP_BASE_URL}/app/settings/billing`,
+        return_url: buildBillingSettingsUrl(billingBaseUrl).toString(),
       },
     );
     return { url: session.url };
