@@ -4,12 +4,14 @@ const {
   mockGetPlatform,
   mockGetSdkStatus,
   mockGetPermissionsStatus,
+  mockRequestPermissions,
   mockSyncLastDays,
   mockOpenHealthConnectSettings,
 } = vi.hoisted(() => ({
   mockGetPlatform: vi.fn(),
   mockGetSdkStatus: vi.fn(),
   mockGetPermissionsStatus: vi.fn(),
+  mockRequestPermissions: vi.fn(),
   mockSyncLastDays: vi.fn(),
   mockOpenHealthConnectSettings: vi.fn(),
 }));
@@ -21,6 +23,7 @@ vi.mock("@capacitor/core", () => ({
   registerPlugin: () => ({
     getSdkStatus: mockGetSdkStatus,
     getPermissionsStatus: mockGetPermissionsStatus,
+    requestPermissions: mockRequestPermissions,
     syncLastDays: mockSyncLastDays,
     openHealthConnectSettings: mockOpenHealthConnectSettings,
   }),
@@ -33,6 +36,7 @@ describe("nativeHealthSync", () => {
     mockGetPlatform.mockReturnValue("android");
     mockGetSdkStatus.mockResolvedValue({ isAvailable: true, status: "available", sdkStatus: 0 });
     mockGetPermissionsStatus.mockResolvedValue({ granted: true });
+    mockRequestPermissions.mockResolvedValue({ granted: true });
     mockSyncLastDays.mockResolvedValue({ snapshots: [] });
   });
 
@@ -59,6 +63,28 @@ describe("nativeHealthSync", () => {
     expect(result).toEqual({
       status: "error",
       reason: "HEALTH_CONNECT_UNAVAILABLE",
+    });
+  });
+
+  it("requests Health Connect permissions before syncing", async () => {
+    mockGetPermissionsStatus.mockResolvedValueOnce({ granted: false, reason: "permissions_missing" });
+
+    const result = await syncAndroidHealthSnapshots(7);
+
+    expect(mockRequestPermissions).toHaveBeenCalledTimes(1);
+    expect(mockSyncLastDays).toHaveBeenCalledWith({ days: 7 });
+    expect(result).toEqual({ status: "ready", snapshots: [] });
+  });
+
+  it("returns a permissions status when the native prompt is denied", async () => {
+    mockGetPermissionsStatus.mockResolvedValueOnce({ granted: false, reason: "permissions_missing" });
+    mockRequestPermissions.mockResolvedValueOnce({ granted: false, reason: "permissions_denied" });
+
+    const result = await syncAndroidHealthSnapshots(7);
+
+    expect(result).toEqual({
+      status: "permissions",
+      reason: "permissions_denied",
     });
   });
 });

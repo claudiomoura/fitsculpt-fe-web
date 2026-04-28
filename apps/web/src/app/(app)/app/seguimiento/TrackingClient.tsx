@@ -989,12 +989,7 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
       }
 
       if (result.status === "permissions") {
-        const opened = await openAndroidHealthConnectSettings();
-        showMessage(
-          opened
-            ? t("tracking.syncAndroidPermissionsOpened")
-            : t("tracking.syncAndroidPermissionsRequired"),
-        );
+        showMessage(t("tracking.syncAndroidPermissionsRequired"));
         return;
       }
 
@@ -2033,6 +2028,16 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
   }
 
   const primaryRecommendation = recommendationCapability.items[0] ?? null;
+  const bodyScanComposition = bodyScanCapability.data.composition;
+  const bodyScanConfidenceLabel =
+    bodyScanCapability.confidence === "high"
+      ? "Alta"
+      : bodyScanCapability.confidence === "medium"
+        ? "Media"
+        : "Baja";
+  const bodyScanNextStep =
+    bodyScanCapability.nextBestInputs[0] ??
+    "Mantener check-ins comparables cada 2-4 semanas.";
 
   return (
     <div
@@ -2046,55 +2051,278 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
       data-testid="tracking-page"
     >
       {isBodyScanOnly ? (
-        <section className="grid gap-4">
-          <div className="rounded-3xl border border-[rgba(15,23,42,0.08)] bg-[linear-gradient(135deg,rgba(255,245,235,0.9),rgba(255,255,255,0.96),rgba(239,246,255,0.9))] p-5 shadow-sm">
-            <p className="m-0 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">AI Body Fat Scan</p>
-            <h1 className="m-0 mt-2 text-2xl font-semibold text-[var(--text)]">Escaneo corporal AI</h1>
-              <p className="m-0 mt-2 text-sm leading-6 text-[var(--muted)]">
-                Ejecuta el scan con tus fotos frontal, lateral y dorsal mas recientes. Si faltan fotos, crea primero un check-in completo.
-              </p>
-            <div className="mt-4 flex flex-wrap gap-3">
-              <Link href="/app/seguimiento/check-in" className="btn secondary fit-content">
-                Crear check-in base
-              </Link>
-              <Link href="/app/seguimiento" className="btn secondary fit-content">
-                Ver progreso
-              </Link>
+        <section className={styles.bodyScanReportShell}>
+          <header className={styles.bodyScanReportHeader}>
+            <p className="eyebrow m-0">Body Scan</p>
+            <h1 className="section-title m-0">Composición corporal</h1>
+            <div className={styles.bodyScanHeaderMeta}>
+              <span>Confianza {bodyScanConfidenceLabel}</span>
+              {bodyScanComposition ? (
+                <span>
+                  Rango {bodyScanComposition.bodyFatRangePct.min.toFixed(1)}-
+                  {bodyScanComposition.bodyFatRangePct.max.toFixed(1)}%
+                </span>
+              ) : null}
             </div>
-          </div>
+          </header>
 
           {!hasAdjustmentEntitlement ? (
             <div className="rounded-3xl border border-[rgba(245,158,11,0.3)] bg-[rgba(255,247,237,0.9)] p-5 shadow-sm">
               <p className="m-0 text-sm font-semibold text-[var(--text)]">Body Scan Avanzado</p>
-              <p className="m-0 mt-2 text-sm leading-6 text-[var(--text)]">Desbloquea analisis corporal avanzado y recomendaciones personalizadas con Pro.</p>
+              <p className="m-0 mt-2 text-sm leading-6 text-[var(--text)]">Desbloquea análisis corporal avanzado y recomendaciones personalizadas con Pro.</p>
               <div className="mt-3">
-                <Link href="/app/settings/billing" className="btn primary fit-content">
-                  Desbloquea con Pro
-                </Link>
+                <Link href="/app/settings/billing" className="btn primary fit-content">Desbloquea con Pro</Link>
               </div>
             </div>
           ) : null}
 
-          <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
-            {hasAdjustmentEntitlement ? <TrackingBodyScanSummaryCard capability={bodyScanCapability} /> : null}
-            <TrackingAiBodyFatScanPanel
-              capability={{
-                state: bodyScanCapability.state,
-                nextBestInputs: bodyScanCapability.nextBestInputs,
-                compliance: bodyScanCapability.compliance,
-              }}
-              estimatedTokens={estimatedBodyFatScanTokens}
-              tokenBalance={adjustmentTokenBalance}
-              isProEligible={hasAdjustmentEntitlement}
-              isLoading={bodyFatScanRunState === "loading"}
-              errorMessage={bodyFatScanRunError}
-              result={bodyFatScanResult}
-              onAnalyze={() => void handleAnalyzeBodyFatScan()}
-              onRetry={resetBodyFatScan}
-              t={t}
-              openHref="/app/body-scan"
-            />
+          <section className={styles.bodyScanHeroCard}>
+            <div className={styles.bodyScanHeroCopy}>
+              <p className="eyebrow m-0">Grasa estimada</p>
+              <strong>
+                {bodyScanComposition
+                  ? `${bodyScanComposition.bodyFatPercent.toFixed(1)}%`
+                  : "Sin base suficiente"}
+              </strong>
+              {bodyScanComposition ? (
+                <span>
+                  {bodyScanComposition.bodyFatRangePct.min.toFixed(1)}% a {bodyScanComposition.bodyFatRangePct.max.toFixed(1)}% probable
+                </span>
+              ) : null}
+            </div>
+            <div className={styles.bodyScanConfidencePill}>
+              <span>Confianza</span>
+              <strong>
+                {bodyScanConfidenceLabel}
+                {bodyScanComposition ? ` · ${bodyScanComposition.confidenceScore}/100` : ""}
+              </strong>
+            </div>
+          </section>
+
+          <div className={styles.bodyScanMetricGrid}>
+            <article className={styles.bodyScanMetricCard}>
+              <p className="muted m-0">Rango probable</p>
+              <strong>
+                {bodyScanComposition
+                  ? `${bodyScanComposition.bodyFatRangePct.min.toFixed(1)}-${bodyScanComposition.bodyFatRangePct.max.toFixed(1)}%`
+                  : "Sin base"}
+              </strong>
+            </article>
+            <article className={styles.bodyScanMetricCard}>
+              <p className="muted m-0">Masa magra</p>
+              <strong>
+                {bodyScanComposition?.leanMassKg
+                  ? `${bodyScanComposition.leanMassKg.toFixed(1)} kg`
+                  : "Sin base"}
+              </strong>
+            </article>
+            <article className={styles.bodyScanMetricCard}>
+              <p className="muted m-0">Masa grasa</p>
+              <strong>
+                {bodyScanComposition?.fatMassKg
+                  ? `${bodyScanComposition.fatMassKg.toFixed(1)} kg`
+                  : "Sin base"}
+              </strong>
+            </article>
+            <article className={styles.bodyScanMetricCard}>
+              <p className="muted m-0">Confianza</p>
+              <strong>{bodyScanConfidenceLabel}</strong>
+            </article>
           </div>
+
+          <section className={styles.bodyScanNextStepCard}>
+            <p className="eyebrow m-0">Siguiente paso</p>
+            <h3 className="section-title section-title-sm m-0">{bodyScanNextStep}</h3>
+            <div className="inline-actions-sm" style={{ marginTop: 12 }}>
+              <Link href="/app/body-scan" className="btn primary fit-content">Abrir scan completo</Link>
+              <Link href="/app/seguimiento/check-in" className="btn secondary fit-content">Actualizar fotos</Link>
+            </div>
+          </section>
+
+          <section className={styles.bodyScanPlanCard}>
+            <div>
+              <p className="eyebrow m-0">Plan recomendado</p>
+              <h3 className="section-title section-title-sm m-0">{recommendationCapability.summary}</h3>
+              {primaryRecommendation ? (
+                <p className="muted m-0">{primaryRecommendation.title}</p>
+              ) : null}
+            </div>
+            {primaryRecommendation ? (
+              <Link
+                href={primaryRecommendation.cta.href}
+                className="btn secondary fit-content"
+                onClick={() =>
+                  trackTrackingCapabilityEvent({
+                    event: "cta_clicked",
+                    capabilityId: "recommendation",
+                    origin: isCheckinOnly ? "checkin_page" : "tracking",
+                    status: recommendationCapability.status,
+                    ctaTarget: primaryRecommendation.cta.target,
+                  })
+                }
+              >
+                {primaryRecommendation.cta.label}
+              </Link>
+            ) : null}
+          </section>
+
+          <details className={styles.advancedDisclosure}>
+            <summary>
+              <div className={styles.advancedDisclosureTitle}>
+                <strong>Ver explicación</strong>
+                <span className="muted">Resumen interpretativo y señales principales.</span>
+              </div>
+              <span className={styles.advancedDisclosureIndicator}>Ver</span>
+            </summary>
+            <div className={styles.advancedDisclosureBody}>
+              <p className="m-0 text-sm leading-6 text-[var(--text)]">{bodyScanCapability.summary}</p>
+              {bodyScanCapability.observations.length > 0 ? (
+                <ul className={styles.bodyScanDetailList}>
+                  {bodyScanCapability.observations.map((item, index) => (
+                    <li key={`body-scan-observation-${index}`}>{item}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          </details>
+
+          <details className={styles.advancedDisclosure}>
+            <summary>
+              <div className={styles.advancedDisclosureTitle}>
+                <strong>Metodología y notas</strong>
+                <span className="muted">Precisión orientativa y señales usadas para esta lectura.</span>
+              </div>
+              <span className={styles.advancedDisclosureIndicator}>Ver</span>
+            </summary>
+            <div className={styles.advancedDisclosureBody}>
+              {bodyScanComposition ? (
+                <>
+                  <p className="m-0 text-sm leading-6 text-[var(--text)]">{bodyScanComposition.accuracyNote}</p>
+                  <div className={styles.bodyScanSourceList}>
+                    {bodyScanComposition.sources.map((source) => (
+                      <span key={source}>
+                        {source === "manual_body_fat"
+                          ? "Grasa corporal manual"
+                          : source === "us_navy"
+                            ? "Medidas corporales"
+                            : "Perfil base"}
+                      </span>
+                    ))}
+                  </div>
+                </>
+              ) : null}
+              {bodyScanCapability.nextBestInputs.length > 1 ? (
+                <ul className={styles.bodyScanDetailList}>
+                  {bodyScanCapability.nextBestInputs.slice(1).map((item, index) => (
+                    <li key={`body-scan-input-${index}`}>{item}</li>
+                  ))}
+                </ul>
+              ) : null}
+              <p className="m-0 text-xs leading-5 text-[var(--muted)]">{bodyScanCapability.compliance.disclaimer}</p>
+              <TrackingAiBodyFatScanPanel
+                capability={{
+                  state: bodyScanCapability.state,
+                  nextBestInputs: bodyScanCapability.nextBestInputs,
+                  compliance: bodyScanCapability.compliance,
+                }}
+                estimatedTokens={estimatedBodyFatScanTokens}
+                tokenBalance={adjustmentTokenBalance}
+                isProEligible={hasAdjustmentEntitlement}
+                isLoading={bodyFatScanRunState === "loading"}
+                errorMessage={bodyFatScanRunError}
+                result={bodyFatScanResult}
+                onAnalyze={() => void handleAnalyzeBodyFatScan()}
+                onRetry={resetBodyFatScan}
+                t={t}
+                openHref="/app/body-scan"
+              />
+            </div>
+          </details>
+
+          <details className={styles.advancedDisclosure}>
+            <summary>
+              <div className={styles.advancedDisclosureTitle}>
+                <strong>Recomendación completa / detalles del plan</strong>
+                <span className="muted">Racional, notas de modelo y acciones disponibles.</span>
+              </div>
+              <span className={styles.advancedDisclosureIndicator}>Ver</span>
+            </summary>
+            <div className={styles.advancedDisclosureBody}>
+              {projectionCapabilityStatus === "loading" ? (
+                <LoadingState
+                  ariaLabel="Cargando recomendacion"
+                  showCard={false}
+                  variant="inline"
+                  lines={2}
+                />
+              ) : (
+                <p className="m-0 text-sm leading-6 text-[var(--text)]">{recommendationCapability.explainability.summary}</p>
+              )}
+              <div className={styles.bodyScanRecommendationList}>
+                {recommendationCapability.items.map((item) => (
+                  <article key={item.id} className={styles.bodyScanRecommendationItem}>
+                    <div className={styles.bodyScanRecommendationHeader}>
+                      <div>
+                        <h4 className="m-0 text-base font-semibold text-[var(--text)]">{item.title}</h4>
+                        <p className="m-0 mt-2 text-sm leading-6 text-[var(--text)]">{item.summary}</p>
+                      </div>
+                      <span>{item.confidence}</span>
+                    </div>
+                    {item.rationale.length > 0 ? (
+                      <ul className={styles.bodyScanDetailList}>
+                        {item.rationale.map((rationale, index) => (
+                          <li key={`${item.id}-rationale-${index}`}>{rationale}</li>
+                        ))}
+                      </ul>
+                    ) : null}
+                    <div className="inline-actions-sm">
+                      <Link
+                        href={item.cta.href}
+                        className="btn secondary fit-content"
+                        onClick={() =>
+                          trackTrackingCapabilityEvent({
+                            event: "cta_clicked",
+                            capabilityId: "recommendation",
+                            origin: isCheckinOnly ? "checkin_page" : "tracking",
+                            status: recommendationCapability.status,
+                            ctaTarget: item.cta.target,
+                          })
+                        }
+                      >
+                        {item.cta.label}
+                      </Link>
+                      {item.cta.target === "training-plan" ? (
+                        <button
+                          type="button"
+                          className="btn"
+                          disabled={recommendationAiStatus.state === "loading"}
+                          onClick={() => void handleApplyRecommendationAiPlan(item)}
+                        >
+                          {recommendationAiStatus.state === "loading" ? "Aplicando plan IA..." : "Aplicar plan IA"}
+                        </button>
+                      ) : null}
+                    </div>
+                  </article>
+                ))}
+              </div>
+              {recommendationCapability.explainability.rationale.length > 0 ? (
+                <div className={styles.bodyScanMutedStack}>
+                  {recommendationCapability.explainability.rationale.map((item, index) => (
+                    <p key={`recommendation-model-${index}`} className="m-0 text-xs leading-5 text-[var(--muted)]">
+                      {item}
+                    </p>
+                  ))}
+                </div>
+              ) : null}
+              {recommendationCapability.explainability.fallbackLabel ? (
+                <p className="m-0 text-xs text-[var(--muted)]">Fallback activo: {recommendationCapability.explainability.fallbackLabel}</p>
+              ) : null}
+              <p className="m-0 text-xs text-[var(--muted)]">{recommendationCapability.compliance.disclaimer}</p>
+              {recommendationAiStatus.message ? (
+                <p className="m-0 text-xs text-[var(--muted)]">{recommendationAiStatus.message}</p>
+              ) : null}
+            </div>
+          </details>
         </section>
       ) : null}
 
@@ -2726,6 +2954,11 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
                 <strong>Body scan y plan recomendado</strong>
                 <span className="muted">Lectura rapida de composicion corporal y siguiente mejor paso.</span>
                 <span className="muted">Vista compacta para mobile. Abre detalles solo cuando los necesites.</span>
+                <span>
+                  <Link href="/app/seguimiento/body-scan-report" className="btn secondary fit-content" style={{ marginTop: 8 }}>
+                    Ver reporte completo
+                  </Link>
+                </span>
               </div>
               <span className={styles.advancedDisclosureIndicator}>
                 {isIntelligencePreviewOpen ? t("ui.showLess") : t("ui.viewAll")}

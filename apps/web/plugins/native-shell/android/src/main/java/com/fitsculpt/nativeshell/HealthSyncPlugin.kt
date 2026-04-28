@@ -2,7 +2,9 @@ package com.fitsculpt.nativeshell
 
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.result.ActivityResult
 import androidx.health.connect.client.HealthConnectClient
+import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.SleepSessionRecord
@@ -15,6 +17,7 @@ import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
+import com.getcapacitor.annotation.ActivityCallback
 import com.getcapacitor.annotation.CapacitorPlugin
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -32,6 +35,7 @@ class HealthSyncPlugin : Plugin() {
     HealthPermission.getReadPermission(ExerciseSessionRecord::class),
     HealthPermission.getReadPermission(WeightRecord::class),
   )
+  private val permissionRequestContract = PermissionController.createRequestPermissionResultContract()
 
   private data class DailySnapshot(
     var steps: Int? = null,
@@ -177,6 +181,38 @@ class HealthSyncPlugin : Plugin() {
     val data = JSObject()
     data.put("opened", true)
     data.put("destination", "play_store_web")
+    call.resolve(data)
+  }
+
+  @PluginMethod
+  fun requestPermissions(call: PluginCall) {
+    val currentActivity = activity
+    if (currentActivity == null) {
+      call.reject("ACTIVITY_UNAVAILABLE")
+      return
+    }
+
+    try {
+      val intent = permissionRequestContract.createIntent(currentActivity, requiredPermissions)
+      startActivityForResult(call, intent, "handlePermissionRequestResult")
+    } catch (_: Exception) {
+      call.reject("HEALTH_CONNECT_PERMISSION_REQUEST_FAILED")
+    }
+  }
+
+  @ActivityCallback
+  private fun handlePermissionRequestResult(call: PluginCall?, result: ActivityResult) {
+    if (call == null) {
+      return
+    }
+
+    val grantedPermissions = permissionRequestContract.parseResult(result.resultCode, result.data)
+    val granted = grantedPermissions.containsAll(requiredPermissions)
+    val data = JSObject()
+    data.put("granted", granted)
+    if (!granted) {
+      data.put("reason", "permissions_denied")
+    }
     call.resolve(data)
   }
 

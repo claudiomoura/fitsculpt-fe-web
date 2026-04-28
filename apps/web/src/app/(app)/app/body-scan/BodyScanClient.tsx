@@ -47,7 +47,7 @@ export default function BodyScanClient() {
         if (!active) return;
         setIsProEligible(hasAiEntitlement(profile));
         setTokenBalance(typeof profile.aiTokenBalance === "number" ? profile.aiTokenBalance : null);
-      } catch (_error) {
+      } catch {
         if (!active) return;
         setIsProEligible(false);
         setTokenBalance(null);
@@ -83,7 +83,7 @@ export default function BodyScanClient() {
         setDorsalPhotoDataUrl(dataUrl);
         setStep(frontPhotoDataUrl && sidePhotoDataUrl ? "review" : frontPhotoDataUrl ? "side" : "front");
       }
-    } catch (_error) {
+    } catch {
       setPhotoError("No pudimos procesar la imagen. Usa una foto JPG, PNG o WEBP menor a 10 MB.");
     } finally {
       setIsPhotoProcessing(false);
@@ -133,7 +133,6 @@ export default function BodyScanClient() {
     setResult(null);
     setErrorMessage(null);
     const hasAll = frontPhotoDataUrl && sidePhotoDataUrl && dorsalPhotoDataUrl;
-    const hasFront = frontPhotoDataUrl;
     const hasSide = sidePhotoDataUrl;
     const hasDorsal = dorsalPhotoDataUrl;
     if (hasAll) {
@@ -161,10 +160,8 @@ export default function BodyScanClient() {
       <section className={styles.hero}>
         <div className={styles.heroCopy}>
           <p className={styles.eyebrow}>Escaneo Corporal IA</p>
-          <h1>Estima tu porcentaje graso con tres fotos guiadas.</h1>
-          <p>
-            Un flujo independiente para capturar foto frontal, lateral y dorsal, revisar calidad y ejecutar el analisis sin pasar por Tracking.
-          </p>
+          <h1>Tres fotos. Una estimacion clara.</h1>
+          <p>Captura frontal, lateral y dorsal para obtener una referencia rapida de grasa corporal.</p>
         </div>
         <div className={styles.tokenCard}>
           <span>PRO / Tokens</span>
@@ -208,48 +205,48 @@ export default function BodyScanClient() {
         </ol>
 
         {step === "intro" ? (
-          <div className={styles.panel}>
-            <h2>Antes de empezar</h2>
-            <ul className={styles.checklist}>
-              <li>Usa luz frontal y un fondo limpio.</li>
-              <li>Coloca la camara a la altura del pecho y captura cuerpo completo.</li>
-              <li>Evita poses flexionadas: postura neutral, abdomen relajado.</li>
-              <li>El resultado es orientativo, no diagnostico medico ni medicion clinica.</li>
-            </ul>
-            <button type="button" className="btn primary" onClick={() => setStep("front")}>Comenzar captura</button>
-          </div>
+            <div className={styles.panel}>
+              <h2>Antes de empezar</h2>
+              <ul className={styles.checklist}>
+              <li>Luz frontal y fondo limpio.</li>
+              <li>Camara a la altura del pecho y cuerpo completo.</li>
+              <li>Postura neutral, abdomen relajado.</li>
+              <li>Referencia orientativa, no medicion clinica.</li>
+              </ul>
+              <button type="button" className="btn primary" onClick={() => setStep("front")}>Comenzar captura</button>
+            </div>
         ) : null}
 
         {step === "front" || step === "side" || step === "dorsal" || step === "review" ? (
           <div className={styles.captureLayout}>
             <PhotoCard
               title="Foto frontal"
-              body="Mirando al frente, brazos relajados y pies paralelos."
+              body="Frente a camara, brazos sueltos."
               previewUrl={frontPhotoDataUrl}
               buttonLabel={frontPhotoDataUrl ? "Repetir frontal" : "Subir frontal"}
               onChange={(event) => handlePhotoUpload("front", event)}
             />
             <PhotoCard
               title="Foto lateral"
-              body="Gira 90 grados hacia un lado. Conserva distancia y altura."
+              body="Gira 90 grados y manten la misma distancia."
               previewUrl={sidePhotoDataUrl}
               buttonLabel={sidePhotoDataUrl ? "Repetir lateral" : "Subir lateral"}
               onChange={(event) => handlePhotoUpload("side", event)}
             />
             <PhotoCard
               title="Foto dorsal"
-              body="Gira 180 grados. Mira de espalda, postura erguida."
+              body="De espaldas, postura erguida."
               previewUrl={dorsalPhotoDataUrl}
               buttonLabel={dorsalPhotoDataUrl ? "Repetir dorsal" : "Subir dorsal"}
               onChange={(event) => handlePhotoUpload("dorsal", event)}
             />
             <div className={styles.reviewPanel}>
               <h2>{frontPhotoDataUrl && sidePhotoDataUrl && dorsalPhotoDataUrl ? "Listo para analizar" : "Captura pendiente"}</h2>
-              <p>
-                {frontPhotoDataUrl && sidePhotoDataUrl && dorsalPhotoDataUrl
-                  ? "Revisa que las tres fotos esten nitidas y ejecuta el analisis."
-                  : "Sube las tres vistas (frontal, lateral, dorsal) para activar el analisis IA."}
-              </p>
+                <p>
+                  {frontPhotoDataUrl && sidePhotoDataUrl && dorsalPhotoDataUrl
+                  ? "Si las 3 fotos se ven nitidas, analiza ahora."
+                  : "Completa frontal, lateral y dorsal para activar el analisis."}
+                </p>
               {photoError ? <p className={styles.inlineError} role="alert">{photoError}</p> : null}
               {isPhotoProcessing ? <p className="muted">Procesando imagen...</p> : null}
               <div className={styles.actions}>
@@ -268,7 +265,7 @@ export default function BodyScanClient() {
           <div className={styles.loadingPanel} role="status" aria-live="polite">
             <span className={styles.spinner} aria-hidden="true" />
             <h2>Calculando porcentaje graso...</h2>
-            <p className="muted">La IA esta analizando las 3 fotos. Esto usa modelos de vision para estimar tu composicion corporal.</p>
+            <p className="muted">La IA esta revisando las 3 fotos para generar una estimacion.</p>
           </div>
         ) : null}
 
@@ -293,15 +290,15 @@ export default function BodyScanClient() {
             <div className={styles.resultHeader}>
               <div>
                 <strong>{estimate.pointPercent.toFixed(1)}%</strong>
-                <p className={styles.resultLead}>Tu estimación central actual de grasa corporal.</p>
+                <p className={styles.resultLead}>Estimacion central actual.</p>
               </div>
               <span>{estimate.range.min.toFixed(1)}% - {estimate.range.max.toFixed(1)}%</span>
             </div>
-            <div className={styles.metricGrid}>
-              <div className={styles.metricCard}>
-                <span>Rango orientativo</span>
-                <strong>{estimate.range.min.toFixed(1)}% - {estimate.range.max.toFixed(1)}%</strong>
-              </div>
+              <div className={styles.metricGrid}>
+                <div className={styles.metricCard}>
+                  <span>Rango</span>
+                  <strong>{estimate.range.min.toFixed(1)}% - {estimate.range.max.toFixed(1)}%</strong>
+                </div>
               <div className={styles.metricCard}>
                 <span>Confianza</span>
                 <strong>{formatConfidence(result.confidence)}{typeof result.confidenceScore === "number" ? ` · ${result.confidenceScore}/100` : ""}</strong>
@@ -314,13 +311,13 @@ export default function BodyScanClient() {
             <p>{result.summary}</p>
             {result.nextActions.length > 0 ? (
               <div className={styles.resultList}>
-                <strong>Siguiente mejor acción</strong>
+                <strong>Siguiente paso</strong>
                 {result.nextActions.slice(0, 3).map((item, index) => <p key={`next-${index}`}>{item}</p>)}
               </div>
             ) : null}
             {result.limitations.length > 0 ? (
               <div className={styles.resultList}>
-                <strong>Qué limita la precisión</strong>
+                <strong>Precision</strong>
                 {result.limitations.slice(0, 3).map((item, index) => <p key={`limit-${index}`}>{item}</p>)}
               </div>
             ) : null}

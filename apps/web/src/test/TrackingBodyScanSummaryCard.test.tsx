@@ -28,7 +28,7 @@ const passiveData: PassiveHealthData = {
 };
 
 describe("TrackingBodyScanSummaryCard", () => {
-  it("renders composition metrics and precision explanation", () => {
+  it("renders compact composition metrics and methodology details", () => {
     const capability = buildTrackingBodyScanCapability({
       origin: "tracking",
       profile: { ...defaultProfile, goal: "cut", sex: "male", age: 34, heightCm: 178 },
@@ -78,10 +78,11 @@ describe("TrackingBodyScanSummaryCard", () => {
 
     renderWithProviders(<TrackingBodyScanSummaryCard capability={capability} />);
 
-    expect(screen.getByText(/(% grasa estimado|estimated body fat)/i)).toBeInTheDocument();
-    expect(screen.getByText(/(^composicion$|lean mass estimate)/i)).toBeInTheDocument();
+    expect(screen.getByText(/(grasa estimada|estimated body fat)/i)).toBeInTheDocument();
+    expect(screen.getByText(/(masa magra|lean mass estimate)/i)).toBeInTheDocument();
     expect(screen.getByText(/(masa grasa|fat mass estimate)/i)).toBeInTheDocument();
-    expect(screen.getByText(/(estimacion hibrida|precision honesta)/i)).toBeInTheDocument();
+    expect(screen.getByText(/(metodologia y notas|precision honesta)/i)).toBeInTheDocument();
+    expect(screen.getByText(/siguiente paso/i)).toBeInTheDocument();
     expect(screen.getAllByText(/(grasa corporal manual|body fat manual)/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/medidas corporales/i).length).toBeGreaterThan(0);
   });

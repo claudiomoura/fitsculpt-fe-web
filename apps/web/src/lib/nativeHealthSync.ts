@@ -11,6 +11,10 @@ type HealthSyncPlugin = {
     granted: boolean;
     reason?: string;
   }>;
+  requestPermissions: () => Promise<{
+    granted: boolean;
+    reason?: string;
+  }>;
   openHealthConnectSettings: () => Promise<{ opened: boolean; destination: string }>;
   syncLastDays: (options: { days: number }) => Promise<{ snapshots: PassiveHealthSnapshot[] }>;
 };
@@ -67,7 +71,10 @@ export async function syncAndroidHealthSnapshots(days = 30): Promise<NativeHealt
 
     const granted = await HealthSync.getPermissionsStatus();
     if (!granted.granted) {
-      return { status: "permissions", reason: granted.reason ?? "PERMISSIONS_DENIED" };
+      const permissionRequest = await HealthSync.requestPermissions();
+      if (!permissionRequest.granted) {
+        return { status: "permissions", reason: permissionRequest.reason ?? granted.reason ?? "PERMISSIONS_DENIED" };
+      }
     }
 
     const response = await HealthSync.syncLastDays({ days });

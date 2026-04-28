@@ -28,7 +28,7 @@ export default function AppShellLayout({ children, shell }: AppShellLayoutProps)
       <AppNavBar />
       <div className="app-shell">
         <Sidebar />
-        <main className="app-content page-with-tabbar-safe-area">{children}</main>
+        <main className="app-content">{children}</main>
       </div>
       <MobileTabBar />
     </div>

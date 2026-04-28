@@ -1,7 +1,7 @@
 .shell {
   display: grid;
-  gap: 18px;
-  padding: 18px 0 96px;
+  gap: 16px;
+  padding: 8px 0 24px;
 }
 
 .hero,
@@ -17,9 +17,9 @@
 .hero {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(220px, 320px);
-  gap: 18px;
+  gap: 16px;
   align-items: stretch;
-  padding: 22px;
+  padding: 18px;
   background:
     radial-gradient(circle at top left, color-mix(in srgb, var(--color-primary) 22%, transparent), transparent 34%),
     linear-gradient(135deg, color-mix(in srgb, var(--bg-card) 96%, transparent), color-mix(in srgb, var(--surface-secondary-bg) 72%, transparent));
@@ -27,7 +27,7 @@
 
 .heroCopy {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .heroCopy h1,
@@ -41,8 +41,8 @@
 
 .heroCopy h1 {
   max-width: 760px;
-  font-size: clamp(2rem, 5vw, 4.2rem);
-  line-height: 0.95;
+  font-size: clamp(1.8rem, 4vw, 3.2rem);
+  line-height: 1;
   letter-spacing: -0.06em;
 }
 
@@ -57,7 +57,7 @@
 .errorNotice p {
   margin: 0;
   color: var(--text-muted);
-  line-height: 1.65;
+  line-height: 1.5;
 }
 
 .eyebrow {
@@ -71,9 +71,9 @@
 
 .tokenCard {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   align-content: center;
-  padding: 18px;
+  padding: 16px;
   border: 1px solid color-mix(in srgb, var(--color-primary) 30%, var(--surface-border-default));
   border-radius: 22px;
   background: color-mix(in srgb, var(--bg-card) 76%, transparent);
@@ -92,8 +92,8 @@
 .notice,
 .errorNotice {
   display: grid;
-  gap: 10px;
-  padding: 18px;
+  gap: 8px;
+  padding: 16px;
 }
 
 .notice strong,
@@ -108,8 +108,8 @@
 
 .flowCard {
   display: grid;
-  gap: 18px;
-  padding: 18px;
+  gap: 14px;
+  padding: 16px;
 }
 
 .stepper {
@@ -142,8 +142,8 @@
 .errorPanel,
 .resultPanel {
   display: grid;
-  gap: 16px;
-  padding: 18px;
+  gap: 14px;
+  padding: 16px;
   border: 1px solid color-mix(in srgb, var(--surface-border-default) 70%, transparent);
   border-radius: 22px;
   background: color-mix(in srgb, var(--bg-card) 86%, transparent);
@@ -151,7 +151,7 @@
 
 .checklist {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   margin: 0;
   padding-left: 18px;
   color: var(--text);
@@ -159,14 +159,14 @@
 
 .captureLayout {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 14px;
 }
 
 .photoCard,
 .reviewPanel {
   display: grid;
-  gap: 14px;
+  gap: 12px;
   padding: 16px;
   border: 1px solid color-mix(in srgb, var(--surface-border-default) 70%, transparent);
   border-radius: 22px;
@@ -219,6 +219,10 @@
   flex-wrap: wrap;
   gap: 10px;
   align-items: center;
+}
+
+.actions > * {
+  flex: 1 1 180px;
 }
 
 .inlineError {
@@ -321,12 +325,26 @@
 
 @media (max-width: 760px) {
   .shell {
-    padding-top: 10px;
+    gap: 12px;
+    padding: 0 0 8px;
   }
 
   .hero,
   .captureLayout {
     grid-template-columns: 1fr;
+  }
+
+  .hero,
+  .flowCard,
+  .notice,
+  .errorNotice,
+  .panel,
+  .loadingPanel,
+  .errorPanel,
+  .resultPanel,
+  .photoCard,
+  .reviewPanel {
+    border-radius: 22px;
   }
 
   .stepper {
@@ -340,5 +358,9 @@
   .stepper li {
     justify-content: start;
     padding: 0 14px;
+  }
+
+  .actions > * {
+    flex-basis: 100%;
   }
 }

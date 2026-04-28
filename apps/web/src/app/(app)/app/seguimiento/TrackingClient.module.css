@@ -26,7 +26,7 @@
 .trackingPageContent {
   display: grid;
   gap: 16px;
-  padding-bottom: 8px;
+  padding-bottom: 0;
 }
 
 .summaryIntro {
@@ -106,6 +106,171 @@
 .checkinOnlyBody {
   display: grid;
   gap: 16px;
+}
+
+.bodyScanReportShell {
+  display: grid;
+  gap: 14px;
+  max-width: 980px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.bodyScanReportHeader {
+  display: grid;
+  gap: 8px;
+  padding: clamp(18px, 3vw, 26px);
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 70%, transparent);
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--color-primary) 14%, transparent), transparent 34%),
+    linear-gradient(135deg, color-mix(in srgb, var(--surface-secondary-bg) 88%, transparent), var(--bg-card));
+  box-shadow: var(--surface-card-inner-glow), var(--shadow-sm);
+}
+
+.bodyScanHeaderMeta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.bodyScanHeaderMeta span,
+.bodyScanConfidencePill,
+.bodyScanSourceList span,
+.bodyScanRecommendationHeader span {
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 70%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-card) 82%, transparent);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 650;
+  padding: 6px 10px;
+}
+
+.bodyScanHeroCard {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: stretch;
+  padding: clamp(20px, 4vw, 34px);
+  border-radius: 30px;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 24%, var(--surface-border-default));
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 16%, var(--bg-card)), color-mix(in srgb, var(--surface-secondary-bg) 82%, transparent)),
+    var(--bg-card);
+  box-shadow: var(--surface-card-inner-glow), var(--shadow-sm);
+}
+
+.bodyScanHeroCopy {
+  display: grid;
+  gap: 8px;
+}
+
+.bodyScanHeroCopy strong {
+  color: var(--text);
+  font-size: clamp(3rem, 11vw, 5.8rem);
+  letter-spacing: -0.08em;
+  line-height: 0.9;
+}
+
+.bodyScanHeroCopy span {
+  color: var(--text-muted);
+  font-size: clamp(0.95rem, 2vw, 1.1rem);
+  font-weight: 650;
+}
+
+.bodyScanConfidencePill {
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  min-width: 150px;
+  border-radius: 20px;
+  padding: 14px 16px;
+  text-align: right;
+}
+
+.bodyScanConfidencePill strong {
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.bodyScanMetricGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.bodyScanMetricCard {
+  display: grid;
+  gap: 4px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 70%, transparent);
+  background: color-mix(in srgb, var(--bg-card) 88%, transparent);
+  padding: 12px;
+}
+
+.bodyScanMetricCard strong {
+  font-size: 1.15rem;
+  line-height: 1.2;
+}
+
+.bodyScanNextStepCard {
+  display: grid;
+  gap: 8px;
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 30%, var(--surface-border-default));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 10%, transparent), color-mix(in srgb, var(--surface-secondary-bg) 85%, transparent));
+  padding: 14px;
+}
+
+.bodyScanPlanCard {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  border-radius: 22px;
+  border: 1px solid color-mix(in srgb, #f59e0b 26%, var(--surface-border-default));
+  background: linear-gradient(135deg, rgba(255, 247, 237, 0.84), color-mix(in srgb, var(--bg-card) 90%, transparent));
+  padding: 16px;
+  box-shadow: var(--shadow-sm);
+}
+
+.bodyScanDetailList,
+.bodyScanRecommendationList,
+.bodyScanMutedStack {
+  display: grid;
+  gap: 10px;
+}
+
+.bodyScanDetailList {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.bodyScanSourceList {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.bodyScanRecommendationItem {
+  display: grid;
+  gap: 12px;
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 72%, transparent);
+  background: color-mix(in srgb, var(--bg-card) 90%, transparent);
+  padding: 14px;
+}
+
+.bodyScanRecommendationHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
 }
 
 .heroHeader {
@@ -458,7 +623,7 @@
 @media (max-width: 640px) {
   .trackingPageContent {
     gap: 14px;
-    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);
+    padding-bottom: 0;
   }
 
   .heroCard {
@@ -495,6 +660,21 @@
   }
 
   .summaryKpiGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .bodyScanHeroCard,
+  .bodyScanPlanCard,
+  .bodyScanRecommendationHeader {
+    display: grid;
+  }
+
+  .bodyScanConfidencePill {
+    min-width: 0;
+    text-align: left;
+  }
+
+  .bodyScanMetricGrid {
     grid-template-columns: 1fr 1fr;
   }
 
