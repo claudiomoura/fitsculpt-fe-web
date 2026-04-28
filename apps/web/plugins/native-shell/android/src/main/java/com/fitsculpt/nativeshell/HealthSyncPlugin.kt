@@ -29,6 +29,7 @@ import java.time.ZoneOffset
 
 @CapacitorPlugin(name = "HealthSync")
 class HealthSyncPlugin : Plugin() {
+  private val healthConnectPackage = "com.google.android.apps.healthdata"
   private val requiredPermissions = setOf(
     HealthPermission.getReadPermission(StepsRecord::class),
     HealthPermission.getReadPermission(SleepSessionRecord::class),
@@ -125,31 +126,36 @@ class HealthSyncPlugin : Plugin() {
 
     try {
       val appPermissionsIntent = Intent("androidx.health.ACTION_MANAGE_HEALTH_PERMISSIONS")
-      appPermissionsIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+      appPermissionsIntent.setPackage(healthConnectPackage)
+      appPermissionsIntent.putExtra(Intent.EXTRA_PACKAGE_NAME, currentContext.packageName)
       appPermissionsIntent.putExtra("androidx.health.extra.PACKAGE_NAME", currentContext.packageName)
       appPermissionsIntent.putExtra("androidx.health.connect.extra.PACKAGE_NAME", currentContext.packageName)
       appPermissionsIntent.putExtra("androidx.health.connect.extra.APP_PACKAGE_NAME", currentContext.packageName)
-      currentActivity.startActivity(appPermissionsIntent)
+      if (appPermissionsIntent.resolveActivity(currentActivity.packageManager) != null) {
+        currentActivity.startActivity(appPermissionsIntent)
 
-      val data = JSObject()
-      data.put("opened", true)
-      data.put("destination", "app_permissions")
-      call.resolve(data)
-      return
+        val data = JSObject()
+        data.put("opened", true)
+        data.put("destination", "app_permissions")
+        call.resolve(data)
+        return
+      }
     } catch (_: Exception) {
       // Fall through to general Health Connect settings.
     }
 
     try {
       val healthIntent = Intent("androidx.health.ACTION_HEALTH_CONNECT_SETTINGS")
-      healthIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-      currentActivity.startActivity(healthIntent)
+      healthIntent.setPackage(healthConnectPackage)
+      if (healthIntent.resolveActivity(currentActivity.packageManager) != null) {
+        currentActivity.startActivity(healthIntent)
 
-      val data = JSObject()
-      data.put("opened", true)
-      data.put("destination", "health_connect_settings")
-      call.resolve(data)
-      return
+        val data = JSObject()
+        data.put("opened", true)
+        data.put("destination", "health_connect_settings")
+        call.resolve(data)
+        return
+      }
     } catch (_: Exception) {
       // Fall through to the Play Store fallback.
     }

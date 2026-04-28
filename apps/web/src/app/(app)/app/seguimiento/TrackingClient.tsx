@@ -2029,16 +2029,6 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
 
   const primaryRecommendation = recommendationCapability.items[0] ?? null;
   const bodyScanComposition = bodyScanCapability.data.composition;
-  const bodyScanConfidenceLabel =
-    bodyScanCapability.confidence === "high"
-      ? "Alta"
-      : bodyScanCapability.confidence === "medium"
-        ? "Media"
-        : "Baja";
-  const bodyScanNextStep =
-    bodyScanCapability.nextBestInputs[0] ??
-    "Mantener check-ins comparables cada 2-4 semanas.";
-
   return (
     <div
       className={
@@ -2052,19 +2042,7 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
     >
       {isBodyScanOnly ? (
         <section className={styles.bodyScanReportShell}>
-          <header className={styles.bodyScanReportHeader}>
-            <p className="eyebrow m-0">Body Scan</p>
-            <h1 className="section-title m-0">Composición corporal</h1>
-            <div className={styles.bodyScanHeaderMeta}>
-              <span>Confianza {bodyScanConfidenceLabel}</span>
-              {bodyScanComposition ? (
-                <span>
-                  Rango {bodyScanComposition.bodyFatRangePct.min.toFixed(1)}-
-                  {bodyScanComposition.bodyFatRangePct.max.toFixed(1)}%
-                </span>
-              ) : null}
-            </div>
-          </header>
+          {hasAdjustmentEntitlement ? <TrackingBodyScanSummaryCard capability={bodyScanCapability} /> : null}
 
           {!hasAdjustmentEntitlement ? (
             <div className="rounded-3xl border border-[rgba(245,158,11,0.3)] bg-[rgba(255,247,237,0.9)] p-5 shadow-sm">
@@ -2076,68 +2054,10 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
             </div>
           ) : null}
 
-          <section className={styles.bodyScanHeroCard}>
-            <div className={styles.bodyScanHeroCopy}>
-              <p className="eyebrow m-0">Grasa estimada</p>
-              <strong>
-                {bodyScanComposition
-                  ? `${bodyScanComposition.bodyFatPercent.toFixed(1)}%`
-                  : "Sin base suficiente"}
-              </strong>
-              {bodyScanComposition ? (
-                <span>
-                  {bodyScanComposition.bodyFatRangePct.min.toFixed(1)}% a {bodyScanComposition.bodyFatRangePct.max.toFixed(1)}% probable
-                </span>
-              ) : null}
-            </div>
-            <div className={styles.bodyScanConfidencePill}>
-              <span>Confianza</span>
-              <strong>
-                {bodyScanConfidenceLabel}
-                {bodyScanComposition ? ` · ${bodyScanComposition.confidenceScore}/100` : ""}
-              </strong>
-            </div>
-          </section>
-
-          <div className={styles.bodyScanMetricGrid}>
-            <article className={styles.bodyScanMetricCard}>
-              <p className="muted m-0">Rango probable</p>
-              <strong>
-                {bodyScanComposition
-                  ? `${bodyScanComposition.bodyFatRangePct.min.toFixed(1)}-${bodyScanComposition.bodyFatRangePct.max.toFixed(1)}%`
-                  : "Sin base"}
-              </strong>
-            </article>
-            <article className={styles.bodyScanMetricCard}>
-              <p className="muted m-0">Masa magra</p>
-              <strong>
-                {bodyScanComposition?.leanMassKg
-                  ? `${bodyScanComposition.leanMassKg.toFixed(1)} kg`
-                  : "Sin base"}
-              </strong>
-            </article>
-            <article className={styles.bodyScanMetricCard}>
-              <p className="muted m-0">Masa grasa</p>
-              <strong>
-                {bodyScanComposition?.fatMassKg
-                  ? `${bodyScanComposition.fatMassKg.toFixed(1)} kg`
-                  : "Sin base"}
-              </strong>
-            </article>
-            <article className={styles.bodyScanMetricCard}>
-              <p className="muted m-0">Confianza</p>
-              <strong>{bodyScanConfidenceLabel}</strong>
-            </article>
+          <div className={styles.bodyScanActionRow}>
+            <Link href="/app/body-scan" className="btn primary fit-content">Abrir scan completo</Link>
+            <Link href="/app/seguimiento/check-in" className="btn secondary fit-content">Actualizar fotos</Link>
           </div>
-
-          <section className={styles.bodyScanNextStepCard}>
-            <p className="eyebrow m-0">Siguiente paso</p>
-            <h3 className="section-title section-title-sm m-0">{bodyScanNextStep}</h3>
-            <div className="inline-actions-sm" style={{ marginTop: 12 }}>
-              <Link href="/app/body-scan" className="btn primary fit-content">Abrir scan completo</Link>
-              <Link href="/app/seguimiento/check-in" className="btn secondary fit-content">Actualizar fotos</Link>
-            </div>
-          </section>
 
           <section className={styles.bodyScanPlanCard}>
             <div>
@@ -2169,8 +2089,8 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
           <details className={styles.advancedDisclosure}>
             <summary>
               <div className={styles.advancedDisclosureTitle}>
-                <strong>Ver explicación</strong>
-                <span className="muted">Resumen interpretativo y señales principales.</span>
+                <strong>Analisis avanzado</strong>
+                <span className="muted">Contexto del resultado, metodologia y escaneo IA completo.</span>
               </div>
               <span className={styles.advancedDisclosureIndicator}>Ver</span>
             </summary>
@@ -2178,23 +2098,11 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
               <p className="m-0 text-sm leading-6 text-[var(--text)]">{bodyScanCapability.summary}</p>
               {bodyScanCapability.observations.length > 0 ? (
                 <ul className={styles.bodyScanDetailList}>
-                  {bodyScanCapability.observations.map((item, index) => (
+                  {bodyScanCapability.observations.slice(0, 2).map((item, index) => (
                     <li key={`body-scan-observation-${index}`}>{item}</li>
                   ))}
                 </ul>
               ) : null}
-            </div>
-          </details>
-
-          <details className={styles.advancedDisclosure}>
-            <summary>
-              <div className={styles.advancedDisclosureTitle}>
-                <strong>Metodología y notas</strong>
-                <span className="muted">Precisión orientativa y señales usadas para esta lectura.</span>
-              </div>
-              <span className={styles.advancedDisclosureIndicator}>Ver</span>
-            </summary>
-            <div className={styles.advancedDisclosureBody}>
               {bodyScanComposition ? (
                 <>
                   <p className="m-0 text-sm leading-6 text-[var(--text)]">{bodyScanComposition.accuracyNote}</p>

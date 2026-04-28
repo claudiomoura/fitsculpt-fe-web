@@ -1,7 +1,7 @@
 .shell {
   display: grid;
-  gap: 16px;
-  padding: 8px 0 24px;
+  gap: clamp(12px, 1.8vh, 16px);
+  padding: 0 0 16px;
 }
 
 .hero,
@@ -332,6 +332,14 @@
   .hero,
   .captureLayout {
     grid-template-columns: 1fr;
+  }
+
+  .hero {
+    padding: 14px;
+  }
+
+  .heroCopy h1 {
+    font-size: 1.55rem;
   }
 
   .hero,

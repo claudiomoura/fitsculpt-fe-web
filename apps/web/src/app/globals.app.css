@@ -1722,15 +1722,15 @@ html.theme-dark :focus-visible {
 
 @media (max-width: 640px) {
   .page.page-with-tabbar-safe-area.tracking-page-shell {
-    gap: 12px;
+    gap: 10px;
     padding-top: 0;
-    padding-bottom: calc(var(--mobile-tab-bar-offset-effective) + 8px);
+    padding-bottom: calc(var(--mobile-tab-bar-offset-effective) + 2px);
   }
 
   .page.page-with-tabbar-safe-area.body-scan-page-shell {
-    gap: 12px;
+    gap: 10px;
     padding-top: 0;
-    padding-bottom: calc(var(--mobile-tab-bar-offset-effective) + 8px);
+    padding-bottom: calc(var(--mobile-tab-bar-offset-effective) + 2px);
   }
 
 }
