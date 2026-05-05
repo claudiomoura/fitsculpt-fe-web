@@ -212,6 +212,99 @@
     }
   },
   "marketingPricing": {
+    "title": "Planos",
+    "subtitle": "Cancela quando quiser. Impostos incluídos quando aplicável.",
+    "hero": {
+      "cta": "Ver planos",
+      "variants": {
+        "focus": {
+          "title": "Comece com um plano claro e ajuste com dados reais",
+          "subtitle": "Escolha seu ponto de partida hoje; mude de plano conforme seu progresso."
+        }
+      }
+    },
+    "comparison": {
+      "includesTitle": "Inclui",
+      "excludesTitle": "Não inclui"
+    },
+    "compliance": {
+      "heroExpectationNote": "O FitSculpt não substitui orientação médica e não garante resultados idênticos; o progresso depende do contexto, aderência e recuperação.",
+      "pricingDisclaimer": "Os planos podem ser alterados ou cancelados. Os resultados variam conforme consistência, ponto de partida e hábitos diários."
+    },
+    "billingNote": "Cobrança mensal. Cancele quando quiser. Impostos incluídos quando aplicável.",
+    "features": {
+      "title": "Tudo o que você precisa para evoluir",
+      "subtitle": "Uma experiência clara para treinar, comer e sustentar resultados.",
+      "items": {
+        "1": "Planos prontos com estrutura semanal clara.",
+        "2": "Ajustes de treino e nutrição alinhados ao seu progresso.",
+        "3": "Acompanhamento simples para manter consistência sem fricção."
+      }
+    },
+    "testimonials": {
+      "title": "O que os membros dizem",
+      "subtitle": "Feedback real de usuários que treinam com mais clareza.",
+      "starsLabel": "Avaliação de 5 estrelas",
+      "labels": {
+        "objective": "Objetivo",
+        "timeline": "Período",
+        "result": "Resultado"
+      },
+      "items": {
+        "one": {
+          "quote": "Agora tenho um plano que se ajusta quando falho uma semana.",
+          "objective": "Voltar a treinar com consistência",
+          "timeline": "7 semanas",
+          "result": "Passei de 1-2 para 3 sessões estáveis por semana"
+        },
+        "two": {
+          "quote": "A progressão de força ficou clara e parei de treinar no escuro.",
+          "objective": "Melhorar técnica e cargas básicas",
+          "timeline": "9 semanas",
+          "result": "Mais clareza para ajustar cargas sem pular sessões"
+        },
+        "three": {
+          "quote": "Nutrição simples, sem menus impossíveis, com macros que encaixam.",
+          "objective": "Sustentar nutrição durante a semana",
+          "timeline": "6 semanas",
+          "result": "Menos improviso e melhor aderência diária"
+        }
+      },
+      "disclaimer": "Resultados variam conforme contexto individual e consistência."
+    },
+    "plans": {
+      "strength": {
+        "title": "TrainingAI",
+        "price": "5,99€",
+        "tagline": "Apenas treino com IA",
+        "idealFor": "Ideal para: priorizar força e consistência semanal.",
+        "cta": "Começar com TrainingAI",
+        "includes": { "1": "Treinos IA ilimitados", "2": "Acompanhamento de progresso" },
+        "excludes": { "1": "Nutrição IA", "2": "Coach IA 24/7" },
+        "features": { "1": "Planos de treino ilimitados", "2": "Acompanhamento avançado", "3": "Estatísticas detalhadas", "4": "Sem anúncios" }
+      },
+      "pro": {
+        "title": "Pro",
+        "price": "9,99€",
+        "badge": "Mais popular",
+        "tagline": "Tudo: treino + nutrição",
+        "idealFor": "Ideal para: recomposição completa com treino e nutrição.",
+        "cta": "Escolher Pro",
+        "includes": { "1": "TrainingAI + NutriAI", "2": "Coach IA 24/7" },
+        "excludes": { "1": "Sem exclusões de módulos principais", "2": "Sem limites base de uso" },
+        "features": { "1": "TrainingAI + NutriAI", "2": "Coach IA 24/7", "3": "Análises completas", "4": "Suporte prioritário" }
+      },
+      "nutrition": {
+        "title": "NutriAI",
+        "price": "5,99€",
+        "tagline": "Apenas nutrição com IA",
+        "idealFor": "Ideal para: melhorar hábitos e composição a partir da nutrição.",
+        "cta": "Começar com NutriAI",
+        "includes": { "1": "Planos de nutrição IA", "2": "Macros e receitas" },
+        "excludes": { "1": "Treinos IA", "2": "Coach IA 24/7" },
+        "features": { "1": "Planos de nutrição IA", "2": "Receitas personalizadas", "3": "Acompanhamento de macros", "4": "Sem anúncios" }
+      }
+    },
     "header": {
       "language": {
         "es": "ES",
@@ -621,10 +714,10 @@
         "title": "O Seu Treinador IA",
         "titlePt": "O Seu Treinador IA",
         "titleEn": "Your AI Trainer",
-        "subtitle": "Transforme o seu corpo com planos de treino e nutrição personalizados gerados por inteligência artificial. Alcance os seus objetivos mais rápido com a ajuda da nossa IA avançada.",
+        "subtitle": "Comece hoje com um plano de treino e nutrição ajustado ao seu objetivo e progresso.",
         "subtitlePt": "Transforme o seu corpo com planos de treino e nutrição personalizados gerados por inteligência artificial. Alcance os seus objetivos mais rápido com a ajuda da nossa IA avançada.",
         "subtitleEn": "Transform your body with personalized training and nutrition plans generated by artificial intelligence. Achieve your goals faster with the help of our advanced AI.",
-        "primaryCta": "Começar Grátis",
+        "primaryCta": "Criar conta grátis",
         "secondaryCta": "Ver Demo"
       },
       "socialProof": {
@@ -664,7 +757,7 @@
       },
       "pricing": {
         "title": "Escolha o seu plano",
-        "subtitle": "Começe gratuitamente ou faça upgrade quando quiser",
+        "subtitle": "Comece grátis e ative Pro apenas quando precisar",
         "period": "/mês",
         "trainingAI": {
           "name": "TrainingAI",
@@ -673,7 +766,7 @@
           "feature2": "Acompanhamento avançado",
           "feature3": "Estatísticas detalhadas",
           "feature4": "Sem anúncios",
-          "cta": "Começar Teste"
+          "cta": "Começar com TrainingAI"
         },
         "pro": {
           "name": "Pro",
@@ -691,7 +784,7 @@
           "feature2": "Receitas personalizadas",
           "feature3": "Acompanhamento de macros",
           "feature4": "Sem anúncios",
-          "cta": "Começar Teste"
+          "cta": "Começar com NutriAI"
         },
         "free": {
           "name": "Grátis",
@@ -716,9 +809,10 @@
       },
       "finalCta": {
         "title": "Pronto para transformar o seu corpo?",
-        "subtitle": "Junte-se hoje e ganhe o primeiro mês grátis",
+        "subtitle": "Crie a sua conta e defina o seu objetivo em menos de 2 minutos",
         "placeholder": "o@seuemail.pt",
-        "button": "Começar"
+        "button": "Criar a minha conta",
+        "emailAriaLabel": "Endereço de email para criar a sua conta"
       }
     }
   }

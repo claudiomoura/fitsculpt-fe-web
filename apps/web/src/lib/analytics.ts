@@ -1,6 +1,14 @@
 import posthog from "posthog-js";
 
 export type AnalyticsEventName =
+  | "landing_view"
+  | "pricing_view"
+  | "pricing_hero_variant_exposed"
+  | "pricing_hero_cta_click"
+  | "pricing_hero_variant_cta_click"
+  | "hero_cta_click"
+  | "plan_cta_click"
+  | "checkout_start_register_click"
   | "onboarding_completed"
   | "today_view"
   | "today_cta_click"
@@ -39,7 +47,9 @@ export type AnalyticsEventName =
   | "tracking_intelligence_ai_preflight_blocked";
 
 export type AnalyticsEventProps = {
-  target?: "training" | "nutrition" | "checkin" | "billing";
+  planId?: string;
+  planName?: string;
+  target?: "training" | "nutrition" | "checkin" | "billing" | "planes";
   mode?: "quick" | "full";
   mealType?: string;
   origin?: string;
@@ -63,6 +73,8 @@ export type AnalyticsEventProps = {
   capabilityConfidence?: string;
   capabilityFallbackLabel?: string;
   capabilityCtaTarget?: string;
+  variant?: "control" | "focus";
+  abTest?: "on" | "off";
 };
 
 declare global {

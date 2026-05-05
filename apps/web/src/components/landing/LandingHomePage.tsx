@@ -1,5 +1,9 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
+import { useEffect } from "react";
+import { trackEvent } from "@/lib/analytics";
 
 export type LandingFeature = {
   title: string;
@@ -14,6 +18,9 @@ export type PricingTier = {
   price: string;
   period: string;
   description: string;
+  idealFor: string;
+  includes: string[];
+  excludes: string[];
   features: string[];
   cta: string;
   popular?: boolean;
@@ -50,6 +57,7 @@ export type LandingCopy = {
     subtitle: string;
     placeholder: string;
     button: string;
+    emailAriaLabel: string;
   };
 };
 
@@ -62,8 +70,13 @@ const defaultCopy: LandingCopy = {
     heroImage: "/branding/girl_front.png",
   },
   socialProof: {
-    label: "Más de 10,000 usuarios confían en FitSculpt",
-    logos: ["FORBES", "WIRED", "TECHCRUNCH", "MEN'S HEALTH"],
+    label: "Señales de confianza en revisión: publica métricas verificadas antes del lanzamiento.",
+    logos: [
+      "Usuarios activos (placeholder): --",
+      "Check-ins semanales (placeholder): --",
+      "Retención 30 días (placeholder): --",
+      "Reseñas verificadas (placeholder): --",
+    ],
   },
   features: {
     items: [
@@ -121,6 +134,9 @@ const defaultCopy: LandingCopy = {
         price: "5,99€",
         period: "/mes",
         description: "Solo entrenamiento con IA",
+        idealFor: "Ideal para: priorizar fuerza y rutina semanal",
+        includes: ["Entrenamientos IA ilimitados", "Seguimiento de progreso"],
+        excludes: ["Nutricion IA", "Coach IA 24/7"],
         features: [
           "Planes de entrenamiento ilimitados IA",
           "Seguimiento avanzado",
@@ -134,6 +150,9 @@ const defaultCopy: LandingCopy = {
         price: "9,99€",
         period: "/mes",
         description: "Todo incluido: Training + Nutri",
+        idealFor: "Ideal para: recomposicion completa con entrenamiento y nutricion",
+        includes: ["TrainingAI + NutriAI", "Coach IA 24/7"],
+        excludes: [],
         features: [
           "TrainingAI + NutriAI",
           "Coach IA 24/7",
@@ -148,6 +167,9 @@ const defaultCopy: LandingCopy = {
         price: "5,99€",
         period: "/mes",
         description: "Solo nutrición con IA",
+        idealFor: "Ideal para: mejorar habitos y composicion desde la alimentacion",
+        includes: ["Planes de nutricion IA", "Macros y recetas"],
+        excludes: ["Entrenamientos IA", "Coach IA 24/7"],
         features: [
           "Planes de nutrición IA",
           "Recetas personalizadas",
@@ -173,6 +195,7 @@ const defaultCopy: LandingCopy = {
     subtitle: "Únete hoy y obtén tu primer mes gratis",
     placeholder: "tu@email.com",
     button: "Empezar",
+    emailAriaLabel: "Introduce tu correo para crear tu cuenta",
   },
 };
 
@@ -186,19 +209,43 @@ function FeatureIcon({ emoji }: { emoji: string }) {
 }
 
 export function LandingHomePage({ copy = defaultCopy }: { copy?: LandingCopy }) {
+  useEffect(() => {
+    trackEvent("landing_view", { origin: "landing" });
+  }, []);
+
+  const handleHeroPrimaryClick = () => {
+    trackEvent("hero_cta_click", { origin: "landing_hero", target: "billing" });
+    trackEvent("checkout_start_register_click", { origin: "landing_hero", target: "billing" });
+  };
+
+  const handlePlanClick = (tier: PricingTier) => {
+    trackEvent("plan_cta_click", {
+      origin: "landing_pricing",
+      target: "billing",
+      planId: tier.name.toLowerCase(),
+      planName: tier.name,
+    });
+    trackEvent("checkout_start_register_click", {
+      origin: "landing_pricing",
+      target: "billing",
+      planId: tier.name.toLowerCase(),
+      planName: tier.name,
+    });
+  };
+
   return (
     <div className="lp-v2">
       {/* Hero Section */}
-      <section className="lp-hero-v2">
+      <section className="lp-hero-v2" aria-labelledby="landing-hero-title">
         <div className="lp-hero-v2__inner">
           <div className="lp-hero-v2__content">
-            <h1 className="lp-hero-v2__title">{copy.hero.title}</h1>
+            <h1 id="landing-hero-title" className="lp-hero-v2__title">{copy.hero.title}</h1>
             <p className="lp-hero-v2__subtitle">{copy.hero.subtitle}</p>
             <div className="lp-hero-v2__ctas">
-              <Link href="/onboarding" className="lp-btn-v2 lp-btn-v2--primary">
+              <Link href="/register" className="lp-btn-v2 lp-btn-v2--primary" aria-label={copy.hero.primaryCta} onClick={handleHeroPrimaryClick}>
                 {copy.hero.primaryCta}
               </Link>
-              <Link href="/demo" className="lp-btn-v2 lp-btn-v2--secondary">
+              <Link href="/pricing#planes" className="lp-btn-v2 lp-btn-v2--secondary" aria-label={copy.hero.secondaryCta}>
                 {copy.hero.secondaryCta}
               </Link>
             </div>
@@ -276,11 +323,12 @@ export function LandingHomePage({ copy = defaultCopy }: { copy?: LandingCopy }) 
       </section>
 
       {/* Pricing */}
-      <section id="precios" className="lp-pricing-v2">
+      <section id="precios" className="lp-pricing-v2" aria-labelledby="landing-pricing-title">
         <div className="lp-pricing-v2__inner">
           <div className="lp-pricing-v2__header">
-            <h2 className="lp-pricing-v2__title">{copy.pricing.title}</h2>
+            <h2 id="landing-pricing-title" className="lp-pricing-v2__title">{copy.pricing.title}</h2>
             <p className="lp-pricing-v2__subtitle">{copy.pricing.subtitle}</p>
+            <p className="lp-pricing-v2__billing-note">Facturacion mensual. Cancela cuando quieras.</p>
           </div>
           <div className="lp-pricing-v2__grid">
             {copy.pricing.tiers.map((tier) => (
@@ -295,10 +343,29 @@ export function LandingHomePage({ copy = defaultCopy }: { copy?: LandingCopy }) 
                   <span className="lp-pricing-card-v2__period">{tier.period}</span>
                 </div>
                 <p className="lp-pricing-card-v2__description">{tier.description}</p>
+                <p className="lp-pricing-card-v2__ideal">{tier.idealFor}</p>
+                <div className="lp-pricing-card-v2__diffs">
+                  <p className="lp-pricing-card-v2__diff-title">Incluye</p>
+                  <ul className="lp-pricing-card-v2__diff-list">
+                    {tier.includes.map((item) => (
+                      <li key={`${tier.name}-in-${item}`} className="lp-pricing-card-v2__diff-item">+ {item}</li>
+                    ))}
+                  </ul>
+                  {tier.excludes.length ? (
+                    <>
+                      <p className="lp-pricing-card-v2__diff-title">No incluye</p>
+                      <ul className="lp-pricing-card-v2__diff-list">
+                        {tier.excludes.map((item) => (
+                          <li key={`${tier.name}-out-${item}`} className="lp-pricing-card-v2__diff-item lp-pricing-card-v2__diff-item--muted">- {item}</li>
+                        ))}
+                      </ul>
+                    </>
+                  ) : null}
+                </div>
                 <ul className="lp-pricing-card-v2__features">
                   {tier.features.map((feature) => (
                     <li key={feature} className="lp-pricing-card-v2__feature">
-                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="lp-pricing-card-v2__check">
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true" focusable="false" className="lp-pricing-card-v2__check">
                         <path d="M13.5 4.5L6 12L2.5 8.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                       </svg>
                       {feature}
@@ -306,8 +373,10 @@ export function LandingHomePage({ copy = defaultCopy }: { copy?: LandingCopy }) 
                   ))}
                 </ul>
                 <Link
-                  href="/onboarding"
+                  href="/register"
                   className={`lp-pricing-card-v2__cta ${tier.popular ? "lp-btn-v2--primary" : "lp-btn-v2--secondary"}`}
+                  aria-label={`${tier.cta} - ${tier.name}`}
+                  onClick={() => handlePlanClick(tier)}
                 >
                   {tier.cta}
                 </Link>
@@ -341,7 +410,7 @@ export function LandingHomePage({ copy = defaultCopy }: { copy?: LandingCopy }) 
                       <span key={star} className="lp-star-v2">★</span>
                     ))}
                   </div>
-                  <p className="lp-testimonial-card-v2__quote">"{testimonial.quote}"</p>
+                  <p className="lp-testimonial-card-v2__quote">&ldquo;{testimonial.quote}&rdquo;</p>
                   <p className="lp-testimonial-card-v2__author">
                     {testimonial.author}
                     <span className="lp-testimonial-card-v2__role">{testimonial.role}</span>
@@ -354,15 +423,23 @@ export function LandingHomePage({ copy = defaultCopy }: { copy?: LandingCopy }) 
       </section>
 
       {/* Final CTA */}
-      <section className="lp-cta-v2">
+      <section className="lp-cta-v2" aria-labelledby="landing-final-cta-title">
         <div className="lp-cta-v2__inner">
-          <h2 className="lp-cta-v2__title">{copy.finalCta.title}</h2>
+          <h2 id="landing-final-cta-title" className="lp-cta-v2__title">{copy.finalCta.title}</h2>
           <p className="lp-cta-v2__subtitle">{copy.finalCta.subtitle}</p>
-          <form className="lp-cta-v2__form" action="/onboarding" method="get">
+          <form
+            className="lp-cta-v2__form"
+            action="/register"
+            method="get"
+            onSubmit={() => trackEvent("checkout_start_register_click", { origin: "landing_final_cta", target: "billing" })}
+          >
             <input
               className="lp-input-v2"
               type="email"
               name="email"
+              autoComplete="email"
+              required
+              aria-label={copy.finalCta.emailAriaLabel}
               placeholder={copy.finalCta.placeholder}
               suppressHydrationWarning
             />
@@ -371,14 +448,14 @@ export function LandingHomePage({ copy = defaultCopy }: { copy?: LandingCopy }) 
             </button>
           </form>
           <div className="lp-cta-v2__badges">
-            <a href="#" className="lp-store-badge-v2">
+            <span className="lp-store-badge-v2" aria-disabled="true">
               <span className="lp-store-badge-v2__icon"></span>
               <span>App Store</span>
-            </a>
-            <a href="#" className="lp-store-badge-v2">
+            </span>
+            <span className="lp-store-badge-v2" aria-disabled="true">
               <span className="lp-store-badge-v2__icon">▶</span>
               <span>Google Play</span>
-            </a>
+            </span>
           </div>
         </div>
       </section>

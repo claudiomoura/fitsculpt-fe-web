@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { Badge } from "@/design-system/components/Badge";
 import { ButtonLink } from "@/design-system/components/Button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/design-system/components/Card";
 import { useLanguage } from "@/context/LanguageProvider";
+import { trackEvent } from "@/lib/analytics";
 
 type PlanTone = "standard" | "highlight";
 
@@ -20,6 +21,21 @@ const PLAN_DATA: PlanData[] = [
 ];
 
 const TESTIMONIAL_KEYS = ["one", "two", "three"] as const;
+const PRICING_HERO_AB_TEST_ENABLED = true;
+const PRICING_HERO_VARIANT_STORAGE_KEY = "fitsculpt_pricing_hero_variant";
+
+type PricingHeroVariant = "control" | "focus";
+
+function getPricingHeroVariant(): PricingHeroVariant {
+  if (!PRICING_HERO_AB_TEST_ENABLED || typeof window === "undefined") return "control";
+
+  const stored = window.localStorage.getItem(PRICING_HERO_VARIANT_STORAGE_KEY);
+  if (stored === "control" || stored === "focus") return stored;
+
+  const variant: PricingHeroVariant = Math.random() < 0.5 ? "control" : "focus";
+  window.localStorage.setItem(PRICING_HERO_VARIANT_STORAGE_KEY, variant);
+  return variant;
+}
 
 function RatingStars({ label }: { label: string }) {
   return (
@@ -35,6 +51,12 @@ function RatingStars({ label }: { label: string }) {
 
 export default function PricingPage() {
   const { t } = useLanguage();
+  const heroVariant = useMemo(getPricingHeroVariant, []);
+
+  useEffect(() => {
+    trackEvent("pricing_view", { origin: "pricing" });
+    trackEvent("pricing_hero_variant_exposed", { origin: "pricing", variant: heroVariant, abTest: PRICING_HERO_AB_TEST_ENABLED ? "on" : "off" });
+  }, [heroVariant]);
 
   const plans = useMemo(
     () =>
@@ -43,7 +65,12 @@ export default function PricingPage() {
         title: t(`marketingPricing.plans.${plan.key}.title`),
         price: t(`marketingPricing.plans.${plan.key}.price`),
         tagline: t(`marketingPricing.plans.${plan.key}.tagline`),
+        idealFor: t(`marketingPricing.plans.${plan.key}.idealFor`),
         cta: t(`marketingPricing.plans.${plan.key}.cta`),
+        includesTitle: t("marketingPricing.comparison.includesTitle"),
+        excludesTitle: t("marketingPricing.comparison.excludesTitle"),
+        includes: [1, 2].map((featureIndex) => t(`marketingPricing.plans.${plan.key}.includes.${featureIndex}`)),
+        excludes: [1, 2].map((featureIndex) => t(`marketingPricing.plans.${plan.key}.excludes.${featureIndex}`)),
         features: [1, 2, 3, 4].map((featureIndex) =>
           t(`marketingPricing.plans.${plan.key}.features.${featureIndex}`)
         ),
@@ -56,11 +83,22 @@ export default function PricingPage() {
       <main className="pricing-container mx-auto w-full max-w-6xl px-4 pb-20 pt-10 sm:px-6 lg:px-8">
         <section className="pricing-hero">
           <h1 className="pricing-hero__title">
-            {t("marketingPricing.title")}
+            {heroVariant === "focus" ? t("marketingPricing.hero.variants.focus.title") : t("marketingPricing.title")}
           </h1>
           <p className="pricing-hero__sub">
-            {t("marketingPricing.subtitle")}
+            {heroVariant === "focus" ? t("marketingPricing.hero.variants.focus.subtitle") : t("marketingPricing.subtitle")}
           </p>
+          <p className="mt-3 text-sm text-text-muted">{t("marketingPricing.compliance.heroExpectationNote")}</p>
+          <ButtonLink
+            href="#planes"
+            variant="secondary"
+            className="mt-5"
+            onClick={() => {
+              trackEvent("pricing_hero_cta_click", { origin: "pricing", variant: heroVariant, abTest: PRICING_HERO_AB_TEST_ENABLED ? "on" : "off", target: "planes" });
+            }}
+          >
+            {t("marketingPricing.hero.cta")}
+          </ButtonLink>
         </section>
 
         <section
@@ -87,9 +125,24 @@ export default function PricingPage() {
                 </div>
 
                 <CardDescription className="pricing-card__tagline">{plan.tagline}</CardDescription>
+                <p className="pricing-card__ideal">{plan.idealFor}</p>
               </CardHeader>
 
               <CardContent className="pricing-card__content">
+                <div className="pricing-card__comparison">
+                  <p className="pricing-card__comparison-title">{plan.includesTitle}</p>
+                  <ul className="pricing-card__comparison-list">
+                    {plan.includes.map((item) => (
+                      <li key={`${plan.key}-in-${item}`} className="pricing-card__comparison-item">+ {item}</li>
+                    ))}
+                  </ul>
+                  <p className="pricing-card__comparison-title pricing-card__comparison-title--muted">{plan.excludesTitle}</p>
+                  <ul className="pricing-card__comparison-list">
+                    {plan.excludes.map((item) => (
+                      <li key={`${plan.key}-out-${item}`} className="pricing-card__comparison-item pricing-card__comparison-item--muted">- {item}</li>
+                    ))}
+                  </ul>
+                </div>
                 <ul className="pricing-card__list">
                   {plan.features.map((feature) => (
                     <li key={feature} className="pricing-card__item">
@@ -102,9 +155,14 @@ export default function PricingPage() {
 
               <CardFooter className="mt-auto">
                 <ButtonLink
-                  href="/onboarding"
+                  href="/register"
                   variant={plan.tone === "highlight" ? "primary" : "secondary"}
                   className="w-full justify-center pricing-card__cta"
+                  onClick={() => {
+                    trackEvent("plan_cta_click", { origin: "pricing_page", target: "billing", planId: plan.key, planName: plan.title });
+                    trackEvent("checkout_start_register_click", { origin: "pricing_page", target: "billing", planId: plan.key, planName: plan.title });
+                    trackEvent("pricing_hero_variant_cta_click", { origin: "pricing_page", target: "billing", planId: plan.key, planName: plan.title, variant: heroVariant, abTest: PRICING_HERO_AB_TEST_ENABLED ? "on" : "off" });
+                  }}
                 >
                   {plan.cta}
                 </ButtonLink>
@@ -114,6 +172,7 @@ export default function PricingPage() {
         </section>
 
         <p className="mt-6 text-center text-sm text-text-muted">{t("marketingPricing.billingNote")}</p>
+        <p className="mt-2 text-center text-xs text-text-muted">{t("marketingPricing.compliance.pricingDisclaimer")}</p>
 
         <section id="caracteristicas" className="mt-14 space-y-6 scroll-mt-28" aria-labelledby="pricing-features-title">
           <div className="space-y-2 text-center">
@@ -142,15 +201,20 @@ export default function PricingPage() {
 
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {TESTIMONIAL_KEYS.map((key) => (
-              <Card key={key} className="pricing-tcard">
-                <CardHeader>
-                  <RatingStars label={t("marketingPricing.testimonials.starsLabel")} />
-                  <CardDescription className="text-sm leading-relaxed text-text-muted">
-                    “{t(`marketingPricing.testimonials.items.${key}.quote`)}”
-                  </CardDescription>
-                </CardHeader>
-              </Card>
-            ))}
+                <Card key={key} className="pricing-tcard">
+                  <CardHeader>
+                    <RatingStars label={t("marketingPricing.testimonials.starsLabel")} />
+                    <CardDescription className="text-sm leading-relaxed text-text-muted">
+                      “{t(`marketingPricing.testimonials.items.${key}.quote`)}”
+                    </CardDescription>
+                    <div className="mt-3 space-y-1 text-xs text-text-muted">
+                      <p><strong>{t("marketingPricing.testimonials.labels.objective")}:</strong> {t(`marketingPricing.testimonials.items.${key}.objective`)}</p>
+                      <p><strong>{t("marketingPricing.testimonials.labels.timeline")}:</strong> {t(`marketingPricing.testimonials.items.${key}.timeline`)}</p>
+                      <p><strong>{t("marketingPricing.testimonials.labels.result")}:</strong> {t(`marketingPricing.testimonials.items.${key}.result`)}</p>
+                    </div>
+                  </CardHeader>
+                </Card>
+              ))}
           </div>
 
           <p className="text-center text-xs text-text-muted">{t("marketingPricing.testimonials.disclaimer")}</p>

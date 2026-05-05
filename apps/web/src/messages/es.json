@@ -3542,14 +3542,29 @@
       "title": "Planes que se adaptan a tu progreso",
       "subtitle": "Entrena y come con estructura clara, sin perder flexibilidad.",
       "supporting": "Elige el plan que mejor encaja con tu fase actual y cambia cuando lo necesites.",
-      "cta": "Ver planes"
+      "cta": "Ver planes",
+      "variants": {
+        "focus": {
+          "title": "Empieza con un plan claro y ajusta sobre datos reales",
+          "subtitle": "Elige tu punto de partida hoy; podrás cambiar de plan según tu progreso."
+        }
+      }
     },
     "plans": {
       "strength": {
         "title": "TrainingAI",
         "price": "5,99€",
         "tagline": "Solo entrenamiento con IA",
-        "cta": "Empezar Prueba",
+        "idealFor": "Ideal para: priorizar fuerza y rutina semanal.",
+        "cta": "Empezar con TrainingAI",
+        "includes": {
+          "1": "Entrenamientos IA ilimitados",
+          "2": "Seguimiento de progreso"
+        },
+        "excludes": {
+          "1": "Nutricion IA",
+          "2": "Coach IA 24/7"
+        },
         "features": {
           "1": "Planes de entrenamiento ilimitados IA",
           "2": "Seguimiento avanzado",
@@ -3562,7 +3577,16 @@
         "price": "9,99€",
         "badge": "Más popular",
         "tagline": "Todo incluido: Training + Nutri",
+        "idealFor": "Ideal para: recomposicion completa con entrenamiento y nutricion.",
         "cta": "Elegir Pro",
+        "includes": {
+          "1": "TrainingAI + NutriAI",
+          "2": "Coach IA 24/7"
+        },
+        "excludes": {
+          "1": "Sin exclusiones de modulos principales",
+          "2": "Sin limites base de uso"
+        },
         "features": {
           "1": "TrainingAI + NutriAI",
           "2": "Coach IA 24/7",
@@ -3574,7 +3598,16 @@
         "title": "NutriAI",
         "price": "5,99€",
         "tagline": "Solo nutrición con IA",
-        "cta": "Empezar Prueba",
+        "idealFor": "Ideal para: mejorar habitos y composicion desde la alimentacion.",
+        "cta": "Empezar con NutriAI",
+        "includes": {
+          "1": "Planes de nutricion IA",
+          "2": "Macros y recetas"
+        },
+        "excludes": {
+          "1": "Entrenamientos IA",
+          "2": "Coach IA 24/7"
+        },
         "features": {
           "1": "Planes de nutrición IA",
           "2": "Recetas personalizadas",
@@ -3583,7 +3616,15 @@
         }
       }
     },
-    "billingNote": "Cancela cuando quieras. Impuestos incluidos donde aplique.",
+    "billingNote": "Facturacion mensual. Cancela cuando quieras. Impuestos incluidos donde aplique.",
+    "comparison": {
+      "includesTitle": "Incluye",
+      "excludesTitle": "No incluye"
+    },
+    "compliance": {
+      "heroExpectationNote": "FitSculpt no reemplaza consejo médico ni garantiza resultados idénticos; el progreso depende de contexto, adherencia y descanso.",
+      "pricingDisclaimer": "Los planes se pueden cambiar o cancelar. Los resultados varían por constancia, punto de partida y hábitos diarios."
+    },
     "features": {
       "title": "Todo lo que necesitas para progresar",
       "subtitle": "Una experiencia clara para entrenar, comer y sostener resultados.",
@@ -3599,14 +3640,28 @@
       "starsLabel": "Valoración de 5 estrellas",
       "items": {
         "one": {
-          "quote": "Por fin tengo un plan que se ajusta cuando fallo una semana."
+          "quote": "Por fin tengo un plan que se ajusta cuando fallo una semana.",
+          "objective": "Volver a entrenar con consistencia",
+          "timeline": "7 semanas",
+          "result": "Pasé de 1-2 a 3 sesiones estables por semana"
         },
         "two": {
-          "quote": "La progresión de fuerza es clara, y me evita entrenar a ciegas."
+          "quote": "La progresión de fuerza es clara, y me evita entrenar a ciegas.",
+          "objective": "Mejorar técnica y cargas básicas",
+          "timeline": "9 semanas",
+          "result": "Más claridad para ajustar cargas sin saltarme sesiones"
         },
         "three": {
-          "quote": "Nutrición simple, sin menús imposibles, y con macros que encajan."
+          "quote": "Nutrición simple, sin menús imposibles, y con macros que encajan.",
+          "objective": "Sostener nutrición entre semana",
+          "timeline": "6 semanas",
+          "result": "Menos improvisación y mejor adherencia diaria"
         }
+      },
+      "labels": {
+        "objective": "Objetivo",
+        "timeline": "Periodo",
+        "result": "Resultado"
       },
       "disclaimer": "Los resultados dependen del contexto y la constancia de cada persona."
     }
@@ -3775,14 +3830,18 @@
         "title": "Tu Entrenador IA",
         "titlePt": "Seu Treinador IA",
         "titleEn": "Your AI Trainer",
-        "subtitle": "Transforma tu cuerpo con planes de entrenamiento y nutrición personalizados generados por inteligencia artificial. Logra tus objetivos más rápido con la ayuda de nuestra IA avanzada.",
+        "subtitle": "Empieza hoy con un plan de entrenamiento y nutrición adaptado a tu objetivo y progreso.",
         "subtitlePt": "Transforme seu corpo com planos de treino e nutrição personalizados gerados por inteligência artificial. Alcance seus objetivos mais rápido com a ajuda da nossa IA avançada.",
         "subtitleEn": "Transform your body with personalized training and nutrition plans generated by artificial intelligence. Achieve your goals faster with the help of our advanced AI.",
-        "primaryCta": "Empezar Gratis",
+        "primaryCta": "Crear cuenta gratis",
         "secondaryCta": "Ver Demo"
       },
       "socialProof": {
-        "label": "Más de 10,000 usuarios confían en FitSculpt"
+        "label": "Señales de confianza en revisión: publica métricas verificadas antes del lanzamiento.",
+        "metric1": "Usuarios activos (placeholder): --",
+        "metric2": "Check-ins semanales (placeholder): --",
+        "metric3": "Retención 30 días (placeholder): --",
+        "metric4": "Reseñas verificadas (placeholder): --"
       },
       "features": {
         "ai": {
@@ -3818,7 +3877,7 @@
       },
       "pricing": {
         "title": "Elige tu plan",
-        "subtitle": "Comienza gratis o level up cuando quieras",
+        "subtitle": "Empieza gratis y activa Pro solo cuando lo necesites",
         "period": "/mes",
         "trainingAI": {
           "name": "TrainingAI",
@@ -3827,7 +3886,7 @@
           "feature2": "Seguimiento avanzado",
           "feature3": "Estadísticas detalladas",
           "feature4": "Sin anuncios",
-          "cta": "Empezar Prueba"
+          "cta": "Empezar con TrainingAI"
         },
         "pro": {
           "name": "Pro",
@@ -3845,7 +3904,7 @@
           "feature2": "Recetas personalizadas",
           "feature3": "Seguimiento de macros",
           "feature4": "Sin anuncios",
-          "cta": "Empezar Prueba"
+          "cta": "Empezar con NutriAI"
         },
         "free": {
           "name": "Gratis",
@@ -3858,21 +3917,34 @@
         }
       },
       "testimonials": {
-        "quote1": "FitSculpt cambió completamente mi forma de entrenar. En 3 meses logré resultados que no había conseguido en 1 año.",
+        "quote1": "Me ayudó a volver a entrenar con estructura cuando mi semana se complica.",
         "author1": "Carlos M.",
         "role1": "Usuario Pro",
-        "quote2": "La nutrición personalizada fue clave. He perdido 8kg en 4 meses sin pasar hambre.",
+        "objectiveLabel": "Objetivo",
+        "timelineLabel": "Periodo",
+        "resultLabel": "Resultado",
+        "objective1": "Retomar fuerza sin sobrecargar",
+        "timeline1": "8 semanas",
+        "result1": "Mejor adherencia y progresión estable en básicos",
+        "quote2": "La planificación de comidas me dio una base realista para no improvisar.",
         "author2": "Laura K.",
         "role2": "Usuario NutriAI",
-        "quote3": "El mejor investimento que he hecho. La IA realmente entiende mi cuerpo y mis objetivos.",
+        "objective2": "Ordenar hábitos de nutrición",
+        "timeline2": "6 semanas",
+        "result2": "Más consistencia diaria y mejor control de porciones",
+        "quote3": "Ahora tengo una rutina clara y ajustes simples cuando cambia mi horario.",
         "author3": "Miguel R.",
-        "role3": "Usuario TrainingAI"
+        "role3": "Usuario TrainingAI",
+        "objective3": "Mantener entrenamiento con agenda variable",
+        "timeline3": "10 semanas",
+        "result3": "Menos sesiones perdidas y mejor continuidad semanal"
       },
       "finalCta": {
         "title": "¿Listo para transformar tu cuerpo?",
-        "subtitle": "Únete hoy y obtén tu primer mes gratis",
+        "subtitle": "Crea tu cuenta y define tu objetivo en menos de 2 minutos",
         "placeholder": "tu@email.com",
-        "button": "Empezar"
+        "button": "Crear mi cuenta",
+        "emailAriaLabel": "Correo electrónico para crear tu cuenta"
       }
     }
   }
