@@ -213,6 +213,30 @@ function normalizeWorkoutEntriesFromDb(
 
 type ProgressInsightTab = "checkin" | "nutrition" | "training";
 
+type MetricCardItem = {
+  id: string;
+  label: string;
+  value: string;
+  sub: string;
+  icon: string;
+  color?: string;
+};
+
+type DenseStatItem = {
+  id: string;
+  label: string;
+  value: string;
+};
+
+type ActionQueueItem = {
+  id: string;
+  label: string;
+  subtitle: string;
+  cta: string;
+  href: string;
+  completed: boolean;
+};
+
 // ========== METRIC HELPERS ==========
 
 /**
@@ -2114,24 +2138,89 @@ const primaryRecommendation = recommendationCapability.items[0] ?? null;
   const bmr = calculateBMR(currentWeight, currentHeight, profileAge, profileSex);
   const tdee = calculateTDEE(bmr, activityLevel);
   const workoutFrequency = calculateWorkoutFrequency(workoutsSorted.map(w => ({ date: w.date })));
-  const bodyFatPct = latestCheckin?.bodyFatPercent ?? null;
+  const summaryBodyFatMatch = bodyScanCapability.summary.match(/(\d+(?:[\.,]\d+)?)%/);
+  const summaryBodyFatPct = summaryBodyFatMatch
+    ? Number(summaryBodyFatMatch[1].replace(",", "."))
+    : 0;
+
+  const bodyFatPct = Number(
+    latestCheckin?.bodyFatPercent ??
+      profile.measurements.bodyFatPercent ??
+      bodyScanCapability?.data?.composition?.bodyFatPercent ??
+      summaryBodyFatPct ??
+      0,
+  );
 
   // ========== UI DATA ==========
-  const actionQueueItems = [
-    { id: "checkin", label: "Check-in", subtitle: latestCheckin ? `Último: ${latestCheckin.weightKg.toFixed(1)}kg` : "Registra tu peso", cta: "Hacer check-in", href: "/app/seguimiento/check-in", completed: !!latestCheckin },
-    { id: "body-scan", label: "Body scan", subtitle: bodyScanCapability.status === "ready" ? bodyScanCapability.summary : "Análisis corporal", cta: "Ver scan", href: "/app/body-scan", completed: bodyScanCapability.status === "ready" },
-    { id: "weekly-review", label: "Revisión semanal", subtitle: weeklyReviewReason, cta: "Ver resumen", href: "/app/weekly-review", completed: false },
-  ];
+  const actionQueueByTab: Record<ProgressInsightTab, ActionQueueItem[]> = {
+    checkin: [
+      { id: "checkin", label: "Progreso", subtitle: latestCheckin ? `Último: ${latestCheckin.weightKg.toFixed(1)}kg` : "Registra tu peso", cta: "Hacer check-in", href: "/app/seguimiento/check-in", completed: !!latestCheckin },
+      { id: "body-scan", label: "Body scan", subtitle: bodyScanCapability.status === "ready" ? bodyScanCapability.summary : "Análisis corporal", cta: "Ver scan", href: "/app/body-scan", completed: bodyScanCapability.status === "ready" },
+      { id: "weekly-review", label: "Revisión semanal", subtitle: weeklyReviewReason, cta: "Ver resumen", href: "/app/weekly-review", completed: false },
+    ],
+    nutrition: [
+      { id: "nutrition-log", label: "Nutrición", subtitle: `${nutritionDaysLogged}/${rangeDays} días registrados`, cta: "Registrar comida", href: "/app/nutricion", completed: nutritionDaysLogged > 0 },
+      { id: "protein-focus", label: "Proteína", subtitle: nutritionProteinTargetAdherence !== null ? `${nutritionProteinTargetAdherence}% objetivo` : "Objetivo pendiente", cta: "Revisar objetivos", href: "/app/profile/edit", completed: nutritionProteinTargetAdherence !== null && nutritionProteinTargetAdherence >= 90 },
+      { id: "weekly-review-nutrition", label: "Revisión semanal", subtitle: weeklyReviewReason, cta: "Ver resumen", href: "/app/weekly-review", completed: false },
+    ],
+    training: [
+      { id: "training-log", label: "Entrenamiento", subtitle: `${trainingSessions} sesiones · ${trainingMinutes} min`, cta: "Ver entrenos", href: "/app/entrenamiento", completed: trainingSessions > 0 },
+      { id: "weekly-review-training", label: "Revisión semanal", subtitle: weeklyReviewReason, cta: "Ver resumen", href: "/app/weekly-review", completed: weeklyReviewReady },
+      { id: "body-scan-training", label: "Body scan", subtitle: bodyScanCapability.status === "ready" ? bodyScanCapability.summary : "Análisis corporal", cta: "Ver scan", href: "/app/body-scan", completed: bodyScanCapability.status === "ready" },
+    ],
+  };
 
-  // KPIs centrados en métricas - NO acciones
-  const metricCards = [
-    { id: "weight", label: "Peso", value: currentWeight > 0 ? `${currentWeight.toFixed(1)} kg` : "—", sub: latestCheckin ? formatEntryDate(latestCheckin.date).slice(0,5) : "Sin datos", icon: "⚖️" },
-    { id: "bmi", label: "IMC", value: bmi > 0 ? String(bmi) : "—", sub: bmiCategory.label, color: bmiCategory.color, icon: "📊" },
-    { id: "bodyfat", label: "Grasa %", value: bodyFatPct ? `${bodyFatPct.toFixed(1)}%` : "—", sub: bodyFatPct ? "body scan" : "Sin datos", icon: "🔥" },
-    { id: "bmr", label: "BMR", value: bmr > 0 ? `${bmr} kcal` : "—", sub: "base diario", icon: "⚡" },
-    { id: "tdee", label: "TDEE", value: tdee > 0 ? `${tdee} kcal` : "—", sub: activityLevel, icon: "🔥" },
-    { id: "workouts", label: "Frecuencia", value: `${workoutFrequency}/sem`, sub: `${trainingSessions} sesiones`, icon: "🏋️" },
-  ];
+  const metricCardsByTab: Record<ProgressInsightTab, MetricCardItem[]> = {
+    checkin: [
+      { id: "weight", label: "Peso", value: currentWeight > 0 ? `${currentWeight.toFixed(1)} kg` : "—", sub: latestCheckin ? formatEntryDate(latestCheckin.date).slice(0, 5) : "Sin datos", icon: "KG" },
+      { id: "bodyfat", label: "Grasa", value: bodyFatPct > 0 ? `${bodyFatPct.toFixed(1)}%` : "—", sub: bodyFatPct > 0 ? "estimado actual" : "estimado pendiente", icon: "BF" },
+      { id: "bmi", label: "IMC", value: bmi > 0 ? String(bmi) : "—", sub: bmiCategory.label, color: bmiCategory.color, icon: "IMC" },
+      { id: "delta", label: "Cambio", value: rangeWeightDelta !== null ? `${rangeWeightDelta > 0 ? "+" : ""}${rangeWeightDelta.toFixed(1)} kg` : "—", sub: `${rangeDays} días`, icon: "Δ" },
+    ],
+    nutrition: [
+      { id: "calories", label: "Kcal promedio", value: nutritionDaysLogged > 0 ? `${nutritionAverages.calories.toFixed(0)} kcal` : "—", sub: `${nutritionDaysLogged}/${rangeDays} días`, icon: "KCAL" },
+      { id: "protein", label: "Proteína", value: nutritionDaysLogged > 0 ? `${nutritionAverages.protein.toFixed(0)} g` : "—", sub: "promedio diario", icon: "P" },
+      { id: "log-adherence", label: "Adherencia", value: `${nutritionLoggingAdherence}%`, sub: "registro", icon: "%" },
+      { id: "target-adherence", label: "Objetivo kcal", value: nutritionCaloriesTargetAdherence !== null ? `${nutritionCaloriesTargetAdherence}%` : "—", sub: "en rango", icon: "T" },
+    ],
+    training: [
+      { id: "sessions", label: "Sesiones", value: String(trainingSessions), sub: `${targetSessionsForRange} objetivo`, icon: "S" },
+      { id: "minutes", label: "Minutos", value: `${trainingMinutes}`, sub: `${trainingAverageMinutes} por sesión`, icon: "MIN" },
+      { id: "consistency", label: "Consistencia", value: `${trainingConsistency}%`, sub: "meta semanal", icon: "%" },
+      { id: "frequency", label: "Frecuencia", value: `${workoutFrequency}/sem`, sub: "promedio", icon: "F" },
+    ],
+  };
+
+  const denseStatsByTab: Record<ProgressInsightTab, DenseStatItem[]> = {
+    checkin: [
+      { id: "bmr", label: "BMR", value: bmr > 0 ? `${bmr} kcal` : "—" },
+      { id: "tdee", label: "TDEE", value: tdee > 0 ? `${tdee} kcal` : "—" },
+      { id: "nutrition", label: "Nutrición", value: `${nutritionLoggingAdherence}%` },
+      { id: "training", label: "Frecuencia", value: `${workoutFrequency}/sem` },
+      { id: "sessions", label: "Sesiones", value: String(trainingSessions) },
+      { id: "minutes", label: "Minutos", value: `${trainingMinutes}` },
+    ],
+    nutrition: [
+      { id: "calories-target", label: "Meta kcal", value: nutritionTargets ? `${nutritionTargets.calories} kcal` : "—" },
+      { id: "protein-target", label: "Meta proteína", value: nutritionTargets ? `${nutritionTargets.protein} g` : "—" },
+      { id: "carbs-target", label: "Meta carbs", value: nutritionTargets ? `${nutritionTargets.carbs} g` : "—" },
+      { id: "fat-target", label: "Meta grasas", value: nutritionTargets ? `${nutritionTargets.fat} g` : "—" },
+      { id: "protein-hit", label: "Días proteína", value: nutritionProteinTargetAdherence !== null ? `${nutritionProteinTargetAdherence}%` : "—" },
+      { id: "calories-hit", label: "Días en rango", value: nutritionCaloriesTargetAdherence !== null ? `${nutritionCaloriesTargetAdherence}%` : "—" },
+    ],
+    training: [
+      { id: "session-target", label: "Meta sesiones", value: String(targetSessionsForRange) },
+      { id: "sessions-completed", label: "Sesiones hechas", value: String(trainingSessions) },
+      { id: "minutes-total", label: "Minutos total", value: `${trainingMinutes}` },
+      { id: "minutes-avg", label: "Minutos promedio", value: `${trainingAverageMinutes}` },
+      { id: "consistency", label: "Consistencia", value: `${trainingConsistency}%` },
+      { id: "recent", label: "Entrenos recientes", value: String(workoutsRecent.length) },
+    ],
+  };
+
+  const metricCards = metricCardsByTab[progressInsightTab];
+  const denseStats = denseStatsByTab[progressInsightTab];
+  const actionQueueItems = actionQueueByTab[progressInsightTab];
 
   const weekKpiItems = [
     { id: "weight", label: "Peso actual", value: rangeLatestCheckin ? `${rangeLatestCheckin.weightKg.toFixed(1)} kg` : "—", detail: latestCheckin ? formatEntryDate(latestCheckin.date) : "Sin datos" },
@@ -2376,14 +2465,132 @@ const primaryRecommendation = recommendationCapability.items[0] ?? null;
       )}
 
       {!isCheckinOnly ? (
-        // METRICS GRID - KPIs first (centered in insights)
+        <section className={styles.topChartCard} aria-label="Evolución del progreso">
+          <div className={styles.topChartHeader}>
+            <p className="eyebrow m-0">Evolución</p>
+            <strong>{rangeDays} días</strong>
+          </div>
+          <div
+            className={styles.insightTabs}
+            role="tablist"
+            aria-label={t("tracking.insightsLabel")}
+          >
+            {(
+              [
+                { id: "checkin", label: "Progreso" },
+                { id: "nutrition", label: t("tracking.progressTabNutrition") },
+                { id: "training", label: t("tracking.progressTabTraining") },
+              ] as const
+            ).map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                className={`${styles.insightTabButton} ${progressInsightTab === option.id ? styles.insightTabButtonActive : ""}`}
+                onClick={() =>
+                  setProgressInsightTab(option.id as ProgressInsightTab)
+                }
+                role="tab"
+                aria-selected={progressInsightTab === option.id}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <div className={styles.chartWrap}>
+            {progressInsightTab === "checkin" && checkinTrendData.length < 2 ? (
+              <p className="muted">{t("tracking.weeklyProgressEmpty")}</p>
+            ) : null}
+            {progressInsightTab === "nutrition" && nutritionTrendData.length === 0 ? (
+              <p className="muted">{t("tracking.mealEmpty")}</p>
+            ) : null}
+            {progressInsightTab === "training" && trainingTrendData.length === 0 ? (
+              <p className="muted">{t("tracking.workoutEmpty")}</p>
+            ) : null}
+            {progressInsightTab === "checkin" && checkinTrendData.length >= 2 ? (
+              <ResponsiveContainer width="100%" height={180}>
+                <AreaChart data={checkinTrendData} margin={{ top: 8, right: 4, left: -14, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="tracking-weight-area-top" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.36} />
+                      <stop offset="100%" stopColor="var(--accent)" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid stroke="color-mix(in srgb, var(--border) 65%, transparent)" strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="date" tickLine={false} axisLine={false} tick={{ fill: "var(--text-muted)", fontSize: 11 }} />
+                  <YAxis tickLine={false} axisLine={false} tick={{ fill: "var(--text-muted)", fontSize: 11 }} width={38} domain={["dataMin - 0.6", "dataMax + 0.6"]} />
+                  <Tooltip
+                    formatter={(value) => [`${Number(value ?? 0).toFixed(1)} ${t("units.kilograms")}`, t("tracking.latestWeightTitle")]}
+                    labelFormatter={(label) => String(label)}
+                    contentStyle={{ borderRadius: 12, border: "1px solid color-mix(in srgb, var(--border) 85%, transparent)", background: "var(--bg-card)" }}
+                  />
+                  <Area type="monotone" dataKey="weight" stroke="var(--accent)" strokeWidth={2.25} fill="url(#tracking-weight-area-top)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : null}
+            {progressInsightTab === "nutrition" && nutritionTrendData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={180}>
+                <BarChart data={nutritionTrendData} margin={{ top: 8, right: 4, left: -14, bottom: 0 }}>
+                  <CartesianGrid stroke="color-mix(in srgb, var(--border) 65%, transparent)" strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="date" tickLine={false} axisLine={false} tick={{ fill: "var(--text-muted)", fontSize: 11 }} />
+                  <YAxis tickLine={false} axisLine={false} tick={{ fill: "var(--text-muted)", fontSize: 11 }} width={38} />
+                  <Tooltip
+                    formatter={(value) => [`${Math.round(Number(value ?? 0))} ${t("units.kcal")}`, t("tracking.progressAverageCalories")]}
+                    labelFormatter={(label) => String(label)}
+                    contentStyle={{ borderRadius: 12, border: "1px solid color-mix(in srgb, var(--border) 85%, transparent)", background: "var(--bg-card)" }}
+                  />
+                  <Bar dataKey="calories" radius={[8, 8, 0, 0]} fill="var(--accent)" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : null}
+            {progressInsightTab === "training" && trainingTrendData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={180}>
+                <BarChart data={trainingTrendData} margin={{ top: 8, right: 4, left: -14, bottom: 0 }}>
+                  <CartesianGrid stroke="color-mix(in srgb, var(--border) 65%, transparent)" strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="date" tickLine={false} axisLine={false} tick={{ fill: "var(--text-muted)", fontSize: 11 }} />
+                  <YAxis tickLine={false} axisLine={false} tick={{ fill: "var(--text-muted)", fontSize: 11 }} width={32} allowDecimals={false} />
+                  <Tooltip
+                    formatter={(value, key) => [key === "sessions" ? `${value} sesiones` : `${value} min`, key === "sessions" ? "Sesiones" : "Minutos"]}
+                    labelFormatter={(label) => String(label)}
+                    contentStyle={{ borderRadius: 12, border: "1px solid color-mix(in srgb, var(--border) 85%, transparent)", background: "var(--bg-card)" }}
+                  />
+                  <Bar dataKey="sessions" radius={[8, 8, 0, 0]} fill="var(--accent)" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : null}
+          </div>
+          <div className={styles.insightFacts}>
+            {insightFacts.map((fact, index) => (
+              <span key={index} className={styles.insightFact}>{fact}</span>
+            ))}
+          </div>
+          <div className={styles.insightSentence}>
+            <p className="m-0">{primaryInsight.body}</p>
+          </div>
+        </section>
+      ) : null}
+
+      {!isCheckinOnly ? (
+        // METRICS GRID - 2x2 core KPIs
         <section className={styles.metricsGrid} aria-label="Tu salud de un vistazo">
           {metricCards.map((m) => (
             <article key={m.id} className={styles.metricCard}>
-              <span className={styles.metricCardIcon}>{m.icon}</span>
+              <span className={styles.metricCardIconBadge}>
+                <span className={styles.metricCardIcon}>{m.icon}</span>
+              </span>
               <strong className={styles.metricCardValue} style={{ color: m.color }}>{m.value}</strong>
               <span className={styles.metricCardLabel}>{m.label}</span>
               <span className={styles.metricCardSub}>{m.sub}</span>
+            </article>
+          ))}
+        </section>
+      ) : null}
+
+      {!isCheckinOnly ? (
+        <section className={styles.denseStatsGrid} aria-label="Métricas avanzadas">
+          {denseStats.map((stat) => (
+            <article key={stat.id} className={styles.denseStatCard}>
+              <span className={styles.denseStatLabel}>{stat.label}</span>
+              <strong className={styles.denseStatValue}>{stat.value}</strong>
             </article>
           ))}
         </section>
@@ -2440,124 +2647,6 @@ const primaryRecommendation = recommendationCapability.items[0] ?? null;
           ))}
         </section>
       ) : null} */}
-
-      {!isCheckinOnly ? (
-        <section className={`${styles.trackingOverviewCard}`}>
-          <div
-            className={styles.insightTabs}
-            role="tablist"
-            aria-label={t("tracking.insightsLabel")}
-          >
-            {(
-              [
-                { id: "checkin", label: t("tracking.progressTabCheckin") },
-                { id: "nutrition", label: t("tracking.progressTabNutrition") },
-                { id: "training", label: t("tracking.progressTabTraining") },
-              ] as const
-            ).map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                className={`${styles.insightTabButton} ${progressInsightTab === option.id ? styles.insightTabButtonActive : ""}`}
-                onClick={() =>
-                  setProgressInsightTab(option.id as ProgressInsightTab)
-                }
-                role="tab"
-                aria-selected={progressInsightTab === option.id}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-
-          <div className={styles.insightCompactContent}>
-            {progressInsightTab === "checkin" ? (
-              <div className={styles.chartWrap}>
-                {checkinTrendData.length < 2 ? (
-                  <p className="muted">{t("tracking.weeklyProgressEmpty")}</p>
-                ) : (
-                  <ResponsiveContainer width="100%" height={160}>
-                    <AreaChart
-                      data={checkinTrendData}
-                      margin={{ top: 8, right: 4, left: -14, bottom: 0 }}
-                    >
-                      <defs>
-                        <linearGradient id="tracking-weight-area" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.36} />
-                          <stop offset="100%" stopColor="var(--accent)" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid stroke="color-mix(in srgb, var(--border) 65%, transparent)" strokeDasharray="3 3" vertical={false} />
-                      <XAxis dataKey="date" tickLine={false} axisLine={false} tick={{ fill: "var(--text-muted)", fontSize: 11 }} />
-                      <YAxis tickLine={false} axisLine={false} tick={{ fill: "var(--text-muted)", fontSize: 11 }} width={38} domain={["dataMin - 0.6", "dataMax + 0.6"]} />
-                      <Tooltip
-                        formatter={(value) => [`${Number(value ?? 0).toFixed(1)} ${t("units.kilograms")}`, t("tracking.latestWeightTitle")]}
-                        labelFormatter={(label) => String(label)}
-                        contentStyle={{ borderRadius: 12, border: "1px solid color-mix(in srgb, var(--border) 85%, transparent)", background: "var(--bg-card)" }}
-                      />
-                      <Area type="monotone" dataKey="weight" stroke="var(--accent)" strokeWidth={2.25} fill="url(#tracking-weight-area)" />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-            ) : null}
-
-            {progressInsightTab === "nutrition" ? (
-              <div className={styles.chartWrap}>
-                {nutritionTrendData.length === 0 ? (
-                  <p className="muted">{t("tracking.mealEmpty")}</p>
-                ) : (
-                  <ResponsiveContainer width="100%" height={160}>
-                    <BarChart data={nutritionTrendData} margin={{ top: 8, right: 4, left: -14, bottom: 0 }}>
-                      <CartesianGrid stroke="color-mix(in srgb, var(--border) 65%, transparent)" strokeDasharray="3 3" vertical={false} />
-                      <XAxis dataKey="date" tickLine={false} axisLine={false} tick={{ fill: "var(--text-muted)", fontSize: 11 }} />
-                      <YAxis tickLine={false} axisLine={false} tick={{ fill: "var(--text-muted)", fontSize: 11 }} width={38} />
-                      <Tooltip
-                        formatter={(value) => [`${Math.round(Number(value ?? 0))} ${t("units.kcal")}`, t("tracking.progressAverageCalories")]}
-                        labelFormatter={(label) => String(label)}
-                        contentStyle={{ borderRadius: 12, border: "1px solid color-mix(in srgb, var(--border) 85%, transparent)", background: "var(--bg-card)" }}
-                      />
-                      <Bar dataKey="calories" radius={[8, 8, 0, 0]} fill="var(--accent)" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-            ) : null}
-
-            {progressInsightTab === "training" ? (
-              <div className={styles.chartWrap}>
-                {trainingTrendData.length === 0 ? (
-                  <p className="muted">{t("tracking.workoutEmpty")}</p>
-                ) : (
-                  <ResponsiveContainer width="100%" height={160}>
-                    <BarChart data={trainingTrendData} margin={{ top: 8, right: 4, left: -14, bottom: 0 }}>
-                      <CartesianGrid stroke="color-mix(in srgb, var(--border) 65%, transparent)" strokeDasharray="3 3" vertical={false} />
-                      <XAxis dataKey="date" tickLine={false} axisLine={false} tick={{ fill: "var(--text-muted)", fontSize: 11 }} />
-                      <YAxis tickLine={false} axisLine={false} tick={{ fill: "var(--text-muted)", fontSize: 11 }} width={32} allowDecimals={false} />
-                      <Tooltip
-                        formatter={(value, key) => [key === "sessions" ? `${value} sesiones` : `${value} min`, key === "sessions" ? "Sesiones" : "Minutos"]}
-                        labelFormatter={(label) => String(label)}
-                        contentStyle={{ borderRadius: 12, border: "1px solid color-mix(in srgb, var(--border) 85%, transparent)", background: "var(--bg-card)" }}
-                      />
-                      <Bar dataKey="sessions" radius={[8, 8, 0, 0]} fill="var(--accent)" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-            ) : null}
-
-            <div className={styles.insightFacts}>
-              {insightFacts.map((fact, index) => (
-                <span key={index} className={styles.insightFact}>{fact}</span>
-              ))}
-            </div>
-
-            <div className={styles.insightSentence}>
-              <p className="m-0">{primaryInsight.body}</p>
-            </div>
-          </div>
-        </section>
-) : null}
 
       {!isCheckinOnly ? (
         <section className={styles.bodyScanPreview} aria-label="Resumen corporal">

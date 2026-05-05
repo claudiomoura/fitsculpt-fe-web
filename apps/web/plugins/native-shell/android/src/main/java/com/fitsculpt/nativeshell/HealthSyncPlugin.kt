@@ -191,7 +191,7 @@ class HealthSyncPlugin : Plugin() {
   }
 
   @PluginMethod
-  fun requestPermissions(call: PluginCall) {
+  override fun requestPermissions(call: PluginCall) {
     val currentActivity = activity
     if (currentActivity == null) {
       call.reject("ACTIVITY_UNAVAILABLE")

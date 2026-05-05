@@ -56,22 +56,52 @@
 /* ========== METRICS GRID (NEW) ========== */
 .metricsGrid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 10px;
+}
+
+.topChartCard {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 70%, transparent);
+  background: var(--bg-card);
+}
+
+.topChartHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .metricCard {
   display: grid;
-  gap: 4px;
-  padding: 12px;
-  border-radius: 12px;
+  gap: 6px;
+  padding: 14px 12px;
+  border-radius: 14px;
   border: 1px solid color-mix(in srgb, var(--surface-border-default) 60%, transparent);
   background: var(--bg-card);
   text-align: center;
 }
 
+.metricCardIconBadge {
+  width: 30px;
+  height: 30px;
+  margin: 0 auto;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 22%, transparent), color-mix(in srgb, var(--accent) 12%, black));
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
 .metricCardIcon {
-  font-size: 1.1rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: color-mix(in srgb, var(--accent) 70%, white);
 }
 
 .metricCardValue {
@@ -91,6 +121,34 @@
 .metricCardSub {
   font-size: 0.65rem;
   color: var(--text-muted);
+}
+
+.denseStatsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.denseStatCard {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 55%, transparent);
+  background: color-mix(in srgb, var(--bg-card) 85%, transparent);
+}
+
+.denseStatLabel {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+}
+
+.denseStatValue {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
 }
 
 /* ========== WEEKLY KPI (OLD) ========== */
