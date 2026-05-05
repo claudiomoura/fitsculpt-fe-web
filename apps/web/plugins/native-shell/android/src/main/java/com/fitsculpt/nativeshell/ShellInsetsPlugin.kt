@@ -21,12 +21,15 @@ class ShellInsetsPlugin : Plugin() {
       return
     }
 
-    val insets =
-      ViewCompat.getRootWindowInsets(decorView)?.getInsets(
-        WindowInsetsCompat.Type.statusBars() or
-          WindowInsetsCompat.Type.navigationBars() or
-          WindowInsetsCompat.Type.displayCutout(),
-      ) ?: Insets.NONE
+    val rootInsets = ViewCompat.getRootWindowInsets(decorView)
+    val cutoutInsets =
+      rootInsets?.getInsets(WindowInsetsCompat.Type.displayCutout()) ?: Insets.NONE
+
+    // Important: the WebView on Android already lays out below system bars when not in edge-to-edge mode.
+    // Returning status/navigation bar insets here causes CSS safe-area padding to be applied twice
+    // (visible as extra blank space at top and bottom in APK only).
+    // We therefore only expose display-cutout insets.
+    val insets = Insets.of(cutoutInsets.left, cutoutInsets.top, cutoutInsets.right, cutoutInsets.bottom)
 
     val data = JSObject()
     data.put("top", insets.top)

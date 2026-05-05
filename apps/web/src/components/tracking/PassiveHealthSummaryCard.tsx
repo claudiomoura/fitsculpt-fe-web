@@ -53,6 +53,25 @@ export default function PassiveHealthSummaryCard({ passiveData, overview, endDat
     return { mode, androidCount, manualCount };
   }, [passiveData.snapshots]);
 
+  const latestSyncedAtLabel = useMemo(() => {
+    if (!passiveData.lastSyncAt) return null;
+    const parsed = new Date(passiveData.lastSyncAt);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return parsed.toLocaleString();
+  }, [passiveData.lastSyncAt]);
+
+  const latestSyncedRows = useMemo(() => {
+    return [...passiveData.snapshots]
+      .sort((a, b) => {
+        if (a.date !== b.date) return b.date.localeCompare(a.date);
+        return (b.syncedAt ?? "").localeCompare(a.syncedAt ?? "");
+      })
+      .slice(0, 5);
+  }, [passiveData.snapshots]);
+
+  const hasAndroidSyncedData = sourceBreakdown.androidCount > 0;
+  const hasAnySyncedData = passiveData.snapshots.length > 0;
+
   async function handleSave() {
     setPending("save");
     try {
@@ -127,6 +146,55 @@ export default function PassiveHealthSummaryCard({ passiveData, overview, endDat
           <p className="mt-2 text-2xl font-semibold">+{overview.supportPct}%</p>
         </article>
       </div>
+
+      <div
+        className={`mt-4 rounded-2xl border px-4 py-3 text-sm ${
+          hasAndroidSyncedData
+            ? "border-emerald-300/45 bg-emerald-400/10 text-emerald-100"
+            : hasAnySyncedData
+              ? "border-amber-300/45 bg-amber-400/10 text-amber-100"
+              : "border-slate-400/35 bg-slate-500/10 text-slate-200"
+        }`}
+        data-testid="passive-sync-status-banner"
+      >
+        <p className="m-0 font-semibold">
+          {hasAndroidSyncedData
+            ? `✅ Datos sincronizados desde Android: ${sourceBreakdown.androidCount}`
+            : hasAnySyncedData
+              ? `ℹ️ Datos cargados manualmente: ${sourceBreakdown.manualCount}`
+              : "⚠️ Sin datos sincronizados todavía"}
+        </p>
+        <p className="m-0 mt-1 opacity-90">
+          {latestSyncedAtLabel
+            ? `${t("tracking.passiveLatestSync")}: ${latestSyncedAtLabel}`
+            : t("tracking.passiveNoSync")}
+        </p>
+      </div>
+
+      <details className="mt-3 rounded-2xl border border-white/80 bg-white/82" open>
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Datos sincronizados cargados</p>
+            <p className="mt-1 text-sm text-[var(--muted)]">Últimos registros recibidos (fecha, origen, pasos, minutos, sueño)</p>
+          </div>
+        </summary>
+        <div className="border-t border-white/80 px-4 py-3">
+          {latestSyncedRows.length === 0 ? (
+            <p className="m-0 text-sm text-[var(--muted)]">Aún no hay registros sincronizados.</p>
+          ) : (
+            <div className="grid gap-2">
+              {latestSyncedRows.map((snapshot) => (
+                <div key={`${snapshot.source}-${snapshot.id}-${snapshot.date}`} className="rounded-xl border border-white/70 bg-white/70 px-3 py-2 text-xs text-[var(--text)]">
+                  <p className="m-0 font-semibold">{snapshot.date} · {getPassiveSourceLabel(snapshot.source)}</p>
+                  <p className="m-0 mt-1 text-[var(--muted)]">
+                    Steps: {snapshot.steps ?? "-"} · Min: {snapshot.activeMinutes ?? "-"} · Sleep: {snapshot.sleepHours ?? "-"}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </details>
 
       <div className="mt-5 grid gap-3">
         <details
