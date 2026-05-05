@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import type { TrackingBodyScanCapability } from "@/domains/tracking-intelligence";
 import type { BodyFatScanExecutionResult } from "@/services/trackingBodyFatScan";

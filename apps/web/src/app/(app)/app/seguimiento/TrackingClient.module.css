@@ -16,6 +16,139 @@
   min-height: 44px;
 }
 
+.dailyHero {
+  display: grid;
+  gap: 8px;
+}
+
+.actionQueue {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.actionQueueCard {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 70%, transparent);
+  background: var(--bg-card);
+}
+
+.actionQueueHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.actionQueueStatus {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+
+.actionQueueCompleted {
+  background: var(--color-success);
+}
+
+.weekKpiGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.weekKpiCard {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 75%, transparent);
+  background: color-mix(in srgb, var(--bg-card) 90%, transparent);
+}
+
+.weekKpiValue {
+  font-size: 1.4rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.insightCompactContent {
+  display: grid;
+  gap: 14px;
+}
+
+.insightFacts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.insightFact {
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-secondary-bg) 60%, transparent);
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.insightSentence {
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 20%, var(--surface-border-default));
+  background: color-mix(in srgb, var(--color-primary) 8%, var(--bg-card));
+}
+
+.insightSentence p {
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.bodyScanPreview {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 20px;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 25%, var(--surface-border-default));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 12%, var(--bg-card)), color-mix(in srgb, var(--surface-secondary-bg) 85%, transparent));
+}
+
+.bodyScanPreviewHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.bodyScanConfidence {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-card) 85%, transparent);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.bodyScanPreviewCtas {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.weeklyReviewHandoff {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 20px;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 30%, var(--surface-border-default));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 14%, var(--bg-card)), color-mix(in srgb, var(--surface-secondary-bg) 85%, transparent));
+}
+
+.weeklyReviewHeader {
+  display: grid;
+  gap: 4px;
+}
+
 .heroSecondaryLink {
   width: fit-content;
   color: var(--text-muted);
@@ -759,5 +892,21 @@
 
   .checkinShell :global(.inline-actions-sm .btn) {
     width: 100%;
+  }
+
+  .actionQueue {
+    grid-template-columns: 1fr;
+  }
+
+  .weekKpiGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .bodyScanPreviewCtas {
+    flex-direction: column;
+  }
+
+  .insightFacts {
+    flex-wrap: wrap;
   }
 }

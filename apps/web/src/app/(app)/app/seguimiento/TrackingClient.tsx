@@ -2027,8 +2027,45 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
     setBodyFatScanResult(null);
   }
 
-  const primaryRecommendation = recommendationCapability.items[0] ?? null;
+const primaryRecommendation = recommendationCapability.items[0] ?? null;
   const bodyScanComposition = bodyScanCapability.data.composition;
+
+  const weeklyReviewReady = trainingConsistency >= 70 || trainingSessions > 0;
+  const weeklyReviewReason = weeklyReviewReady
+    ? "Tienes datos suficientes para una revisión significativa"
+    : "Completa al menos una sesión para generar insights";
+
+  const actionQueueItems = [
+    { id: "checkin", label: "Check-in", subtitle: latestCheckin ? `Último: ${latestCheckin.weightKg.toFixed(1)}kg` : "Registra tu peso", cta: "Hacer check-in", href: "/app/seguimiento/check-in", completed: !!latestCheckin },
+    { id: "body-scan", label: "Body scan", subtitle: bodyScanCapability.status === "ready" ? bodyScanCapability.summary : "Análisis corporal", cta: "Ver scan", href: "/app/body-scan", completed: bodyScanCapability.status === "ready" },
+    { id: "weekly-review", label: "Revisión semanal", subtitle: weeklyReviewReason, cta: "Ver resumen", href: "/app/weekly-review", completed: false },
+  ];
+
+  const weekKpiItems = [
+    { id: "weight", label: "Peso actual", value: rangeLatestCheckin ? `${rangeLatestCheckin.weightKg.toFixed(1)} kg` : "—", detail: latestCheckin ? formatEntryDate(latestCheckin.date) : "Sin datos" },
+    { id: "delta", label: "Cambio semanal", value: rangeWeightDelta !== null ? `${rangeWeightDelta > 0 ? "+" : ""}${rangeWeightDelta.toFixed(1)} kg` : "—", detail: rangeDays <= 7 ? "esta semana" : `últimos ${rangeDays} días` },
+    { id: "nutrition", label: "Nutrición", value: `${nutritionLoggingAdherence}%`, detail: `${nutritionDaysLogged}/${rangeDays} días` },
+    { id: "training", label: "Sesiones", value: String(trainingSessions), detail: `${trainingMinutes} min` },
+  ];
+
+  const insightFacts = progressInsightTab === "checkin"
+    ? [
+        latestCheckin ? `${latestCheckin.weightKg.toFixed(1)} kg` : "Sin datos",
+        rangeWeightDelta !== null ? `${rangeWeightDelta > 0 ? "+" : ""}${rangeWeightDelta.toFixed(1)} kg` : "Sin historial",
+        `${rangeCheckinConsistency}% consistencia`,
+      ]
+    : progressInsightTab === "nutrition"
+      ? [
+          `${nutritionDaysLogged}/${rangeDays} días registrados`,
+          nutritionDaysLogged > 0 ? `${nutritionAverages.calories.toFixed(0)} kcal/día` : "Sin datos",
+          `${nutritionLoggingAdherence}% adherence`,
+        ]
+      : [
+          `${trainingSessions} sesiones`,
+          `${trainingMinutes} minutos`,
+          `${trainingConsistency}% meta semanal`,
+        ];
+
   return (
     <div
       className={
@@ -2245,14 +2282,55 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
           <p className="muted m-0">{actionMessage}</p>
         </div>
       )}
+
       {!isCheckinOnly ? (
-        <TrackingSummaryPreview
-          progressRange={progressRange}
-          summaryKpis={summaryKpis}
-          primaryInsight={primaryInsight}
-          onProgressRangeChange={setProgressRange}
-          onPrimaryAction={() => router.push("/app/seguimiento/check-in")}
-        />
+        <section className={`card premium-surface-card surface-content-card ${styles.heroCard} ${styles.quickCheckinHero}`}>
+          <div className={styles.dailyHero}>
+            <p className="eyebrow m-0">{t("tracking.pageEyebrow")}</p>
+            <h1 className="section-title m-0" style={{ fontSize: "1.5rem" }}>
+              {latestCheckin
+                ? `Último peso: ${latestCheckin.weightKg.toFixed(1)} kg`
+                : "Sin registros aún"}
+            </h1>
+            <p className="muted m-0">{t("tracking.pageSubtitle")}</p>
+          </div>
+          <button
+            type="button"
+            className={`btn primary ${styles.heroPrimaryAction}`}
+            onClick={() => router.push("/app/seguimiento/check-in")}
+          >
+            {t("today.checkinPrimaryCta")}
+          </button>
+        </section>
+      ) : null}
+
+      {!isCheckinOnly ? (
+        <section className={styles.actionQueue} aria-label="Cola de acciones">
+          {actionQueueItems.slice(0, 3).map((item) => (
+            <article key={item.id} className={styles.actionQueueCard}>
+              <div className={styles.actionQueueHeader}>
+                <span className={`${styles.actionQueueStatus} ${item.completed ? styles.actionQueueCompleted : ""}`} />
+                <strong>{item.label}</strong>
+              </div>
+              <p className="muted m-0">{item.subtitle}</p>
+              <Link href={item.href} className="btn secondary fit-content">
+                {item.cta}
+              </Link>
+            </article>
+          ))}
+        </section>
+      ) : null}
+
+      {!isCheckinOnly ? (
+        <section className={styles.weekKpiGrid} aria-label="Resumen de la semana">
+          {weekKpiItems.map((item) => (
+            <article key={item.id} className={styles.weekKpiCard}>
+              <p className="muted m-0">{item.label}</p>
+              <strong className={styles.weekKpiValue}>{item.value}</strong>
+              <span className="muted">{item.detail}</span>
+            </article>
+          ))}
+        </section>
       ) : null}
 
       {!isCheckinOnly ? (
@@ -2284,515 +2362,131 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
             ))}
           </div>
 
-          {progressInsightTab === "checkin" ? (
-            <div className={styles.checkinInsightStack}>
-              <div className={styles.overviewGrid}>
-                <div className={styles.leftColumn}>
-                  <section
-                    className={`feature-card feature-card--compact ${styles.primaryChartCard}`}
-                  >
-                    <h2 className="section-title section-title-sm">
-                      {t("tracking.weeklyProgressTitle")}
-                    </h2>
-                    {checkinTrendData.length < 2 ? (
-                      <p className="muted">
-                        {t("tracking.weeklyProgressEmpty")}
-                      </p>
-                    ) : (
-                      <div className={styles.chartWrap}>
-                        <ResponsiveContainer width="100%" height={220}>
-                          <AreaChart
-                            data={checkinTrendData}
-                            margin={{ top: 8, right: 4, left: -14, bottom: 0 }}
-                          >
-                            <defs>
-                              <linearGradient
-                                id="tracking-weight-area"
-                                x1="0"
-                                y1="0"
-                                x2="0"
-                                y2="1"
-                              >
-                                <stop
-                                  offset="0%"
-                                  stopColor="var(--accent)"
-                                  stopOpacity={0.36}
-                                />
-                                <stop
-                                  offset="100%"
-                                  stopColor="var(--accent)"
-                                  stopOpacity={0}
-                                />
-                              </linearGradient>
-                            </defs>
-                            <CartesianGrid
-                              stroke="color-mix(in srgb, var(--border) 65%, transparent)"
-                              strokeDasharray="3 3"
-                              vertical={false}
-                            />
-                            <XAxis
-                              dataKey="date"
-                              tickLine={false}
-                              axisLine={false}
-                              tick={{ fill: "var(--text-muted)", fontSize: 11 }}
-                            />
-                            <YAxis
-                              tickLine={false}
-                              axisLine={false}
-                              tick={{ fill: "var(--text-muted)", fontSize: 11 }}
-                              width={38}
-                              domain={["dataMin - 0.6", "dataMax + 0.6"]}
-                            />
-                            <Tooltip
-                              formatter={(value) => {
-                                const numericValue = Number(value ?? 0);
-                                return [
-                                  `${numericValue.toFixed(1)} ${t("units.kilograms")}`,
-                                  t("tracking.latestWeightTitle"),
-                                ];
-                              }}
-                              labelFormatter={(label) => String(label)}
-                              contentStyle={{
-                                borderRadius: 12,
-                                border:
-                                  "1px solid color-mix(in srgb, var(--border) 85%, transparent)",
-                                background: "var(--bg-card)",
-                              }}
-                            />
-                            <Area
-                              type="monotone"
-                              dataKey="weight"
-                              stroke="var(--accent)"
-                              strokeWidth={2.25}
-                              fill="url(#tracking-weight-area)"
-                            />
-                          </AreaChart>
-                        </ResponsiveContainer>
-                      </div>
-                    )}
-                  </section>
-                  <section className={styles.metricCards}>
-                    <article className="feature-card feature-card--compact">
-                      <p className="muted">{t("tracking.latestWeightTitle")}</p>
-                      <strong>
-                        {rangeLatestCheckin
-                          ? `${rangeLatestCheckin.weightKg.toFixed(1)} ${t("units.kilograms")}`
-                          : "—"}
-                      </strong>
-                    </article>
-                    <article className="feature-card feature-card--compact">
-                      <p className="muted">
-                        {t("tracking.weightHistoryTitle")}
-                      </p>
-                      <strong>
-                        {rangeWeightDelta === null
-                          ? "—"
-                          : `${rangeWeightDelta > 0 ? "+" : ""}${rangeWeightDelta.toFixed(1)} ${t("units.kilograms")}`}
-                      </strong>
-                    </article>
-                    <article className="feature-card feature-card--compact">
-                      <p className="muted">
-                        {t("tracking.progressConsistency")}
-                      </p>
-                      <strong>{rangeCheckinConsistency}%</strong>
-                    </article>
-                  </section>
-                </div>
-                <aside className={styles.rightColumn}>
-                  {supportsBodyFat && rangeLatestCheckin ? (
-                    <section className="feature-card feature-card--compact">
-                      <h3 className="section-title section-title-sm">
-                        {t("tracking.bodyFatPercent")}
-                      </h3>
-                      <strong>
-                        {rangeLatestCheckin.bodyFatPercent.toFixed(1)}
-                        {t("units.percent")}
-                      </strong>
-                    </section>
-                  ) : null}
-                  {latestNotesCheckin ? (
-                    <section className="feature-card feature-card--compact">
-                      <h3 className="section-title section-title-sm">
-                        {t("tracking.latestNotesTitle")}
-                      </h3>
-                      <p className="muted">{latestNotesCheckin.notes}</p>
-                    </section>
-                  ) : null}
-                  <section className="feature-card feature-card--compact">
-                    <h3 className="section-title section-title-sm">
-                      {t("tracking.weightHistoryTitle")}
-                    </h3>
-                    {professionalInsights.historyRows.length === 0 ? (
-                      <p className="muted">{t("profile.checkinEmpty")}</p>
-                    ) : (
-                      <div style={{ display: "grid", gap: 8 }}>
-                        {professionalInsights.historyRows
-                          .slice(0, 5)
-                          .map((entry) => (
-                            <div key={entry.id} className="info-item">
-                              <div
-                                style={{
-                                  display: "flex",
-                                  justifyContent: "space-between",
-                                  gap: 10,
-                                }}
-                              >
-                                <strong>{formatEntryDate(entry.date)}</strong>
-                                <span className="muted">
-                                  {entry.weightKg.toFixed(1)}{" "}
-                                  {t("units.kilograms")}
-                                </span>
-                              </div>
-                            </div>
-                          ))}
-                      </div>
-                    )}
-                  </section>
-                </aside>
-              </div>
-            </div>
-          ) : null}
-
-          {progressInsightTab === "nutrition" ? (
-            <div className={styles.overviewGrid}>
-              <div className={styles.leftColumn}>
-                <section
-                  className={`feature-card feature-card--compact ${styles.primaryChartCard}`}
-                >
-                  <h3 className="section-title section-title-sm">
-                    {t("tracking.progressComplianceTitle")}
-                  </h3>
-                  {nutritionTrendData.length === 0 ? (
-                    <p className="muted">{t("tracking.mealEmpty")}</p>
-                  ) : (
-                    <div className={styles.chartWrap}>
-                      <ResponsiveContainer width="100%" height={220}>
-                        <BarChart
-                          data={nutritionTrendData}
-                          margin={{ top: 8, right: 4, left: -14, bottom: 0 }}
-                        >
-                          <CartesianGrid
-                            stroke="color-mix(in srgb, var(--border) 65%, transparent)"
-                            strokeDasharray="3 3"
-                            vertical={false}
-                          />
-                          <XAxis
-                            dataKey="date"
-                            tickLine={false}
-                            axisLine={false}
-                            tick={{ fill: "var(--text-muted)", fontSize: 11 }}
-                          />
-                          <YAxis
-                            tickLine={false}
-                            axisLine={false}
-                            tick={{ fill: "var(--text-muted)", fontSize: 11 }}
-                            width={38}
-                          />
-                          <Tooltip
-                            formatter={(value) => {
-                              const numericValue = Number(value ?? 0);
-                              return [
-                                `${Math.round(numericValue)} ${t("units.kcal")}`,
-                                t("tracking.progressAverageCalories"),
-                              ];
-                            }}
-                            labelFormatter={(label) => String(label)}
-                            contentStyle={{
-                              borderRadius: 12,
-                              border:
-                                "1px solid color-mix(in srgb, var(--border) 85%, transparent)",
-                              background: "var(--bg-card)",
-                            }}
-                          />
-                          <Bar
-                            dataKey="calories"
-                            radius={[8, 8, 0, 0]}
-                            fill="var(--accent)"
-                          />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  )}
-                </section>
-
-                <section className={styles.metricCards}>
-                  <article className="feature-card feature-card--compact">
-                    <p className="muted">{t("tracking.progressDaysLogged")}</p>
-                    <strong>
-                      {nutritionDaysLogged}/{rangeDays}
-                    </strong>
-                  </article>
-                  <article className="feature-card feature-card--compact">
-                    <p className="muted">
-                      {t("tracking.progressAverageCalories")}
-                    </p>
-                    <strong>
-                      {nutritionDaysLogged > 0
-                        ? `${nutritionAverages.calories.toFixed(0)} ${t("units.kcal")}`
-                        : "—"}
-                    </strong>
-                  </article>
-                  <article className="feature-card feature-card--compact">
-                    <p className="muted">
-                      {t("tracking.progressAverageProtein")}
-                    </p>
-                    <strong>
-                      {nutritionDaysLogged > 0
-                        ? `${nutritionAverages.protein.toFixed(0)} ${t("units.grams")}`
-                        : "—"}
-                    </strong>
-                  </article>
-                </section>
-              </div>
-              <aside className={styles.rightColumn}>
-                <section className="feature-card feature-card--compact">
-                  <h3 className="section-title section-title-sm">
-                    {t("tracking.progressComplianceTitle")}
-                  </h3>
-                  <div style={{ display: "grid", gap: 10 }}>
-                    <div
-                      className="info-item"
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        gap: 10,
-                      }}
+          <div className={styles.insightCompactContent}>
+            {progressInsightTab === "checkin" ? (
+              <div className={styles.chartWrap}>
+                {checkinTrendData.length < 2 ? (
+                  <p className="muted">{t("tracking.weeklyProgressEmpty")}</p>
+                ) : (
+                  <ResponsiveContainer width="100%" height={160}>
+                    <AreaChart
+                      data={checkinTrendData}
+                      margin={{ top: 8, right: 4, left: -14, bottom: 0 }}
                     >
-                      <span className="muted">
-                        {t("tracking.progressLoggingLabel")}
-                      </span>
-                      <strong>{nutritionLoggingAdherence}%</strong>
-                    </div>
-                    {nutritionCaloriesTargetAdherence !== null ? (
-                      <div
-                        className="info-item"
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          gap: 10,
-                        }}
-                      >
-                        <span className="muted">
-                          {t("tracking.progressCaloriesTargetLabel")}
-                        </span>
-                        <strong>{nutritionCaloriesTargetAdherence}%</strong>
-                      </div>
-                    ) : null}
-                    {nutritionProteinTargetAdherence !== null ? (
-                      <div
-                        className="info-item"
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          gap: 10,
-                        }}
-                      >
-                        <span className="muted">
-                          {t("tracking.progressProteinTargetLabel")}
-                        </span>
-                        <strong>{nutritionProteinTargetAdherence}%</strong>
-                      </div>
-                    ) : null}
-                  </div>
-                </section>
-                <section className="feature-card feature-card--compact">
-                  <h3 className="section-title section-title-sm">
-                    {t("tracking.progressRecentMeals")}
-                  </h3>
-                  {nutritionInRange.length === 0 ? (
-                    <p className="muted">{t("tracking.mealEmpty")}</p>
-                  ) : (
-                    <div style={{ display: "grid", gap: 8 }}>
-                      {nutritionInRange
-                        .slice(-5)
-                        .reverse()
-                        .map((entry) => (
-                          <div key={entry.date} className="info-item">
-                            <div
-                              style={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                                gap: 8,
-                              }}
-                            >
-                              <strong>{formatEntryDate(entry.date)}</strong>
-                              <span className="muted">
-                                {entry.totals.calories.toFixed(0)}{" "}
-                                {t("units.kcal")}
-                              </span>
-                            </div>
-                          </div>
-                        ))}
-                    </div>
-                  )}
-                </section>
-              </aside>
-            </div>
-          ) : null}
-
-          {progressInsightTab === "training" ? (
-            <div className={styles.overviewGrid}>
-              <div className={styles.leftColumn}>
-                <section
-                  className={`feature-card feature-card--compact ${styles.primaryChartCard}`}
-                >
-                  <h3 className="section-title section-title-sm">
-                    {t("tracking.progressSessionTarget")}
-                  </h3>
-                  {trainingTrendData.length === 0 ? (
-                    <p className="muted">{t("tracking.workoutEmpty")}</p>
-                  ) : (
-                    <div className={styles.chartWrap}>
-                      <ResponsiveContainer width="100%" height={220}>
-                        <BarChart
-                          data={trainingTrendData}
-                          margin={{ top: 8, right: 4, left: -14, bottom: 0 }}
-                        >
-                          <CartesianGrid
-                            stroke="color-mix(in srgb, var(--border) 65%, transparent)"
-                            strokeDasharray="3 3"
-                            vertical={false}
-                          />
-                          <XAxis
-                            dataKey="date"
-                            tickLine={false}
-                            axisLine={false}
-                            tick={{ fill: "var(--text-muted)", fontSize: 11 }}
-                          />
-                          <YAxis
-                            tickLine={false}
-                            axisLine={false}
-                            tick={{ fill: "var(--text-muted)", fontSize: 11 }}
-                            width={32}
-                            allowDecimals={false}
-                          />
-                          <Tooltip
-                            formatter={(value, key) => {
-                              const numericValue = Number(value ?? 0);
-                              const metric =
-                                key === "sessions"
-                                  ? t("tracking.progressSessions")
-                                  : t("tracking.progressTrainingTime");
-                              return [
-                                key === "sessions"
-                                  ? `${numericValue} ${t("tracking.progressSessions")}`
-                                  : `${numericValue} min`,
-                                metric,
-                              ];
-                            }}
-                            labelFormatter={(label) => String(label)}
-                            contentStyle={{
-                              borderRadius: 12,
-                              border:
-                                "1px solid color-mix(in srgb, var(--border) 85%, transparent)",
-                              background: "var(--bg-card)",
-                            }}
-                          />
-                          <Bar
-                            dataKey="sessions"
-                            radius={[8, 8, 0, 0]}
-                            fill="var(--accent)"
-                          />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  )}
-                </section>
-                <section className={styles.metricCards}>
-                  <article className="feature-card feature-card--compact">
-                    <p className="muted">{t("tracking.progressSessions")}</p>
-                    <strong>{trainingSessions}</strong>
-                  </article>
-                  <article className="feature-card feature-card--compact">
-                    <p className="muted">
-                      {t("tracking.progressTrainingTime")}
-                    </p>
-                    <strong>{trainingMinutes} min</strong>
-                  </article>
-                  <article className="feature-card feature-card--compact">
-                    <p className="muted">{t("tracking.workoutDuration")}</p>
-                    <strong>
-                      {trainingAverageMinutes > 0
-                        ? `${trainingAverageMinutes} min`
-                        : "—"}
-                    </strong>
-                  </article>
-                  <article className="feature-card feature-card--compact">
-                    <p className="muted">{t("tracking.progressConsistency")}</p>
-                    <strong>{trainingConsistency}%</strong>
-                  </article>
-                </section>
+                      <defs>
+                        <linearGradient id="tracking-weight-area" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.36} />
+                          <stop offset="100%" stopColor="var(--accent)" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid stroke="color-mix(in srgb, var(--border) 65%, transparent)" strokeDasharray="3 3" vertical={false} />
+                      <XAxis dataKey="date" tickLine={false} axisLine={false} tick={{ fill: "var(--text-muted)", fontSize: 11 }} />
+                      <YAxis tickLine={false} axisLine={false} tick={{ fill: "var(--text-muted)", fontSize: 11 }} width={38} domain={["dataMin - 0.6", "dataMax + 0.6"]} />
+                      <Tooltip
+                        formatter={(value) => [`${Number(value ?? 0).toFixed(1)} ${t("units.kilograms")}`, t("tracking.latestWeightTitle")]}
+                        labelFormatter={(label) => String(label)}
+                        contentStyle={{ borderRadius: 12, border: "1px solid color-mix(in srgb, var(--border) 85%, transparent)", background: "var(--bg-card)" }}
+                      />
+                      <Area type="monotone" dataKey="weight" stroke="var(--accent)" strokeWidth={2.25} fill="url(#tracking-weight-area)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                )}
               </div>
-              <aside className={styles.rightColumn}>
-                <section className="feature-card feature-card--compact">
-                  <h3 className="section-title section-title-sm">
-                    {t("tracking.progressSessionTarget")}
-                  </h3>
-                  <div
-                    className="info-item"
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      gap: 10,
-                    }}
-                  >
-                    <span className="muted">
-                      {t("tracking.progressPerWeek")}
-                    </span>
-                    <strong>{targetSessions}</strong>
-                  </div>
-                  <div
-                    className="info-item"
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      gap: 10,
-                    }}
-                  >
-                    <span className="muted">
-                      {t("tracking.progressConsistency")}
-                    </span>
-                    <strong>{trainingConsistency}%</strong>
-                  </div>
-                </section>
-                <section className="feature-card feature-card--compact">
-                  <h3 className="section-title section-title-sm">
-                    {t("tracking.progressRecentWorkouts")}
-                  </h3>
-                  {workoutsRecent.length === 0 ? (
-                    <p className="muted">{t("tracking.workoutEmpty")}</p>
-                  ) : (
-                    <div style={{ display: "grid", gap: 8 }}>
-                      {workoutsRecent.map((entry) => (
-                        <div key={entry.id} className="info-item">
-                          <div
-                            style={{
-                              display: "flex",
-                              justifyContent: "space-between",
-                              gap: 8,
-                            }}
-                          >
-                            <strong>{entry.name}</strong>
-                            <span className="muted">
-                              {entry.durationMin} min
-                            </span>
-                          </div>
-                          <span className="muted">
-                            {formatEntryDate(entry.date)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </section>
-              </aside>
+            ) : null}
+
+            {progressInsightTab === "nutrition" ? (
+              <div className={styles.chartWrap}>
+                {nutritionTrendData.length === 0 ? (
+                  <p className="muted">{t("tracking.mealEmpty")}</p>
+                ) : (
+                  <ResponsiveContainer width="100%" height={160}>
+                    <BarChart data={nutritionTrendData} margin={{ top: 8, right: 4, left: -14, bottom: 0 }}>
+                      <CartesianGrid stroke="color-mix(in srgb, var(--border) 65%, transparent)" strokeDasharray="3 3" vertical={false} />
+                      <XAxis dataKey="date" tickLine={false} axisLine={false} tick={{ fill: "var(--text-muted)", fontSize: 11 }} />
+                      <YAxis tickLine={false} axisLine={false} tick={{ fill: "var(--text-muted)", fontSize: 11 }} width={38} />
+                      <Tooltip
+                        formatter={(value) => [`${Math.round(Number(value ?? 0))} ${t("units.kcal")}`, t("tracking.progressAverageCalories")]}
+                        labelFormatter={(label) => String(label)}
+                        contentStyle={{ borderRadius: 12, border: "1px solid color-mix(in srgb, var(--border) 85%, transparent)", background: "var(--bg-card)" }}
+                      />
+                      <Bar dataKey="calories" radius={[8, 8, 0, 0]} fill="var(--accent)" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+            ) : null}
+
+            {progressInsightTab === "training" ? (
+              <div className={styles.chartWrap}>
+                {trainingTrendData.length === 0 ? (
+                  <p className="muted">{t("tracking.workoutEmpty")}</p>
+                ) : (
+                  <ResponsiveContainer width="100%" height={160}>
+                    <BarChart data={trainingTrendData} margin={{ top: 8, right: 4, left: -14, bottom: 0 }}>
+                      <CartesianGrid stroke="color-mix(in srgb, var(--border) 65%, transparent)" strokeDasharray="3 3" vertical={false} />
+                      <XAxis dataKey="date" tickLine={false} axisLine={false} tick={{ fill: "var(--text-muted)", fontSize: 11 }} />
+                      <YAxis tickLine={false} axisLine={false} tick={{ fill: "var(--text-muted)", fontSize: 11 }} width={32} allowDecimals={false} />
+                      <Tooltip
+                        formatter={(value, key) => [key === "sessions" ? `${value} sesiones` : `${value} min`, key === "sessions" ? "Sesiones" : "Minutos"]}
+                        labelFormatter={(label) => String(label)}
+                        contentStyle={{ borderRadius: 12, border: "1px solid color-mix(in srgb, var(--border) 85%, transparent)", background: "var(--bg-card)" }}
+                      />
+                      <Bar dataKey="sessions" radius={[8, 8, 0, 0]} fill="var(--accent)" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+            ) : null}
+
+            <div className={styles.insightFacts}>
+              {insightFacts.map((fact, index) => (
+                <span key={index} className={styles.insightFact}>{fact}</span>
+              ))}
             </div>
-          ) : null}
+
+            <div className={styles.insightSentence}>
+              <p className="m-0">{primaryInsight.body}</p>
+            </div>
+          </div>
+        </section>
+) : null}
+
+      {!isCheckinOnly ? (
+        <section className={styles.bodyScanPreview} aria-label="Resumen corporal">
+          <div className={styles.bodyScanPreviewHeader}>
+            <div>
+              <p className="eyebrow m-0">Resumen corporal</p>
+              <h3 className="section-title section-title-sm m-0">{bodyScanCapability.summary}</h3>
+            </div>
+            <span className={styles.bodyScanConfidence}>{bodyScanCapability.confidence}</span>
+          </div>
+          <p className="muted m-0">{recommendationCapability.explainability.summary.slice(0, 120)}...</p>
+          <div className={styles.bodyScanPreviewCtas}>
+            <Link href="/app/body-scan" className="btn secondary fit-content">Ver scan</Link>
+            {primaryRecommendation ? (
+              <Link href={primaryRecommendation.cta.href} className="btn primary fit-content">
+                {primaryRecommendation.cta.label}
+              </Link>
+            ) : null}
+          </div>
         </section>
       ) : null}
 
       {!isCheckinOnly ? (
-        <section className={styles.advancedSection} aria-label={t("tracking.advancedTitle")}>
+        <section className={styles.weeklyReviewHandoff} aria-label="Decisión semanal">
+          <div className={styles.weeklyReviewHeader}>
+            <p className="eyebrow m-0">Decisión semanal</p>
+            <h3 className="section-title section-title-sm m-0">{weeklyReviewReady ? "Listo para revisar" : "Sin suficientes datos"}</h3>
+          </div>
+          <p className="muted m-0">{weeklyReviewReason}</p>
+          <Link href="/app/weekly-review" className="btn primary fit-content">
+            Ver resumen semanal
+          </Link>
+        </section>
+      ) : null}
+
+      {!isCheckinOnly ? (
+        <section className={styles.advancedSection} aria-label="Análisis avanzado">
           <details
             className={styles.advancedDisclosure}
             onToggle={(event) =>
@@ -2803,9 +2497,8 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
           >
             <summary>
               <div className={styles.advancedDisclosureTitle}>
-                <strong>{t("tracking.advancedAnalysisTitle")}</strong>
-                <span className="muted">{t("tracking.advancedAnalysisSubtitle")}</span>
-                <span className="muted">{t("tracking.advancedAnalysisSummary")}</span>
+                <strong>Análisis avanzado</strong>
+                <span className="muted">Profesional, salud pasiva y modelo IA</span>
               </div>
               <span className={styles.advancedDisclosureIndicator}>
                 {isAdvancedAnalysisOpen ? t("ui.showLess") : t("ui.viewAll")}
@@ -2813,28 +2506,6 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
             </summary>
             <div className={styles.advancedDisclosureBody}>
               <TrackingProfessionalInsights insights={professionalInsights} />
-            </div>
-          </details>
-
-          <details
-            className={styles.advancedDisclosure}
-            onToggle={(event) =>
-              setIsPassiveDetailsOpen(
-                (event.currentTarget as HTMLDetailsElement).open,
-              )
-            }
-          >
-            <summary>
-              <div className={styles.advancedDisclosureTitle}>
-                <strong>{t("tracking.advancedPassiveTitle")}</strong>
-                <span className="muted">{t("tracking.advancedPassiveSubtitle")}</span>
-                <span className="muted">{t("tracking.advancedPassiveSummary")}</span>
-              </div>
-              <span className={styles.advancedDisclosureIndicator}>
-                {isPassiveDetailsOpen ? t("ui.showLess") : t("ui.viewAll")}
-              </span>
-            </summary>
-            <div className={styles.advancedDisclosureBody}>
               <PassiveHealthSummaryCard
                 passiveData={passiveData}
                 overview={passiveOverview}
@@ -2846,186 +2517,12 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
                 syncPending={isAndroidSyncing}
                 disabled={trackingStatus === "loading"}
               />
-            </div>
-          </details>
-
-          <details
-            className={styles.advancedDisclosure}
-            onToggle={(event) =>
-              setIsIntelligencePreviewOpen(
-                (event.currentTarget as HTMLDetailsElement).open,
-              )
-            }
-          >
-            <summary>
-              <div className={styles.advancedDisclosureTitle}>
-                <strong>Body scan y plan recomendado</strong>
-                <span className="muted">Lectura rapida de composicion corporal y siguiente mejor paso.</span>
-                <span className="muted">Vista compacta para mobile. Abre detalles solo cuando los necesites.</span>
-                <span>
-                  <Link href="/app/seguimiento/body-scan-report" className="btn secondary fit-content" style={{ marginTop: 8 }}>
-                    Ver reporte completo
-                  </Link>
-                </span>
-              </div>
-              <span className={styles.advancedDisclosureIndicator}>
-                {isIntelligencePreviewOpen ? t("ui.showLess") : t("ui.viewAll")}
-              </span>
-            </summary>
-            <div className={styles.advancedDisclosureBody}>
-              {!hasAdjustmentEntitlement ? (
-                <div className="feature-card" style={{ background: "var(--surface-inset-bg)", padding: 20, borderRadius: 16, marginBottom: 16 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-                    <span style={{ fontSize: 32 }}>🔒</span>
-                    <div>
-                      <strong style={{ display: "block", fontSize: "1.1rem" }}>Body Scan Avanzado</strong>
-                      <p className="muted m-0">Desbloquea análisis corporal avanzado, recomendaciones personalizadas y más.</p>
-                    </div>
-                  </div>
-                  <button
-                    className="btn primary"
-                    onClick={() => (window.location.href = "/app/settings/billing")}
-                    style={{ width: "100%" }}
-                  >
-                    Desbloquea con Pro
-                  </button>
-                </div>
-              ) : null}
-              <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
-                {hasAdjustmentEntitlement ? (
-                  <>
-                    <TrackingBodyScanSummaryCard capability={bodyScanCapability} />
-                    <TrackingAiBodyFatScanPanel
-                      capability={{
-                        state: bodyScanCapability.state,
-                        nextBestInputs: bodyScanCapability.nextBestInputs,
-                        compliance: bodyScanCapability.compliance,
-                      }}
-                      estimatedTokens={estimatedBodyFatScanTokens}
-                      tokenBalance={adjustmentTokenBalance}
-                      isProEligible={hasAdjustmentEntitlement}
-                      isLoading={bodyFatScanRunState === "loading"}
-                      errorMessage={bodyFatScanRunError}
-                      result={bodyFatScanResult}
-                      onAnalyze={() => void handleAnalyzeBodyFatScan()}
-                      onRetry={resetBodyFatScan}
-                      t={t}
-                      openHref="/app/body-scan"
-                    />
-                  </>
-                ) : (
-                  <div className="rounded-3xl border border-[rgba(15,23,42,0.08)] bg-white/80 p-5 shadow-sm">
-                    <p className="m-0 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Body scan</p>
-                    <h3 className="m-0 mt-2 text-xl font-semibold text-[var(--text)]">{bodyScanCapability.summary}</h3>
-                  </div>
-                )}
-
-                <section className="rounded-3xl border border-[rgba(15,23,42,0.08)] bg-[linear-gradient(135deg,rgba(255,245,235,0.88),rgba(255,255,255,0.96),rgba(239,246,255,0.88))] p-5 shadow-sm">
-                  <p className="m-0 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Plan recomendado</p>
-                  <h3 className="m-0 mt-2 text-xl font-semibold text-[var(--text)]">{recommendationCapability.summary}</h3>
-                  {!hasAdjustmentEntitlement ? (
-                    <div className="mt-3 rounded-2xl border border-[var(--surface-border-default)] bg-white/85 p-3">
-                      <p className="m-0 text-sm text-[var(--text)]">{t("pro.aiLockedSubtitle")}</p>
-                      <div className="mt-3">
-                        <Link href="/app/settings/billing" className="btn primary fit-content">
-                          {t("pro.aiLockedCta")}
-                        </Link>
-                      </div>
-                    </div>
-                  ) : null}
-
-                  {projectionCapabilityStatus === "loading" ? (
-                    <LoadingState
-                      ariaLabel="Cargando recomendacion"
-                      showCard={false}
-                      variant="inline"
-                      lines={2}
-                      className="mt-3"
-                    />
-                  ) : (
-                    <p className="m-0 mt-3 text-sm leading-6 text-[var(--text)]">{recommendationCapability.explainability.summary}</p>
-                  )}
-
-                  <div className="mt-4 space-y-3">
-                    {recommendationCapability.items.slice(0, 1).map((item) => (
-                      <article key={item.id} className="rounded-2xl border border-white/80 bg-white/85 p-4">
-                        <div className="flex flex-wrap items-start justify-between gap-3">
-                          <div>
-                            <h4 className="m-0 text-base font-semibold text-[var(--text)]">{item.title}</h4>
-                            <p className="m-0 mt-2 text-sm leading-6 text-[var(--text)]">{item.summary}</p>
-                          </div>
-                          <span className="rounded-full border border-[var(--border)] bg-white px-3 py-1 text-xs text-[var(--text)]">
-                            {item.confidence}
-                          </span>
-                        </div>
-                        {item.rationale[0] ? (
-                          <p className="m-0 mt-3 text-sm leading-6 text-[var(--text)]">{item.rationale[0]}</p>
-                        ) : null}
-                        <div className="mt-4 flex flex-wrap items-center gap-3">
-                          <Link
-                            href={item.cta.href}
-                            className="btn secondary fit-content"
-                            onClick={() =>
-                              trackTrackingCapabilityEvent({
-                                event: "cta_clicked",
-                                capabilityId: "recommendation",
-                                origin: isCheckinOnly ? "checkin_page" : "tracking",
-                                status: recommendationCapability.status,
-                                ctaTarget: item.cta.target,
-                              })
-                            }
-                          >
-                            {item.cta.label}
-                          </Link>
-                          {item.cta.target === "training-plan" ? (
-                            <button
-                              type="button"
-                              className="btn"
-                              disabled={recommendationAiStatus.state === "loading"}
-                              onClick={() => void handleApplyRecommendationAiPlan(item)}
-                            >
-                              {recommendationAiStatus.state === "loading" ? "Aplicando plan IA..." : "Aplicar plan IA"}
-                            </button>
-                          ) : null}
-                        </div>
-                      </article>
-                    ))}
-                  </div>
-
-                  <details className="mt-4 rounded-2xl border border-white/80 bg-white/85 p-3">
-                    <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Ver detalles del modelo</summary>
-                    <div className="mt-3 space-y-2">
-                      {recommendationCapability.explainability.rationale.slice(0, 3).map((item, index) => (
-                        <p key={`recommendation-detail-${index}`} className="m-0 text-xs leading-5 text-[var(--muted)]">
-                          {item}
-                        </p>
-                      ))}
-                      {recommendationCapability.explainability.fallbackLabel ? (
-                        <p className="m-0 text-xs text-[var(--muted)]">Fallback activo: {recommendationCapability.explainability.fallbackLabel}</p>
-                      ) : null}
-                      <p className="m-0 text-xs text-[var(--muted)]">{recommendationCapability.compliance.disclaimer}</p>
-                      {recommendationAiStatus.message ? (
-                        <p className="m-0 text-xs text-[var(--muted)]">{recommendationAiStatus.message}</p>
-                      ) : null}
-                    </div>
-                  </details>
-                </section>
-              </div>
+              {hasAdjustmentEntitlement && (
+                <TrackingBodyScanSummaryCard capability={bodyScanCapability} />
+              )}
             </div>
           </details>
         </section>
-      ) : null}
-
-      {!isCheckinOnly ? (
-        <div className={styles.stickyPrimaryCta}>
-          <button
-            type="button"
-            className={`btn ${styles.stickyPrimaryCtaButton}`}
-            onClick={() => router.push("/app/seguimiento/check-in")}
-          >
-            {t("today.checkinPrimaryCta")}
-          </button>
-        </div>
       ) : null}
 
       {isCheckinOnly ? (

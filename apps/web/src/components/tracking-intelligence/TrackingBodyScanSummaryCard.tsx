@@ -1,3 +1,5 @@
+"use client";
+
 import type { TrackingBodyScanCapability, TrackingBodyCompositionEstimateSource } from "@/domains/tracking-intelligence";
 
 type TrackingBodyScanSummaryCardProps = {

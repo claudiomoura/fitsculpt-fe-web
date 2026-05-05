@@ -64,7 +64,7 @@ const billingRoute = "/app/settings/billing";
 const manualPlanRoute = "/app/entrenamiento/editar";
 const aiPlanRoute = "/app/entrenamiento?ai=1";
 const checkinRoute = "/app/seguimiento/check-in";
-const bodyScanRoute = "/app/seguimiento/body-scan";
+const bodyScanRoute = "/app/seguimiento/body-scan-report";
 
 type ViewStatus = "loading" | "success" | "error";
 type TrainingState = "workout" | "rest" | "no-plan";
@@ -104,6 +104,7 @@ type TodaySignals = {
   checkinTrend: Array<{ label: string; weightKg: number }>;
   hasBodyScanBaseline: boolean;
   latestBodyScanDate: string | null;
+  latestBodyScanResultLabel: string | null;
 };
 
 type TrackingCheckinSummary = {
@@ -121,6 +122,7 @@ type TrackingPayload = {
       date?: string | null;
       syncedAt?: string | null;
       bodyWeightKg?: number | null;
+      bodyFatPercent?: number | null;
     }>;
   };
   mealLog?: Array<{
@@ -287,6 +289,10 @@ function isPositiveNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value > 0;
 }
 
+function formatBodyFatPercent(value: number): string {
+  return `${value.toFixed(1)}%`;
+}
+
 type ProfileActivity = "sedentary" | "light" | "moderate" | "very" | "extra";
 type ProfileGoal = "cut" | "maintain" | "bulk";
 
@@ -311,7 +317,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-export function normalizeProfileSummaryPayload(value: unknown): ProfileSummaryPayload {
+export function normalizeProfileSummaryPayload(
+  value: unknown,
+): ProfileSummaryPayload {
   if (!isRecord(value)) {
     return {};
   }
@@ -322,7 +330,10 @@ export function normalizeProfileSummaryPayload(value: unknown): ProfileSummaryPa
 
   if (isRecord(nestedProfile)) {
     return {
-      ...(normalizeProfileSummaryPayload(nestedProfile) as Record<string, unknown>),
+      ...(normalizeProfileSummaryPayload(nestedProfile) as Record<
+        string,
+        unknown
+      >),
       ...flattened,
     } as ProfileSummaryPayload;
   }
@@ -448,14 +459,65 @@ export const getLatestPassiveWeight = (payload?: TrackingPayload | null) => {
         };
       })
       .filter(
-        (item): item is { weightKg: number; dateMs: number; syncedAtMs: number } =>
+        (
+          item,
+        ): item is { weightKg: number; dateMs: number; syncedAtMs: number } =>
           item !== null,
       )
       .filter((item) => Number.isFinite(item.weightKg) && item.weightKg > 0)
-      .sort((a, b) => b.dateMs - a.dateMs || b.syncedAtMs - a.syncedAtMs)?.[0] ??
-    null;
+      .sort(
+        (a, b) => b.dateMs - a.dateMs || b.syncedAtMs - a.syncedAtMs,
+      )?.[0] ?? null;
 
   return latest ? Number(latest.weightKg) : null;
+};
+
+const getLatestBodyScanResultLabel = (payload?: TrackingPayload | null) => {
+  const checkinCandidates =
+    payload?.checkins
+      ?.map((entry) => {
+        const parsed = parseDate(entry.date);
+        if (!parsed || !isPositiveNumber(entry.bodyFatPercent)) return null;
+        const hasComparablePhotos =
+          Boolean(entry.frontPhotoUrl) && Boolean(entry.sidePhotoUrl);
+        return {
+          label: `Último resultado: ${formatBodyFatPercent(entry.bodyFatPercent)}${hasComparablePhotos ? " · confianza media" : ""}`,
+          dateMs: parsed.getTime(),
+          syncedAtMs: parsed.getTime(),
+        };
+      })
+      .filter(
+        (item): item is { label: string; dateMs: number; syncedAtMs: number } =>
+          item !== null,
+      ) ?? [];
+
+  const passiveCandidates =
+    payload?.passiveData?.snapshots
+      ?.map((entry) => {
+        const parsed = parseDate(entry.date);
+        if (!parsed || !isPositiveNumber(entry.bodyFatPercent)) return null;
+        const syncedAt =
+          typeof entry.syncedAt === "string" ? new Date(entry.syncedAt) : null;
+        const syncedAtMs =
+          syncedAt && Number.isFinite(syncedAt.getTime())
+            ? syncedAt.getTime()
+            : parsed.getTime();
+        return {
+          label: `Último resultado: ${formatBodyFatPercent(entry.bodyFatPercent)} · registro pasivo`,
+          dateMs: parsed.getTime(),
+          syncedAtMs,
+        };
+      })
+      .filter(
+        (item): item is { label: string; dateMs: number; syncedAtMs: number } =>
+          item !== null,
+      ) ?? [];
+
+  return (
+    [...checkinCandidates, ...passiveCandidates].sort(
+      (a, b) => b.dateMs - a.dateMs || b.syncedAtMs - a.syncedAtMs,
+    )[0]?.label ?? null
+  );
 };
 
 const getCheckinTrend = (payload?: TrackingPayload | null) => {
@@ -556,6 +618,7 @@ export default function TodayQuickActionsClient() {
     checkinTrend: [],
     hasBodyScanBaseline: false,
     latestBodyScanDate: null,
+    latestBodyScanResultLabel: null,
   });
   const hasTrackedViewRef = useRef(false);
 
@@ -643,10 +706,13 @@ export default function TodayQuickActionsClient() {
         checkinTrend: [],
         hasBodyScanBaseline: false,
         latestBodyScanDate: null,
+        latestBodyScanResultLabel: null,
       };
 
       if (weeklyCoachSummary?.ok) {
-        const weeklyCoachState = parseWeeklyCoachWeeklyStateResponse(weeklyCoachSummary.data);
+        const weeklyCoachState = parseWeeklyCoachWeeklyStateResponse(
+          weeklyCoachSummary.data,
+        );
         if (
           weeklyCoachState?.featureFlags.weeklyCoachEnabled &&
           weeklyCoachState.featureFlags.weeklyCheckInEnabled
@@ -674,7 +740,9 @@ export default function TodayQuickActionsClient() {
       }
 
       if (profileResponse.ok) {
-        const profile = normalizeProfileSummaryPayload(await profileResponse.json());
+        const profile = normalizeProfileSummaryPayload(
+          await profileResponse.json(),
+        );
         nextSignals.startWeightKg = isPositiveNumber(profile.weightKg)
           ? profile.weightKg
           : null;
@@ -705,11 +773,16 @@ export default function TodayQuickActionsClient() {
           .filter(
             (entry) =>
               typeof entry.date === "string" &&
-              ((typeof entry.bodyFatPercent === "number" && entry.bodyFatPercent > 0) ||
+              ((typeof entry.bodyFatPercent === "number" &&
+                entry.bodyFatPercent > 0) ||
                 (Boolean(entry.frontPhotoUrl) && Boolean(entry.sidePhotoUrl))),
           )
           .sort((a, b) => String(b.date).localeCompare(String(a.date)))[0];
-        nextSignals.hasBodyScanBaseline = Boolean(latestBodyScanCheckin);
+        nextSignals.latestBodyScanResultLabel =
+          getLatestBodyScanResultLabel(trackingPayload);
+        nextSignals.hasBodyScanBaseline = Boolean(
+          latestBodyScanCheckin || nextSignals.latestBodyScanResultLabel,
+        );
         nextSignals.latestBodyScanDate = latestBodyScanCheckin?.date ?? null;
         if (!isPositiveNumber(nextSignals.currentWeightKg)) {
           nextSignals.currentWeightKg = getLatestPassiveWeight(trackingPayload);
@@ -769,34 +842,42 @@ export default function TodayQuickActionsClient() {
           if (mealsResponse.ok) {
             const mealsPayload =
               (await mealsResponse.json()) as MealsByDatePayload;
-            const completedMeals = (Array.isArray(mealsPayload.items)
-              ? mealsPayload.items
-              : []
+            const completedMeals = (
+              Array.isArray(mealsPayload.items) ? mealsPayload.items : []
             ).filter((meal) => Boolean(meal?.completedAt));
             todayMealsFromApi = completedMeals;
             if (completedMeals.length > 0) {
               nextSignals.nutritionMealsLogged = completedMeals.length;
               nextSignals.nutritionConsumedCalories = Math.round(
                 completedMeals.reduce(
-                  (sum, meal) => sum + (Number.isFinite(meal.calories) ? Number(meal.calories) : 0),
+                  (sum, meal) =>
+                    sum +
+                    (Number.isFinite(meal.calories)
+                      ? Number(meal.calories)
+                      : 0),
                   0,
                 ),
               );
               nextSignals.nutritionProteinG = Math.round(
                 completedMeals.reduce(
-                  (sum, meal) => sum + (Number.isFinite(meal.protein) ? Number(meal.protein) : 0),
+                  (sum, meal) =>
+                    sum +
+                    (Number.isFinite(meal.protein) ? Number(meal.protein) : 0),
                   0,
                 ),
               );
               nextSignals.nutritionCarbsG = Math.round(
                 completedMeals.reduce(
-                  (sum, meal) => sum + (Number.isFinite(meal.carbs) ? Number(meal.carbs) : 0),
+                  (sum, meal) =>
+                    sum +
+                    (Number.isFinite(meal.carbs) ? Number(meal.carbs) : 0),
                   0,
                 ),
               );
               nextSignals.nutritionFatsG = Math.round(
                 completedMeals.reduce(
-                  (sum, meal) => sum + (Number.isFinite(meal.fats) ? Number(meal.fats) : 0),
+                  (sum, meal) =>
+                    sum + (Number.isFinite(meal.fats) ? Number(meal.fats) : 0),
                   0,
                 ),
               );
@@ -887,29 +968,47 @@ export default function TodayQuickActionsClient() {
               );
               let consumedMealEntries = adherenceStore[nutritionDayKey] ?? [];
 
-              if (nutritionDayKey === todayDateKey && todayMealsFromApi.length > 0) {
+              if (
+                nutritionDayKey === todayDateKey &&
+                todayMealsFromApi.length > 0
+              ) {
                 const apiAdherenceStore = buildAdherenceStoreFromMeals(
                   todayMealsFromApi.map((meal) => ({
                     id: String(meal.id ?? ""),
                     userId: "",
                     date: String(meal.date ?? nutritionDayKey),
-                    mealType: (meal.mealType as "BREAKFAST" | "LUNCH" | "DINNER" | "SNACK") ?? "SNACK",
+                    mealType:
+                      (meal.mealType as
+                        | "BREAKFAST"
+                        | "LUNCH"
+                        | "DINNER"
+                        | "SNACK") ?? "SNACK",
                     title: String(meal.title ?? ""),
                     items: [],
-                    calories: Number.isFinite(meal.calories) ? Number(meal.calories) : null,
-                    protein: Number.isFinite(meal.protein) ? Number(meal.protein) : null,
-                    carbs: Number.isFinite(meal.carbs) ? Number(meal.carbs) : null,
+                    calories: Number.isFinite(meal.calories)
+                      ? Number(meal.calories)
+                      : null,
+                    protein: Number.isFinite(meal.protein)
+                      ? Number(meal.protein)
+                      : null,
+                    carbs: Number.isFinite(meal.carbs)
+                      ? Number(meal.carbs)
+                      : null,
                     fats: Number.isFinite(meal.fats) ? Number(meal.fats) : null,
                     completedAt: meal.completedAt ?? null,
                     createdAt: "",
                     updatedAt: "",
                   })),
                 );
-                consumedMealEntries = apiAdherenceStore[nutritionDayKey] ?? consumedMealEntries;
+                consumedMealEntries =
+                  apiAdherenceStore[nutritionDayKey] ?? consumedMealEntries;
               }
               nextSignals.nutritionMealsTotal = nutritionDay.meals.length;
 
-              const isMealConsumed = (meal: NutritionPlanDetail["days"][number]["meals"][number], index: number) =>
+              const isMealConsumed = (
+                meal: NutritionPlanDetail["days"][number]["meals"][number],
+                index: number,
+              ) =>
                 hasConsumedEntryForKey(
                   consumedMealEntries,
                   getNutritionMealKey(meal, nutritionDayKey, index),
@@ -1210,24 +1309,23 @@ export default function TodayQuickActionsClient() {
     ? {
         title: "Escaneo corporal IA",
         body: "Convierte tus fotos frontal y lateral en una lectura corporal premium. Disponible con Pro.",
-        ctaLabel: "Desbloquear Pro",
         href: billingHref,
         origin: "today_body_scan_upsell",
       }
     : signals.hasBodyScanBaseline
       ? {
-          title: "Tu próximo escaneo corporal",
-          body: signals.latestBodyScanDate
-            ? `Última base: ${signals.latestBodyScanDate}. Repite el escaneo cuando tengas nuevas fotos comparables.`
-            : "Ya tienes una base corporal. Repite el escaneo cuando tengas nuevas fotos comparables.",
-          ctaLabel: "Abrir escaneo",
+          title: "Escaneo corporal IA",
+          body:
+            signals.latestBodyScanResultLabel ??
+            (signals.latestBodyScanDate
+              ? `Última base: ${signals.latestBodyScanDate}. Repite el escaneo cuando tengas nuevas fotos comparables.`
+              : "Aún sin resultado reciente"),
           href: bodyScanRoute,
           origin: "today_body_scan_returning",
         }
       : {
-          title: "Crea tu línea base corporal",
-          body: "Sube fotos frontal y lateral para activar tu primera lectura de grasa corporal con contexto visual.",
-          ctaLabel: "Empezar escaneo",
+          title: "Escaneo corporal IA",
+          body: "Aún sin resultado reciente",
           href: bodyScanRoute,
           origin: "today_body_scan_baseline",
         };
@@ -1404,7 +1502,9 @@ export default function TodayQuickActionsClient() {
           currentWeightKg={signals.currentWeightKg}
           onSaved={async (payload) => {
             if (payload.mode === "meal" && payload.date) {
-              router.push(`${nutritionRoute}?day=${encodeURIComponent(payload.date)}`);
+              router.push(
+                `${nutritionRoute}?day=${encodeURIComponent(payload.date)}`,
+              );
               return;
             }
             await loadTodaySignals();
@@ -1559,12 +1659,17 @@ export default function TodayQuickActionsClient() {
               onClick={() => router.push("/app/coach")}
               role="button"
               tabIndex={0}
-              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") router.push("/app/coach"); }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ")
+                  router.push("/app/coach");
+              }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                 <div
                   style={{
-                    background: hasAiAccess ? "var(--color-primary)" : "var(--surface-inset-bg)",
+                    background: hasAiAccess
+                      ? "var(--color-primary)"
+                      : "var(--surface-inset-bg)",
                     borderRadius: 12,
                     padding: 12,
                     display: "flex",
@@ -1576,21 +1681,37 @@ export default function TodayQuickActionsClient() {
                   <PremiumSparklesIcon
                     width={24}
                     height={24}
-                    style={{ color: hasAiAccess ? "white" : "var(--color-primary)" }}
+                    style={{
+                      color: hasAiAccess ? "white" : "var(--color-primary)",
+                    }}
                   />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 600, color: "var(--text-primary)" }}>
+                  <h3
+                    style={{
+                      margin: 0,
+                      fontSize: "1rem",
+                      fontWeight: 600,
+                      color: "var(--text-primary)",
+                    }}
+                  >
                     {t("coach.surfaceTitle") || "Tu Coach IA"}
                   </h3>
-                  <p className="muted m-0" style={{ fontSize: "0.875rem", lineHeight: 1.4 }}>
+                  <p
+                    className="muted m-0"
+                    style={{ fontSize: "0.875rem", lineHeight: 1.4 }}
+                  >
                     {hasAiAccess
-                      ? (t("coach.surfaceSubtitle") || "Asesoría personalizada para tus objetivos")
-                      : "✨ Desbloquea Coach IA, recomendaciones y más"
-                    }
+                      ? t("coach.surfaceSubtitle") ||
+                        "Asesoría personalizada para tus objetivos"
+                      : "✨ Desbloquea Coach IA, recomendaciones y más"}
                   </p>
                 </div>
-                <div style={{ color: "var(--text-tertiary)", fontSize: "1.25rem" }}>›</div>
+                <div
+                  style={{ color: "var(--text-tertiary)", fontSize: "1.25rem" }}
+                >
+                  ›
+                </div>
               </div>
             </section>
 
@@ -1604,51 +1725,71 @@ export default function TodayQuickActionsClient() {
               checkinTrend={signals.checkinTrend}
             />
 
-            <section className="card" style={{ border: "1px solid var(--surface-border-default)", padding: "clamp(16px, 3vw, 24px)", borderRadius: 16 }}>
-              <Link
-                href={bodyScanCard.href}
-                className="block no-underline"
-                onClick={() =>
-                  trackEvent("today_cta_click", {
-                    target: hasAiAccess ? "checkin" : "billing",
-                    origin: bodyScanCard.origin,
-                  })
-                }
-              >
-                <div className="flex items-start gap-4">
-                  <div
+            <Link
+              href={bodyScanCard.href}
+              className="card block no-underline"
+              style={{
+                background: hasAiAccess
+                  ? "linear-gradient(135deg, rgba(20,184,166,0.12) 0%, var(--surface-card) 100%)"
+                  : "var(--surface-card)",
+                border: "1px solid var(--surface-border-default)",
+                padding: "clamp(16px, 3vw, 24px)",
+                borderRadius: 16,
+                cursor: "pointer",
+                transition: "transform 0.2s ease, box-shadow 0.2s ease",
+              }}
+              onClick={() =>
+                trackEvent("today_cta_click", {
+                  target: hasAiAccess ? "checkin" : "billing",
+                  origin: bodyScanCard.origin,
+                })
+              }
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <div
+                  style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: 12,
+                    background: hasAiAccess
+                      ? "var(--color-primary)"
+                      : "var(--surface-inset-bg)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                    color: hasAiAccess ? "white" : "var(--color-primary)",
+                    fontSize: "1rem",
+                    fontWeight: 700,
+                  }}
+                >
+                  %
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <h3
                     style={{
-                      width: 52,
-                      height: 52,
-                      borderRadius: 14,
-                      background: hasAiAccess ? "linear-gradient(135deg, #16e0c4, #22c55e)" : "rgba(20,184,166,0.12)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      flexShrink: 0,
-                      color: hasAiAccess ? "white" : "var(--color-primary)",
-                      fontSize: "1.2rem",
-                      fontWeight: 700,
-                      boxShadow: hasAiAccess ? "0 10px 24px rgba(20,184,166,0.18)" : "none",
+                      margin: 0,
+                      fontSize: "1rem",
+                      fontWeight: 600,
+                      color: "var(--text-primary)",
                     }}
                   >
-                    %
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 600, color: "var(--text-primary)" }}>
-                      Escaneo corporal IA
-                    </h3>
-                    <p className="muted m-0 mt-1" style={{ fontSize: "0.875rem", lineHeight: 1.45 }}>
-                      {bodyScanCard.body}
-                    </p>
-                    <p style={{ margin: "10px 0 0", fontSize: "0.875rem", fontWeight: 600, color: "var(--color-primary)" }}>
-                      {bodyScanCard.ctaLabel}
-                    </p>
-                  </div>
-                  <div style={{ color: "var(--text-tertiary)", fontSize: "1.25rem", lineHeight: 1, paddingTop: 4 }}>›</div>
+                    Escaneo corporal IA
+                  </h3>
+                  <p
+                    className="muted m-0 mt-1"
+                    style={{ fontSize: "0.875rem", lineHeight: 1.45 }}
+                  >
+                    {bodyScanCard.body}
+                  </p>
                 </div>
-              </Link>
-            </section>
+                <div
+                  style={{ color: "var(--text-tertiary)", fontSize: "1.25rem" }}
+                >
+                  ›
+                </div>
+              </div>
+            </Link>
 
             {/* Block 7: Weekly Summary - Week at a glance */}
             <TodayWeeklySummaryCard weekData={weeklyData} />

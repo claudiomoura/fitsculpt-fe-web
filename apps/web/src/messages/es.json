@@ -3754,6 +3754,11 @@
     "statusRejected": "Mantener actual",
     "noSilentChanges": "Nada se aplica en silencio: la recomendación queda registrada como aceptada o rechazada.",
     "decisionError": "No pudimos guardar tu decisión. Inténtalo otra vez.",
+    "decisionReadinessTitle": "Estado de decisión semanal",
+    "decisionReadinessAction": "Pendiente de tu decisión",
+    "decisionReadinessPending": "Decisión tomada, aplicando cambios",
+    "decisionReadinessCompleted": "Decisión semanal completada",
+    "otherRecommendationsTitle": "Otras recomendaciones",
     "passiveComplementNote": "La adherencia mostrada combina tu registro manual con apoyo pasivo cuando la actividad de salud es suficiente. Lo pasivo solo complementa; no reemplaza tus sesiones o check-ins."
   },
   "plans": {

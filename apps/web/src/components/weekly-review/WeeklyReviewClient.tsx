@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/design-system/components/Button";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import FeatureUnavailableState from "@/components/access/FeatureUnavailableState";
+import WeeklyCoachCheckInCard from "@/components/weekly-adaptive-coach/WeeklyCoachCheckInCard";
 import { useWeeklyReview } from "@/lib/useWeeklyReview";
 import { useLanguage } from "@/context/LanguageProvider";
 import { sendRctEvent } from "@/services/futureProjection";
@@ -44,12 +45,14 @@ export default function WeeklyReviewClient() {
   const [review, setReview] = useState<WeeklyReviewResponse | null>(null);
   const [decisionError, setDecisionError] = useState<string | null>(null);
   const [pendingRecommendationId, setPendingRecommendationId] = useState<string | null>(null);
+  const [showDecisionReadinessDetails, setShowDecisionReadinessDetails] = useState(false);
   const seenKeysRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     setReview(data);
   }, [data]);
 
+  const primaryRecommendation = useMemo(() => (review?.recommendations ?? [])[0] ?? null, [review]);
   const visibleRecommendations = useMemo(() => (review?.recommendations ?? []).slice(0, 3), [review]);
 
   useEffect(() => {
@@ -97,7 +100,7 @@ export default function WeeklyReviewClient() {
     );
   }
 
-  if (!review || visibleRecommendations.length === 0) {
+  if (!review) {
     return (
       <EmptyState
         title={t("weeklyReview.emptyTitle")}
@@ -107,6 +110,9 @@ export default function WeeklyReviewClient() {
       />
     );
   }
+
+  const hasPendingDecision = (review?.recommendations ?? []).some((r) => r.decision === "pending");
+  const hasAcceptedDecision = (review?.recommendations ?? []).some((r) => r.decision === "accepted");
 
   async function handleDecision(recommendation: WeeklyReviewRecommendation, decision: "accepted" | "rejected") {
     if (!review) return;
@@ -133,10 +139,7 @@ export default function WeeklyReviewClient() {
       recommendationType: recommendation.type,
     });
     void sendRctEvent({
-      event:
-        decision === "accepted"
-          ? "recommendation_accepted"
-          : "recommendation_rejected",
+      event: decision === "accepted" ? "recommendation_accepted" : "recommendation_rejected",
       context: {
         source: "weekly_review",
         recommendationId: recommendation.id,
@@ -164,8 +167,35 @@ export default function WeeklyReviewClient() {
             </p>
           </div>
         </div>
+      </section>
 
-        <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+      <section className="card">
+        <button
+          type="button"
+          onClick={() => setShowDecisionReadinessDetails(!showDecisionReadinessDetails)}
+          className="flex w-full items-center justify-between text-left"
+        >
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">{t("weeklyReview.decisionReadinessTitle")}</p>
+            <p className="mt-1 text-sm text-[var(--text)]">
+              {hasAcceptedDecision
+                ? t("weeklyReview.decisionReadinessCompleted")
+                : hasPendingDecision
+                  ? t("weeklyReview.decisionReadinessPending")
+                  : t("weeklyReview.decisionReadinessAction")}
+            </p>
+          </div>
+          <span className="text-[var(--muted)]">{showDecisionReadinessDetails ? "−" : "+"}</span>
+        </button>
+        {showDecisionReadinessDetails && (
+          <div className="mt-4">
+            <WeeklyCoachCheckInCard />
+          </div>
+        )}
+      </section>
+
+      <section className="card overflow-hidden border border-[rgba(15,23,42,0.08)] bg-[linear-gradient(135deg,rgba(255,245,235,1),rgba(255,255,255,0.92)_55%,rgba(232,244,255,0.92))]">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
           <article className="rounded-2xl border border-white/80 bg-white/80 p-4 shadow-sm">
             <p className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">{t("weeklyReview.summaryAdherence")}</p>
             <p className="mt-2 text-2xl font-semibold">{review.summary.trainingAdherencePct}%</p>
@@ -205,79 +235,104 @@ export default function WeeklyReviewClient() {
 
       {decisionError ? <div className="card border border-[rgba(194,65,12,0.18)] bg-[rgba(255,247,237,0.92)] text-sm text-[rgb(154,52,18)]">{decisionError}</div> : null}
 
-      <section className="space-y-3">
-        {visibleRecommendations.map((recommendation) => {
-          const isPending = pendingRecommendationId === recommendation.id;
-          const isResolved = recommendation.decision !== "pending";
+      {primaryRecommendation ? (
+        <article className={`card border ${getToneClasses(primaryRecommendation.type)} shadow-[0_18px_50px_rgba(15,23,42,0.06)]`}>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <span className="inline-flex rounded-full border border-white/70 bg-white/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+                {getBadgeLabel(primaryRecommendation, t)}
+              </span>
+              <h3 className="mt-3 text-xl font-semibold text-[var(--text)]">{primaryRecommendation.title}</h3>
+              <p className="mt-2 text-sm leading-6 text-[var(--text)]">{primaryRecommendation.recommendation}</p>
+            </div>
+            {primaryRecommendation.decision !== "pending" ? (
+              <span className="rounded-full border border-white/70 bg-white/80 px-3 py-1 text-xs font-medium text-[var(--text)]">
+                {primaryRecommendation.decision === "accepted" ? t("weeklyReview.statusAccepted") : t("weeklyReview.statusRejected")}
+              </span>
+            ) : null}
+          </div>
 
-          return (
-            <article key={recommendation.id} className={`card border ${getToneClasses(recommendation.type)} shadow-[0_18px_50px_rgba(15,23,42,0.06)]`}>
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <span className="inline-flex rounded-full border border-white/70 bg-white/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
-                    {getBadgeLabel(recommendation, t)}
-                  </span>
-                  <h3 className="mt-3 text-xl font-semibold text-[var(--text)]">{recommendation.title}</h3>
-                  <p className="mt-2 text-sm leading-6 text-[var(--text)]">{recommendation.recommendation}</p>
-                </div>
-                {isResolved ? (
-                  <span className="rounded-full border border-white/70 bg-white/80 px-3 py-1 text-xs font-medium text-[var(--text)]">
-                    {recommendation.decision === "accepted" ? t("weeklyReview.statusAccepted") : t("weeklyReview.statusRejected")}
-                  </span>
-                ) : null}
-              </div>
-
-              <div className="mt-4 grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-                <div className="space-y-4">
-                  <div className="rounded-2xl border border-white/80 bg-white/78 p-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">{t("weeklyReview.whyTitle")}</p>
-                    <p className="mt-2 text-sm leading-6 text-[var(--text)]">{recommendation.why}</p>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {recommendation.metrics.map((item) => (
-                        <span key={`${recommendation.id}-${item.label}`} className="rounded-full border border-[var(--border)] bg-white px-3 py-1 text-xs text-[var(--text)]">
-                          {item.label}: {item.value}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-white/80 bg-white/78 p-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">{t("weeklyReview.reasoningTitle")}</p>
-                    <div className="mt-3 space-y-2">
-                      {recommendation.reasoning.map((item, index) => (
-                        <p key={`${recommendation.id}-reason-${index}`} className="text-sm leading-6 text-[var(--text)]">{item}</p>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="rounded-2xl border border-white/80 bg-white/78 p-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">{t("weeklyReview.safetyTitle")}</p>
-                    <div className="mt-3 space-y-2">
-                      {recommendation.safetyNotes.map((item, index) => (
-                        <p key={`${recommendation.id}-safety-${index}`} className="text-sm leading-6 text-[var(--text)]">{item}</p>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-white/80 bg-white/78 p-4">
-                    <div className="flex flex-wrap gap-2">
-                      <Button type="button" variant="primary" size="sm" onClick={() => void handleDecision(recommendation, "accepted")} disabled={isPending || isResolved}>
-                        {isPending ? t("weeklyReview.saving") : t("weeklyReview.accept")}
-                      </Button>
-                      <Button type="button" variant="ghost" size="sm" onClick={() => void handleDecision(recommendation, "rejected")} disabled={isPending || isResolved}>
-                        {t("weeklyReview.keepCurrent")}
-                      </Button>
-                    </div>
-                    <p className="mt-3 text-xs leading-5 text-[var(--muted)]">{t("weeklyReview.noSilentChanges")}</p>
-                  </div>
+          <div className="mt-4 grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-white/80 bg-white/78 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">{t("weeklyReview.whyTitle")}</p>
+                <p className="mt-2 text-sm leading-6 text-[var(--text)]">{primaryRecommendation.why}</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {primaryRecommendation.metrics.map((item) => (
+                    <span key={`${primaryRecommendation.id}-${item.label}`} className="rounded-full border border-[var(--border)] bg-white px-3 py-1 text-xs text-[var(--text)]">
+                      {item.label}: {item.value}
+                    </span>
+                  ))}
                 </div>
               </div>
-            </article>
-          );
-        })}
-      </section>
+
+              <div className="rounded-2xl border border-white/80 bg-white/78 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">{t("weeklyReview.reasoningTitle")}</p>
+                <div className="mt-3 space-y-2">
+                  {primaryRecommendation.reasoning.map((item, index) => (
+                    <p key={`${primaryRecommendation.id}-reason-${index}`} className="text-sm leading-6 text-[var(--text)]">{item}</p>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-white/80 bg-white/78 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">{t("weeklyReview.safetyTitle")}</p>
+                <div className="mt-3 space-y-2">
+                  {primaryRecommendation.safetyNotes.map((item, index) => (
+                    <p key={`${primaryRecommendation.id}-safety-${index}`} className="text-sm leading-6 text-[var(--text)]">{item}</p>
+                  ))}
+                </div>
+              </div>
+
+              {primaryRecommendation.decision === "pending" && (
+                <div className="rounded-2xl border border-white/80 bg-white/78 p-4">
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="button" variant="primary" size="sm" onClick={() => void handleDecision(primaryRecommendation, "accepted")} disabled={pendingRecommendationId !== null}>
+                      {pendingRecommendationId !== null ? t("weeklyReview.saving") : t("weeklyReview.accept")}
+                    </Button>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => void handleDecision(primaryRecommendation, "rejected")} disabled={pendingRecommendationId !== null}>
+                      {t("weeklyReview.keepCurrent")}
+                    </Button>
+                  </div>
+                  <p className="mt-3 text-xs leading-5 text-[var(--muted)]">{t("weeklyReview.noSilentChanges")}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </article>
+      ) : null}
+
+      {(!primaryRecommendation || primaryRecommendation.decision !== "pending") && visibleRecommendations.length > 1 ? (
+        <section className="card">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">{t("weeklyReview.otherRecommendationsTitle")}</p>
+          <div className="mt-3 space-y-3">
+            {visibleRecommendations.slice(1).map((recommendation) => {
+              const isPending = pendingRecommendationId === recommendation.id;
+              const isResolved = recommendation.decision !== "pending";
+
+              return (
+                <article key={recommendation.id} className={`rounded-2xl border ${getToneClasses(recommendation.type)} p-4`}>
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <span className="inline-flex rounded-full border border-white/70 bg-white/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">
+                        {getBadgeLabel(recommendation, t)}
+                      </span>
+                      <p className="mt-2 text-sm font-medium text-[var(--text)]">{recommendation.title}</p>
+                    </div>
+                    {isResolved ? (
+                      <span className="rounded-full border border-white/70 bg-white/80 px-2 py-0.5 text-xs font-medium text-[var(--text)]">
+                        {recommendation.decision === "accepted" ? t("weeklyReview.statusAccepted") : t("weeklyReview.statusRejected")}
+                      </span>
+                    ) : null}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }
