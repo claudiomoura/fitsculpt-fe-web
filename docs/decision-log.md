@@ -61,6 +61,35 @@ Notes:
 
 ## Active Entries
 
+## [2026-04-28] Progress surfaces have distinct ownership roles
+
+Status: Accepted  
+Owner: Founder  
+Area: Product
+
+Decision:
+FitSculpt will treat `/app/seguimiento` as the daily progress hub, `/app/seguimiento/body-scan-report` as the diagnostic report, and `/app/weekly-review` as the weekly decision surface.
+
+Why:
+- the current progress flow mixes capture, diagnosis, and weekly decision-making in overlapping ways
+- each screen needs a single primary job before the next implementation round starts
+- clearer ownership reduces UX ambiguity and limits duplicated CTAs
+
+Impact:
+- progress-related redesign work should follow the new ownership boundaries
+- weekly recommendation acceptance must live only in `/app/weekly-review`
+- body-scan explanation depth must live in the report, not in the daily hub
+
+Follow-up:
+- implement `docs/progress-surfaces-redesign-spec.md`
+- update Linear issues for the three affected surfaces and rollout logic
+
+Replaces:
+- none
+
+Notes:
+- this is a planning freeze for IA and interaction ownership, not a visual implementation yet
+
 ## [2026-04-24] GitHub `/docs` is the canonical written source
 
 Status: Accepted  

@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      width: 300px;
+      padding: 24px;
+      background: #ffffff;
+    }
+    h1 {
+      font-size: 18px;
+      font-weight: 700;
+      color: #000;
+      margin-bottom: 8px;
+    }
+    p {
+      font-size: 12px;
+      color: #8E8E93;
+      margin-bottom: 24px;
+    }
+    .screens {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .screen {
+      display: flex;
+      align-items: center;
+      padding: 12px;
+      background: #F2F2F7;
+      border-radius: 12px;
+    }
+    .screen-icon {
+      width: 40px;
+      height: 40px;
+      background: #0D99FF;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 16px;
+      margin-right: 12px;
+    }
+    .screen-text {
+      flex: 1;
+    }
+    .screen-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #000;
+    }
+    .screen-desc {
+      font-size: 11px;
+      color: #8E8E93;
+      margin-top: 2px;
+    }
+    button {
+      width: 100%;
+      padding: 14px;
+      background: #0D99FF;
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:hover { background: #0070C9; }
+    button:active { background: #0058A3; }
+  </style>
+</head>
+<body>
+  <h1>FitSculpt Wireframes</h1>
+  <p>Crea 3 pantallas profesionales de iOS-style para FitSculpt</p>
+  
+  <div class="screens">
+    <div class="screen">
+      <div class="screen-icon">1</div>
+      <div class="screen-text">
+        <div class="screen-title">Seguimiento</div>
+        <div class="screen-desc">Hub de progreso diario</div>
+      </div>
+    </div>
+    <div class="screen">
+      <div class="screen-icon" style="background: #34C759;">2</div>
+      <div class="screen-text">
+        <div class="screen-title">Body Scan</div>
+        <div class="screen-desc">Reporte de composición</div>
+      </div>
+    </div>
+    <div class="screen">
+      <div class="screen-icon" style="background: #FF9500;">3</div>
+      <div class="screen-text">
+        <div class="screen-title">Weekly Review</div>
+        <div class="screen-desc">Decisiones semanales</div>
+      </div>
+    </div>
+  </div>
+  
+  <button id="generate">Generar Wireframes</button>
+  
+  <script>
+    document.getElementById('generate').onclick = () => {
+      parent.postMessage({ pluginMessage: { type: 'generate' } }, '*');
+    }
+  </script>
+</body>
+</html>
