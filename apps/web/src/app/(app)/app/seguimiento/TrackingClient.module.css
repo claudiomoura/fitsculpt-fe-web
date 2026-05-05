@@ -123,6 +123,15 @@
   color: var(--text-muted);
 }
 
+.metricCardHelper {
+  font-size: 0.6rem;
+  line-height: 1.2;
+  color: color-mix(in srgb, var(--text-muted) 82%, transparent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .denseStatsGrid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

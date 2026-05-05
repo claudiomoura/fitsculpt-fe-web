@@ -218,6 +218,7 @@ type MetricCardItem = {
   label: string;
   value: string;
   sub: string;
+  helper?: string;
   icon: string;
   color?: string;
 };
@@ -2150,6 +2151,17 @@ const primaryRecommendation = recommendationCapability.items[0] ?? null;
       summaryBodyFatPct ??
       0,
   );
+  const bodyFatRange = bodyScanComposition?.bodyFatRangePct;
+  const bodyFatConfidence = bodyScanComposition?.confidenceScore;
+  const bodyFatHelper =
+    bodyFatPct > 0 &&
+    bodyFatRange &&
+    Number.isFinite(bodyFatRange.min) &&
+    Number.isFinite(bodyFatRange.max) &&
+    typeof bodyFatConfidence === "number" &&
+    Number.isFinite(bodyFatConfidence)
+      ? `${bodyFatRange.min.toFixed(1)}-${bodyFatRange.max.toFixed(1)}% · conf ${Math.round(bodyFatConfidence)}%`
+      : undefined;
 
   // ========== UI DATA ==========
   const actionQueueByTab: Record<ProgressInsightTab, ActionQueueItem[]> = {
@@ -2173,7 +2185,7 @@ const primaryRecommendation = recommendationCapability.items[0] ?? null;
   const metricCardsByTab: Record<ProgressInsightTab, MetricCardItem[]> = {
     checkin: [
       { id: "weight", label: "Peso", value: currentWeight > 0 ? `${currentWeight.toFixed(1)} kg` : "—", sub: latestCheckin ? formatEntryDate(latestCheckin.date).slice(0, 5) : "Sin datos", icon: "KG" },
-      { id: "bodyfat", label: "Grasa", value: bodyFatPct > 0 ? `${bodyFatPct.toFixed(1)}%` : "—", sub: bodyFatPct > 0 ? "estimado actual" : "estimado pendiente", icon: "BF" },
+      { id: "bodyfat", label: "Grasa", value: bodyFatPct > 0 ? `${bodyFatPct.toFixed(1)}%` : "—", sub: bodyFatPct > 0 ? "estimado" : "pendiente", helper: bodyFatHelper, icon: "BF" },
       { id: "bmi", label: "IMC", value: bmi > 0 ? String(bmi) : "—", sub: bmiCategory.label, color: bmiCategory.color, icon: "IMC" },
       { id: "delta", label: "Cambio", value: rangeWeightDelta !== null ? `${rangeWeightDelta > 0 ? "+" : ""}${rangeWeightDelta.toFixed(1)} kg` : "—", sub: `${rangeDays} días`, icon: "Δ" },
     ],
@@ -2580,6 +2592,7 @@ const primaryRecommendation = recommendationCapability.items[0] ?? null;
               <strong className={styles.metricCardValue} style={{ color: m.color }}>{m.value}</strong>
               <span className={styles.metricCardLabel}>{m.label}</span>
               <span className={styles.metricCardSub}>{m.sub}</span>
+              {m.helper ? <span className={styles.metricCardHelper}>{m.helper}</span> : null}
             </article>
           ))}
         </section>
