@@ -53,6 +53,47 @@
   background: var(--color-success);
 }
 
+/* ========== METRICS GRID (NEW) ========== */
+.metricsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.metricCard {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 60%, transparent);
+  background: var(--bg-card);
+  text-align: center;
+}
+
+.metricCardIcon {
+  font-size: 1.1rem;
+}
+
+.metricCardValue {
+  font-size: 1.1rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--text);
+}
+
+.metricCardLabel {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+}
+
+.metricCardSub {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+}
+
+/* ========== WEEKLY KPI (OLD) ========== */
 .weekKpiGrid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);

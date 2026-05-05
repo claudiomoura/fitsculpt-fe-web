@@ -213,6 +213,68 @@ function normalizeWorkoutEntriesFromDb(
 
 type ProgressInsightTab = "checkin" | "nutrition" | "training";
 
+// ========== METRIC HELPERS ==========
+
+/**
+ * Calculate BMI (Body Mass Index)
+ * BMI = weight(kg) / height(m)^2
+ */
+function calculateBMI(weightKg: number, heightCm: number): number {
+  if (!weightKg || !heightCm || heightCm <= 0) return 0;
+  const heightM = heightCm / 100;
+  return Number((weightKg / (heightM * heightM)).toFixed(1));
+}
+
+/**
+ * Get BMI category classification
+ */
+function getBMICategory(bmi: number): { label: string; color: string } {
+  if (bmi === 0) return { label: "Sin datos", color: "var(--text-muted)" };
+  if (bmi < 18.5) return { label: "Bajo peso", color: "var(--color-warning)" };
+  if (bmi < 25) return { label: "Normal", color: "var(--color-success)" };
+  if (bmi < 30) return { label: "Sobrepeso", color: "var(--color-warning)" };
+  return { label: "Obesidad", color: "var(--color-error)" };
+}
+
+/**
+ * Calculate BMR using Mifflin-St Jeor equation
+ * Men: BMR = 10 × weight(kg) + 6.25 × height(cm) - 5 × age + 5
+ * Women: BMR = 10 × weight(kg) + 6.25 × height(cm) - 5 × age - 161
+ */
+function calculateBMR(weightKg: number, heightCm: number, age: number, sex: "male" | "female"): number {
+  if (!weightKg || !heightCm || !age) return 0;
+  const base = 10 * weightKg + 6.25 * heightCm - 5 * age;
+  return Math.round(sex === "male" ? base + 5 : base - 161);
+}
+
+/**
+ * Calculate TDEE (Total Daily Energy Expenditure)
+ * TDEE = BMR × Activity Multiplier
+ */
+function calculateTDEE(bmr: number, activityLevel: "sedentary" | "light" | "moderate" | "active" | "very_active"): number {
+  const multipliers = {
+    sedentary: 1.2,
+    light: 1.375,
+    moderate: 1.55,
+    active: 1.725,
+    very_active: 1.9,
+  };
+  return Math.round(bmr * multipliers[activityLevel]);
+}
+
+/**
+ * Get workout frequency score (sessions per week)
+ */
+function calculateWorkoutFrequency(workouts: Array<{ date: string }>, daysWindow = 7): number {
+  const now = new Date();
+  const start = new Date(now.getTime() - daysWindow * 24 * 60 * 60 * 1000);
+  const count = workouts.filter(w => {
+    const d = new Date(w.date);
+    return d >= start && d <= now;
+  }).length;
+  return Math.round((count / daysWindow) * 7); // normalize to per week
+}
+
 function buildWeightTrendData(
   entries: Array<{ date: string; weightKg: number }>,
   rangeDays: number,
@@ -2035,10 +2097,40 @@ const primaryRecommendation = recommendationCapability.items[0] ?? null;
     ? "Tienes datos suficientes para una revisión significativa"
     : "Completa al menos una sesión para generar insights";
 
+  // ========== CALCULATED METRICS ==========
+  const currentWeight = Number(latestCheckin?.weightKg ?? profile.weightKg ?? 0);
+  const currentHeight = Number(profile.heightCm ?? 0);
+  const profileAge = Number(profile.age ?? 0);
+  const profileSex = (profile.sex ?? "male") === "male" ? "male" : "female";
+  const activityLevel: "sedentary" | "light" | "moderate" | "active" | "very_active" = 
+    profile.activity === "sedentary" ? "sedentary" :
+    profile.activity === "light" ? "light" :
+    profile.activity === "moderate" ? "moderate" :
+    profile.activity === "very" ? "very_active" :
+    profile.activity === "extra" ? "very_active" : "moderate";
+
+  const bmi = calculateBMI(currentWeight, currentHeight);
+  const bmiCategory = getBMICategory(bmi);
+  const bmr = calculateBMR(currentWeight, currentHeight, profileAge, profileSex);
+  const tdee = calculateTDEE(bmr, activityLevel);
+  const workoutFrequency = calculateWorkoutFrequency(workoutsSorted.map(w => ({ date: w.date })));
+  const bodyFatPct = latestCheckin?.bodyFatPercent ?? null;
+
+  // ========== UI DATA ==========
   const actionQueueItems = [
     { id: "checkin", label: "Check-in", subtitle: latestCheckin ? `Último: ${latestCheckin.weightKg.toFixed(1)}kg` : "Registra tu peso", cta: "Hacer check-in", href: "/app/seguimiento/check-in", completed: !!latestCheckin },
     { id: "body-scan", label: "Body scan", subtitle: bodyScanCapability.status === "ready" ? bodyScanCapability.summary : "Análisis corporal", cta: "Ver scan", href: "/app/body-scan", completed: bodyScanCapability.status === "ready" },
     { id: "weekly-review", label: "Revisión semanal", subtitle: weeklyReviewReason, cta: "Ver resumen", href: "/app/weekly-review", completed: false },
+  ];
+
+  // KPIs centrados en métricas - NO acciones
+  const metricCards = [
+    { id: "weight", label: "Peso", value: currentWeight > 0 ? `${currentWeight.toFixed(1)} kg` : "—", sub: latestCheckin ? formatEntryDate(latestCheckin.date).slice(0,5) : "Sin datos", icon: "⚖️" },
+    { id: "bmi", label: "IMC", value: bmi > 0 ? String(bmi) : "—", sub: bmiCategory.label, color: bmiCategory.color, icon: "📊" },
+    { id: "bodyfat", label: "Grasa %", value: bodyFatPct ? `${bodyFatPct.toFixed(1)}%` : "—", sub: bodyFatPct ? "body scan" : "Sin datos", icon: "🔥" },
+    { id: "bmr", label: "BMR", value: bmr > 0 ? `${bmr} kcal` : "—", sub: "base diario", icon: "⚡" },
+    { id: "tdee", label: "TDEE", value: tdee > 0 ? `${tdee} kcal` : "—", sub: activityLevel, icon: "🔥" },
+    { id: "workouts", label: "Frecuencia", value: `${workoutFrequency}/sem`, sub: `${trainingSessions} sesiones`, icon: "🏋️" },
   ];
 
   const weekKpiItems = [
@@ -2284,6 +2376,20 @@ const primaryRecommendation = recommendationCapability.items[0] ?? null;
       )}
 
       {!isCheckinOnly ? (
+        // METRICS GRID - KPIs first (centered in insights)
+        <section className={styles.metricsGrid} aria-label="Tu salud de un vistazo">
+          {metricCards.map((m) => (
+            <article key={m.id} className={styles.metricCard}>
+              <span className={styles.metricCardIcon}>{m.icon}</span>
+              <strong className={styles.metricCardValue} style={{ color: m.color }}>{m.value}</strong>
+              <span className={styles.metricCardLabel}>{m.label}</span>
+              <span className={styles.metricCardSub}>{m.sub}</span>
+            </article>
+          ))}
+        </section>
+      ) : null}
+
+      {!isCheckinOnly ? (
         <section className={`card premium-surface-card surface-content-card ${styles.heroCard} ${styles.quickCheckinHero}`}>
           <div className={styles.dailyHero}>
             <p className="eyebrow m-0">{t("tracking.pageEyebrow")}</p>
@@ -2305,7 +2411,8 @@ const primaryRecommendation = recommendationCapability.items[0] ?? null;
       ) : null}
 
       {!isCheckinOnly ? (
-        <section className={styles.actionQueue} aria-label="Cola de acciones">
+        // ACTION QUEUE - moves to bottom (secondary priority)
+        <section className={styles.actionQueue} aria-label="Acciones rápidas">
           {actionQueueItems.slice(0, 3).map((item) => (
             <article key={item.id} className={styles.actionQueueCard}>
               <div className={styles.actionQueueHeader}>
@@ -2321,7 +2428,8 @@ const primaryRecommendation = recommendationCapability.items[0] ?? null;
         </section>
       ) : null}
 
-      {!isCheckinOnly ? (
+      {/* WEEKLY KPI - removed as it's now in metricCards above */}
+      {/* {!isCheckinOnly ? (
         <section className={styles.weekKpiGrid} aria-label="Resumen de la semana">
           {weekKpiItems.map((item) => (
             <article key={item.id} className={styles.weekKpiCard}>
@@ -2331,7 +2439,7 @@ const primaryRecommendation = recommendationCapability.items[0] ?? null;
             </article>
           ))}
         </section>
-      ) : null}
+      ) : null} */}
 
       {!isCheckinOnly ? (
         <section className={`${styles.trackingOverviewCard}`}>
