@@ -1,6 +1,6 @@
 import type { Goal, Sex } from "@/lib/profile";
 
-export type TrackingAnalysisRangeDays = 7 | 30 | 90;
+export type TrackingAnalysisRangeDays = 7 | 30 | 90 | 180;
 
 export type TrackingRangeConfig = {
   days: TrackingAnalysisRangeDays;
@@ -100,10 +100,21 @@ const TRACKING_RANGE_CONFIGS: Record<TrackingAnalysisRangeDays, TrackingRangeCon
     energyDetail: "Promedios suavizados sobre 28 dias para ver la direccion sostenida.",
     adherenceDetail: "Adherencia global sobre 90 dias.",
   },
+  180: {
+    days: 180,
+    label: "los ultimos 6 meses",
+    windowDays: 42,
+    trendWeeks: 26,
+    chartGranularity: "week",
+    analysisTitle: "Panorama semestral",
+    analysisDetail: "Prioriza la direccion de fondo y reduce ruido de semanas aisladas.",
+    energyDetail: "Promedios suavizados sobre 42 dias para evaluar sostenibilidad.",
+    adherenceDetail: "Adherencia global sobre 6 meses.",
+  },
 };
 
 export function getTrackingRangeConfig(rangeDays?: number): TrackingRangeConfig {
-  if (rangeDays === 7 || rangeDays === 30 || rangeDays === 90) return TRACKING_RANGE_CONFIGS[rangeDays];
+  if (rangeDays === 7 || rangeDays === 30 || rangeDays === 90 || rangeDays === 180) return TRACKING_RANGE_CONFIGS[rangeDays];
   return TRACKING_RANGE_CONFIGS[30];
 }
 

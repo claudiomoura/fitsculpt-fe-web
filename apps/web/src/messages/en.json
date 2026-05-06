@@ -1671,6 +1671,7 @@
     "rangeWeek": "Week",
     "rangeMonth": "Month",
     "rangeQuarter": "3 months",
+    "rangeSemester": "6 months",
     "summaryTitle": "Key KPIs",
     "summaryRangeDetail": "Last {days} days",
     "primaryInsightTitle": "Main insight",

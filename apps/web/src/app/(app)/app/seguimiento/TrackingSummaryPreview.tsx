@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useLanguage } from "@/context/LanguageProvider";
 import styles from "./TrackingClient.module.css";
 
-export type TrackingSummaryRange = "7" | "30" | "90";
+export type TrackingSummaryRange = "7" | "30" | "90" | "180";
 
 type TrackingSummaryMetric = {
   id: string;
@@ -31,6 +31,7 @@ const RANGE_OPTIONS: Array<{ id: TrackingSummaryRange; labelKey: string }> = [
   { id: "7", labelKey: "tracking.rangeWeek" },
   { id: "30", labelKey: "tracking.rangeMonth" },
   { id: "90", labelKey: "tracking.rangeQuarter" },
+  { id: "180", labelKey: "tracking.rangeSemester" },
 ];
 
 export default function TrackingSummaryPreview({

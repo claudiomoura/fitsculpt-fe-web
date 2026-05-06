@@ -62,7 +62,6 @@ import TrainingAdjustmentDiffSummary, {
   buildTrainingAdjustmentDiff,
   type TrainingAdjustmentDiff,
 } from "@/components/tracking/TrainingAdjustmentDiffSummary";
-import PassiveHealthSummaryCard from "@/components/tracking/PassiveHealthSummaryCard";
 import TrackingProfessionalInsights from "@/components/tracking/TrackingProfessionalInsights";
 import TrackingBodyScanSummaryCard from "@/components/tracking-intelligence/TrackingBodyScanSummaryCard";
 import TrackingAiBodyFatScanPanel from "@/components/tracking-intelligence/TrackingAiBodyFatScanPanel";
@@ -79,9 +78,7 @@ import {
   isAndroidHealthSyncAvailable,
   syncAndroidHealthSnapshots,
 } from "@/lib/nativeHealthSync";
-import TrackingSummaryPreview, {
-  type TrackingSummaryRange,
-} from "./TrackingSummaryPreview";
+import { type TrackingSummaryRange } from "./TrackingSummaryPreview";
 import GuidedBodyScanCapture from "./GuidedBodyScanCapture";
 import {
   analyzeTrackingBodyFatScan,
@@ -161,7 +158,6 @@ type TrackingPayload = {
 };
 
 type PassivePayload = NonNullable<TrackingPayload["passiveData"]>;
-type PassiveSnapshotPayload = PassivePayload["snapshots"][number];
 
 type WorkoutDbItem = {
   id: string;
@@ -181,7 +177,7 @@ type TrackingClientProps = {
 };
 
 type AndroidSyncUiState = {
-  status: "idle" | "permission_required" | "partial_permissions" | "success" | "error";
+  status: "idle" | "syncing" | "permission_required" | "success" | "error" | "no_data";
   message: string | null;
   debugReason: string | null;
   fetchedSources: string[];
@@ -428,6 +424,7 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
   const isCheckinOnly = view === "checkin";
   const isBodyScanOnly = view === "body-scan";
   const CHECKIN_MODE_KEY = "fs_checkin_mode_v1";
+  const PROGRESS_RANGE_KEY = "fs_progress_range_v1";
   const [checkins, setCheckins] = useState<CheckinEntry[]>([]);
   const [checkinDate, setCheckinDate] = useState(() =>
     new Date().toISOString().slice(0, 10),
@@ -457,7 +454,13 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
     new Date().toISOString().slice(0, 10),
   );
   const [notesValue, setNotesValue] = useState("");
-  const [progressRange, setProgressRange] = useState<TrackingSummaryRange>("30");
+  const [progressRange, setProgressRange] = useState<TrackingSummaryRange>(() => {
+    if (typeof window === "undefined") return "30";
+    const storedRange = window.localStorage.getItem(PROGRESS_RANGE_KEY);
+    return storedRange === "7" || storedRange === "30" || storedRange === "90" || storedRange === "180"
+      ? storedRange
+      : "30";
+  });
   const [progressInsightTab, setProgressInsightTab] =
     useState<ProgressInsightTab>("checkin");
   const [checkinMode, setCheckinMode] = useState<"quick" | "full">(() => {
@@ -514,6 +517,8 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
     syncedAt: null,
   });
   const [pendingPermissionRetry, setPendingPermissionRetry] = useState(false);
+  const [isAndroidSyncSheetOpen, setIsAndroidSyncSheetOpen] = useState(false);
+  const [showMoreMetrics, setShowMoreMetrics] = useState(false);
   const [isAdvancedAnalysisOpen, setIsAdvancedAnalysisOpen] = useState(false);
   const [isPassiveDetailsOpen, setIsPassiveDetailsOpen] = useState(false);
   const [isIntelligencePreviewOpen, setIsIntelligencePreviewOpen] = useState(false);
@@ -667,6 +672,14 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
   useEffect(() => {
     localStorage.setItem(CHECKIN_MODE_KEY, checkinMode);
   }, [checkinMode]);
+
+  useEffect(() => {
+    setShowMoreMetrics(false);
+  }, [progressInsightTab]);
+
+  useEffect(() => {
+    localStorage.setItem(PROGRESS_RANGE_KEY, progressRange);
+  }, [PROGRESS_RANGE_KEY, progressRange]);
 
   useEffect(() => {
     setIsAndroidDevice(isAndroidHealthSyncAvailable());
@@ -1046,24 +1059,6 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
     setWorkoutNotes("");
   }
 
-  async function savePassiveSnapshot(snapshot: PassiveSnapshotPayload) {
-    const response = await fetch("/api/tracking/health/snapshots", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify(snapshot),
-    });
-
-    if (!response.ok) {
-      showMessage(t("tracking.passiveSaveError"));
-      return;
-    }
-
-    const data = (await response.json()) as PassivePayload;
-    setPassiveData(data);
-    showMessage(t("tracking.passiveSaveSuccess"));
-  }
-
   async function replacePassiveSync(
     snapshots: PassivePayload["snapshots"],
     options?: {
@@ -1098,6 +1093,13 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
     if (isAndroidSyncing) return;
 
     setIsAndroidSyncing(true);
+    setAndroidSyncUiState((prev) => ({
+      ...prev,
+      status: "syncing",
+      message: "Sincronizando con Health Connect...",
+      debugReason: null,
+      autoRetryPending: false,
+    }));
     showMessage(t("tracking.syncAndroidStarting"));
 
     try {
@@ -1120,12 +1122,12 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
 
       if (result.status === "permissions") {
         const reasonUpper = result.reason.toUpperCase();
-        const isPartial = reasonUpper.includes("PARTIAL") || reasonUpper.includes("NOT_GRANTED");
         setAndroidSyncUiState({
-          status: isPartial ? "partial_permissions" : "permission_required",
-          message: isPartial
-            ? "Faltan permisos para algunos datos en Health Connect."
-            : "Debes conceder permisos en Health Connect.",
+          status: "permission_required",
+          message:
+            reasonUpper.includes("PARTIAL") || reasonUpper.includes("NOT_GRANTED")
+              ? "Faltan permisos en Health Connect para leer tus datos."
+              : "Debes conceder permisos en Health Connect para sincronizar.",
           debugReason: result.reason,
           fetchedSources: [],
           autoRetryPending: true,
@@ -1154,8 +1156,8 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
 
       if (!result.snapshots.length) {
         setAndroidSyncUiState({
-          status: "success",
-          message: "Permisos listos, pero Health Connect no devolvió datos recientes. Revisa en Health Connect si hay fuentes conectadas (Samsung Health/Google Fit) y datos dentro de 30 días.",
+          status: "no_data",
+          message: "Health Connect está conectado, pero no hay datos recientes en el rango seleccionado.",
           debugReason: "NO_RECENT_ROWS",
           fetchedSources: [],
           autoRetryPending: false,
@@ -1175,7 +1177,7 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
       });
       setAndroidSyncUiState({
         status: "success",
-        message: "Sincronizacion Android completada.",
+        message: "Sincronización Android completada.",
         debugReason: null,
         fetchedSources: Array.from(new Set(result.snapshots.map((s) => s.source))).slice(0, 5),
         autoRetryPending: false,
@@ -1633,7 +1635,97 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
       profile.trainingPreferences.daysPerWeek,
     ],
   );
-  const passiveRangeEnd = adherenceContext.trendWindow.endDate;
+  const passiveSnapshotsInRange = passiveOverview.snapshotsInRange;
+  const latestPassiveSnapshot = passiveSnapshotsInRange[0] ?? passiveData.snapshots[0] ?? null;
+  const passiveSteps = passiveOverview.totalSteps;
+  const passiveSleepHours = passiveOverview.averageSleepHours;
+  const passiveRestingHeartRate = passiveOverview.averageRestingHeartRate;
+  const passiveActiveMinutes = passiveOverview.totalActiveMinutes;
+  const passiveExerciseSessions = passiveSnapshotsInRange.reduce(
+    (sum, snapshot) => sum + Number(snapshot.exerciseSessions ?? 0),
+    0,
+  );
+  const passiveActiveCalories = passiveSnapshotsInRange.reduce(
+    (sum, snapshot) => sum + Number(snapshot.activeCalories ?? 0),
+    0,
+  );
+  const latestPassiveWeight = latestPassiveSnapshot?.bodyWeightKg ?? null;
+  const latestPassiveBodyFat = latestPassiveSnapshot?.bodyFatPercent ?? null;
+  const latestPassiveSyncedAt = androidSyncUiState.syncedAt ?? passiveData.lastSyncAt;
+  const hasHealthConnectData = passiveData.snapshots.some(
+    (snapshot) => snapshot.source === "health_connect",
+  );
+  const formatMetricDateTime = (value: string | null | undefined) => {
+    if (!value) return "Sin sincronizar";
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return "Sin sincronizar";
+    return parsed.toLocaleString(undefined, {
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+  const formatOptionalNumber = (value: number | null | undefined, digits = 0) =>
+    typeof value === "number" && Number.isFinite(value) && value > 0
+      ? value.toFixed(digits)
+      : null;
+  const androidSyncSheetState = (() => {
+    if (isAndroidSyncing || androidSyncUiState.status === "syncing") {
+      return {
+        label: "Sincronizando",
+        body: "Actualizando tus métricas desde Health Connect.",
+        cta: "Sincronizando...",
+        disabled: true,
+      };
+    }
+    if (!isAndroidDevice) {
+      return {
+        label: "No disponible",
+        body: "La sincronización Android funciona dentro de la app con Health Connect activo.",
+        cta: "No disponible en web",
+        disabled: true,
+      };
+    }
+    if (androidSyncUiState.status === "permission_required") {
+      return {
+        label: "Permisos requeridos",
+        body: "Conecta Health Connect para leer tus métricas.",
+        cta: "Conectar Health Connect",
+        disabled: false,
+      };
+    }
+    if (androidSyncUiState.status === "error") {
+      return {
+        label: "Error",
+        body: "No pudimos sincronizar. Inténtalo de nuevo.",
+        cta: "Reintentar",
+        disabled: false,
+      };
+    }
+    if (androidSyncUiState.status === "no_data") {
+      return {
+        label: "Sin datos recientes",
+        body: "Health Connect está conectado, pero no encontramos datos nuevos.",
+        cta: "Reintentar",
+        disabled: false,
+      };
+    }
+    if (androidSyncUiState.status === "success" || hasHealthConnectData) {
+      return {
+        label: "Sincronizado",
+        body: "Tus tarjetas ya usan los datos disponibles.",
+        cta: "Sincronizar ahora",
+        disabled: false,
+      };
+    }
+    return {
+      label: "Conectado",
+      body: "Listo para traer datos de Health Connect.",
+      cta: "Sincronizar ahora",
+      disabled: false,
+    };
+  })();
   const formatEntryDate = (value: string) => {
     const parsed = new Date(value);
     if (Number.isNaN(parsed.getTime())) return value;
@@ -2208,7 +2300,7 @@ const primaryRecommendation = recommendationCapability.items[0] ?? null;
     : "Completa al menos una sesión para generar insights";
 
   // ========== CALCULATED METRICS ==========
-  const currentWeight = Number(latestCheckin?.weightKg ?? profile.weightKg ?? 0);
+  const currentWeight = Number(latestPassiveWeight ?? latestCheckin?.weightKg ?? profile.weightKg ?? 0);
   const currentHeight = Number(profile.heightCm ?? 0);
   const profileAge = Number(profile.age ?? 0);
   const profileSex = (profile.sex ?? "male") === "male" ? "male" : "female";
@@ -2230,7 +2322,8 @@ const primaryRecommendation = recommendationCapability.items[0] ?? null;
     : 0;
 
   const bodyFatPct = Number(
-    latestCheckin?.bodyFatPercent ??
+    latestPassiveBodyFat ??
+      latestCheckin?.bodyFatPercent ??
       profile.measurements.bodyFatPercent ??
       bodyScanCapability?.data?.composition?.bodyFatPercent ??
       summaryBodyFatPct ??
@@ -2267,24 +2360,36 @@ const primaryRecommendation = recommendationCapability.items[0] ?? null;
     ],
   };
 
+  const bodyMeasurementStats: DenseStatItem[] = [
+    { id: "waist", label: "Cintura", value: profile.measurements.waistCm ? `${profile.measurements.waistCm} cm` : "—" },
+    { id: "chest", label: "Pecho", value: profile.measurements.chestCm ? `${profile.measurements.chestCm} cm` : "—" },
+    { id: "hips", label: "Cadera", value: profile.measurements.hipsCm ? `${profile.measurements.hipsCm} cm` : "—" },
+  ].filter((stat) => stat.value !== "—");
+
   const metricCardsByTab: Record<ProgressInsightTab, MetricCardItem[]> = {
     checkin: [
-      { id: "weight", label: "Peso", value: currentWeight > 0 ? `${currentWeight.toFixed(1)} kg` : "—", sub: latestCheckin ? formatEntryDate(latestCheckin.date).slice(0, 5) : "Sin datos", icon: "KG" },
-      { id: "bodyfat", label: "Grasa", value: bodyFatPct > 0 ? `${bodyFatPct.toFixed(1)}%` : "—", sub: bodyFatPct > 0 ? "estimado" : "pendiente", helper: bodyFatHelper, icon: "BF" },
-      { id: "bmi", label: "IMC", value: bmi > 0 ? String(bmi) : "—", sub: bmiCategory.label, color: bmiCategory.color, icon: "IMC" },
+      { id: "weight", label: "Peso", value: currentWeight > 0 ? `${currentWeight.toFixed(1)} kg` : "—", sub: latestPassiveWeight ? "Health Connect" : latestCheckin ? formatEntryDate(latestCheckin.date).slice(0, 5) : "Sin datos", icon: "KG" },
       { id: "delta", label: "Cambio", value: rangeWeightDelta !== null ? `${rangeWeightDelta > 0 ? "+" : ""}${rangeWeightDelta.toFixed(1)} kg` : "—", sub: `${rangeDays} días`, icon: "Δ" },
+      ...(bodyFatPct > 0 ? [{ id: "bodyfat", label: "Grasa corporal", value: `${bodyFatPct.toFixed(1)}%`, sub: latestPassiveBodyFat ? "Health Connect" : "último dato", helper: bodyFatHelper, icon: "BF" }] : []),
+      { id: "steps", label: "Pasos", value: passiveSteps > 0 ? passiveSteps.toLocaleString() : "—", sub: `${rangeDays} días`, icon: "ST" },
+      { id: "sleep", label: "Sueño", value: formatOptionalNumber(passiveSleepHours, 1) ? `${formatOptionalNumber(passiveSleepHours, 1)} h` : "—", sub: "promedio", icon: "ZZ" },
+      { id: "training", label: "Entrenos completados", value: String(Math.max(trainingSessions, passiveExerciseSessions)), sub: `${rangeDays} días`, icon: "TR" },
     ],
     nutrition: [
-      { id: "calories", label: "Kcal promedio", value: nutritionDaysLogged > 0 ? `${nutritionAverages.calories.toFixed(0)} kcal` : "—", sub: `${nutritionDaysLogged}/${rangeDays} días`, icon: "KCAL" },
-      { id: "protein", label: "Proteína", value: nutritionDaysLogged > 0 ? `${nutritionAverages.protein.toFixed(0)} g` : "—", sub: "promedio diario", icon: "P" },
-      { id: "log-adherence", label: "Adherencia", value: `${nutritionLoggingAdherence}%`, sub: "registro", icon: "%" },
-      { id: "target-adherence", label: "Objetivo kcal", value: nutritionCaloriesTargetAdherence !== null ? `${nutritionCaloriesTargetAdherence}%` : "—", sub: "en rango", icon: "T" },
+      ...(nutritionDaysLogged > 0 ? [{ id: "calories", label: "Calorías ingeridas", value: `${nutritionAverages.calories.toFixed(0)} kcal`, sub: `${nutritionDaysLogged}/${rangeDays} días`, icon: "KCAL" }] : []),
+      ...(nutritionDaysLogged > 0 ? [{ id: "protein", label: "Proteína", value: `${nutritionAverages.protein.toFixed(0)} g`, sub: "promedio diario", icon: "P" }] : []),
+      { id: "log-adherence", label: "Adherencia nutricional", value: `${nutritionLoggingAdherence}%`, sub: "registro", icon: "%" },
+      { id: "weight-trend", label: "Peso / tendencia", value: rangeWeightDelta !== null ? `${rangeWeightDelta > 0 ? "+" : ""}${rangeWeightDelta.toFixed(1)} kg` : currentWeight > 0 ? `${currentWeight.toFixed(1)} kg` : "—", sub: `${rangeDays} días`, icon: "KG" },
+      { id: "balance", label: "Balance estimado", value: nutritionDaysLogged > 0 && tdee > 0 ? `${Math.round(nutritionAverages.calories - tdee)} kcal` : "—", sub: "ingesta - TDEE", icon: "BAL" },
+      { id: "steps", label: "Pasos", value: passiveSteps > 0 ? passiveSteps.toLocaleString() : "—", sub: "contexto actividad", icon: "ST" },
     ],
     training: [
-      { id: "sessions", label: "Sesiones", value: String(trainingSessions), sub: `${targetSessionsForRange} objetivo`, icon: "S" },
-      { id: "minutes", label: "Minutos", value: `${trainingMinutes}`, sub: `${trainingAverageMinutes} por sesión`, icon: "MIN" },
-      { id: "consistency", label: "Consistencia", value: `${trainingConsistency}%`, sub: "meta semanal", icon: "%" },
-      { id: "frequency", label: "Frecuencia", value: `${workoutFrequency}/sem`, sub: "promedio", icon: "F" },
+      { id: "sessions", label: "Sesiones esta semana", value: String(trainingSessions), sub: `${targetSessionsForRange} objetivo`, icon: "S" },
+      { id: "minutes", label: "Minutos activos", value: `${Math.max(trainingMinutes, passiveActiveMinutes)}`, sub: trainingMinutes > 0 ? `${trainingAverageMinutes} por sesión` : "Health Connect", icon: "MIN" },
+      { id: "frequency", label: "Frecuencia semanal", value: `${workoutFrequency}/sem`, sub: "promedio", icon: "F" },
+      { id: "steps", label: "Pasos", value: passiveSteps > 0 ? passiveSteps.toLocaleString() : "—", sub: `${rangeDays} días`, icon: "ST" },
+      { id: "recovery", label: "Sueño / recuperación", value: formatOptionalNumber(passiveSleepHours, 1) ? `${formatOptionalNumber(passiveSleepHours, 1)} h` : "—", sub: "promedio", icon: "ZZ" },
+      ...(workoutsRecent[0] ? [{ id: "last-workout", label: "Último entrenamiento", value: workoutsRecent[0].name, sub: formatEntryDate(workoutsRecent[0].date), icon: "LAST" }] : []),
     ],
   };
 
@@ -2292,31 +2397,39 @@ const primaryRecommendation = recommendationCapability.items[0] ?? null;
     checkin: [
       { id: "bmr", label: "BMR", value: bmr > 0 ? `${bmr} kcal` : "—" },
       { id: "tdee", label: "TDEE", value: tdee > 0 ? `${tdee} kcal` : "—" },
-      { id: "nutrition", label: "Nutrición", value: `${nutritionLoggingAdherence}%` },
-      { id: "training", label: "Frecuencia", value: `${workoutFrequency}/sem` },
-      { id: "sessions", label: "Sesiones", value: String(trainingSessions) },
-      { id: "minutes", label: "Minutos", value: `${trainingMinutes}` },
+      { id: "bmi", label: "IMC", value: bmi > 0 ? String(bmi) : "—" },
+      { id: "resting-hr", label: "Resting HR", value: passiveRestingHeartRate ? `${passiveRestingHeartRate} lpm` : "—" },
+      ...bodyMeasurementStats,
+      { id: "sync-source", label: "Fuente", value: hasHealthConnectData ? "Health Connect" : "Manual" },
+      { id: "sync-date", label: "Última sync", value: formatMetricDateTime(latestPassiveSyncedAt) },
     ],
     nutrition: [
-      { id: "calories-target", label: "Meta kcal", value: nutritionTargets ? `${nutritionTargets.calories} kcal` : "—" },
-      { id: "protein-target", label: "Meta proteína", value: nutritionTargets ? `${nutritionTargets.protein} g` : "—" },
-      { id: "carbs-target", label: "Meta carbs", value: nutritionTargets ? `${nutritionTargets.carbs} g` : "—" },
-      { id: "fat-target", label: "Meta grasas", value: nutritionTargets ? `${nutritionTargets.fat} g` : "—" },
+      { id: "carbs-target", label: "Carbs", value: nutritionTargets ? `${nutritionTargets.carbs} g` : nutritionDaysLogged > 0 ? `${Math.round(nutritionTotals.carbs / nutritionDaysLogged)} g` : "—" },
+      { id: "fat-target", label: "Grasas", value: nutritionTargets ? `${nutritionTargets.fat} g` : nutritionDaysLogged > 0 ? `${Math.round(nutritionTotals.fat / nutritionDaysLogged)} g` : "—" },
+      { id: "fiber", label: "Fibra", value: "—" },
+      { id: "water", label: "Agua", value: "—" },
+      { id: "sodium", label: "Sodio", value: "—" },
+      { id: "bmr", label: "BMR", value: bmr > 0 ? `${bmr} kcal` : "—" },
+      { id: "tdee", label: "TDEE", value: tdee > 0 ? `${tdee} kcal` : "—" },
+      { id: "active-calories", label: "Calorías activas", value: passiveActiveCalories > 0 ? `${passiveActiveCalories} kcal` : "—" },
       { id: "protein-hit", label: "Días proteína", value: nutritionProteinTargetAdherence !== null ? `${nutritionProteinTargetAdherence}%` : "—" },
       { id: "calories-hit", label: "Días en rango", value: nutritionCaloriesTargetAdherence !== null ? `${nutritionCaloriesTargetAdherence}%` : "—" },
     ],
     training: [
-      { id: "session-target", label: "Meta sesiones", value: String(targetSessionsForRange) },
-      { id: "sessions-completed", label: "Sesiones hechas", value: String(trainingSessions) },
-      { id: "minutes-total", label: "Minutos total", value: `${trainingMinutes}` },
-      { id: "minutes-avg", label: "Minutos promedio", value: `${trainingAverageMinutes}` },
-      { id: "consistency", label: "Consistencia", value: `${trainingConsistency}%` },
-      { id: "recent", label: "Entrenos recientes", value: String(workoutsRecent.length) },
+      { id: "active-calories", label: "Calorías activas", value: passiveActiveCalories > 0 ? `${passiveActiveCalories} kcal` : "—" },
+      { id: "resting-hr", label: "Resting HR", value: passiveRestingHeartRate ? `${passiveRestingHeartRate} lpm` : "—" },
+      { id: "avg-hr", label: "Avg HR", value: "—" },
+      { id: "max-hr", label: "Max HR", value: "—" },
+      { id: "zones", label: "Zonas", value: "—" },
+      { id: "distance", label: "Distancia", value: "—" },
+      { id: "comparison", label: "Vs periodo previo", value: trainingConsistency >= 70 ? "En ritmo" : "Por mejorar" },
     ],
   };
 
-  const metricCards = metricCardsByTab[progressInsightTab];
-  const denseStats = denseStatsByTab[progressInsightTab];
+  const metricCards = showMoreMetrics
+    ? metricCardsByTab[progressInsightTab]
+    : metricCardsByTab[progressInsightTab].slice(0, 6);
+  const denseStats = showMoreMetrics ? denseStatsByTab[progressInsightTab] : [];
   const actionQueueItems = actionQueueByTab[progressInsightTab];
 
   const weekKpiItems = [
@@ -2567,6 +2680,26 @@ const primaryRecommendation = recommendationCapability.items[0] ?? null;
             <p className="eyebrow m-0">Evolución</p>
             <strong>{rangeDays} días</strong>
           </div>
+          <div className={styles.segmentedControl} role="tablist" aria-label={t("tracking.rangeLabel")}>
+            {([
+              { id: "7", label: "1w" },
+              { id: "30", label: "30d" },
+              { id: "90", label: "3m" },
+              { id: "180", label: "6m" },
+            ] as const).map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                className={`${styles.segmentedButton} ${progressRange === option.id ? styles.segmentedButtonActive : ""}`}
+                onClick={() => setProgressRange(option.id)}
+                role="tab"
+                aria-selected={progressRange === option.id}
+                aria-label={`Rango ${option.label}`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
           <div
             className={styles.insightTabs}
             role="tablist"
@@ -2670,8 +2803,17 @@ const primaryRecommendation = recommendationCapability.items[0] ?? null;
         // METRICS GRID - 2x2 core KPIs
         <section className={styles.sectionGroup} aria-label="Tu salud de un vistazo">
           <div className={styles.sectionGroupHeader}>
-            <p className="eyebrow m-0">Métricas</p>
-            <strong>Vista rápida</strong>
+            <div className={styles.metricsTitleCluster}>
+              <p className="eyebrow m-0">Métricas</p>
+              <strong>Vista rápida</strong>
+            </div>
+            <button
+              type="button"
+              className={styles.syncHeaderButton}
+              onClick={() => setIsAndroidSyncSheetOpen(true)}
+            >
+              Sincronizar Android
+            </button>
           </div>
           <div className={styles.metricsGrid}>
           {metricCards.map((m) => (
@@ -2686,10 +2828,17 @@ const primaryRecommendation = recommendationCapability.items[0] ?? null;
             </article>
           ))}
           </div>
+          <button
+            type="button"
+            className={styles.showMoreMetricsButton}
+            onClick={() => setShowMoreMetrics((current) => !current)}
+          >
+            {showMoreMetrics ? "Ver menos métricas" : "Ver más métricas"}
+          </button>
         </section>
       ) : null}
 
-      {!isCheckinOnly ? (
+      {!isCheckinOnly && denseStats.length > 0 ? (
         <section className={styles.denseStatsGrid} aria-label="Métricas avanzadas">
           {denseStats.map((stat) => (
             <article key={stat.id} className={styles.denseStatCard}>
@@ -2813,23 +2962,6 @@ const primaryRecommendation = recommendationCapability.items[0] ?? null;
             </summary>
             <div className={styles.advancedDisclosureBody}>
               <TrackingProfessionalInsights insights={professionalInsights} />
-              <PassiveHealthSummaryCard
-                passiveData={passiveData}
-                overview={passiveOverview}
-                endDate={passiveRangeEnd}
-                onSaveSnapshot={savePassiveSnapshot}
-                onLoadDemo={(snapshots) =>
-                  replacePassiveSync(snapshots, {
-                    successMessage: t("tracking.passiveDemoSuccess"),
-                    lastSyncSource: "demo",
-                  })}
-                onSyncDevice={isAndroidDevice ? syncPassiveFromAndroidDevice : undefined}
-                showDeviceSyncCta={isAndroidDevice}
-                syncPending={isAndroidSyncing}
-                androidSyncState={androidSyncUiState}
-                onRetrySync={isAndroidDevice ? syncPassiveFromAndroidDevice : undefined}
-                disabled={trackingStatus === "loading"}
-              />
               {hasAdjustmentEntitlement && (
                 <TrackingBodyScanSummaryCard capability={bodyScanCapability} />
               )}
@@ -3197,6 +3329,65 @@ const primaryRecommendation = recommendationCapability.items[0] ?? null;
             )}
           </div>
         </section>
+      ) : null}
+
+      {!isCheckinOnly && isAndroidSyncSheetOpen ? (
+        <div
+          className={styles.syncSheetOverlay}
+          role="presentation"
+          onClick={() => setIsAndroidSyncSheetOpen(false)}
+        >
+          <section
+            className={styles.syncSheet}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="android-sync-sheet-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className={styles.syncSheetHandle} aria-hidden="true" />
+            <div className={styles.syncSheetHeader}>
+              <div>
+                <p className="eyebrow m-0">Health Connect</p>
+                <h3 id="android-sync-sheet-title" className="section-title section-title-sm m-0">
+                  Sincronización Android
+                </h3>
+              </div>
+              <button
+                type="button"
+                className={styles.syncSheetClose}
+                onClick={() => setIsAndroidSyncSheetOpen(false)}
+                aria-label={t("ui.close")}
+              >
+                ×
+              </button>
+            </div>
+            <div className={styles.syncSheetStatus}>
+              <strong>{androidSyncSheetState.label}</strong>
+              <p className="muted m-0">{androidSyncSheetState.body}</p>
+            </div>
+            <div className={styles.syncSheetFacts}>
+              <div>
+                <span>Última sync</span>
+                <strong>{formatMetricDateTime(latestPassiveSyncedAt)}</strong>
+              </div>
+              <div>
+                <span>Fuente</span>
+                <strong>Health Connect</strong>
+              </div>
+            </div>
+            {androidSyncUiState.message ? (
+              <p className="muted m-0">{androidSyncUiState.message}</p>
+            ) : null}
+            <button
+              type="button"
+              className="btn primary"
+              disabled={androidSyncSheetState.disabled || trackingStatus === "loading"}
+              onClick={() => void syncPassiveFromAndroidDevice()}
+            >
+              {androidSyncSheetState.cta}
+            </button>
+          </section>
+        </div>
       ) : null}
         </>
       )}

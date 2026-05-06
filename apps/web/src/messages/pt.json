@@ -491,6 +491,7 @@
     "rangeWeek": "Semana",
     "rangeMonth": "Mes",
     "rangeQuarter": "3 meses",
+    "rangeSemester": "6 meses",
     "summaryTitle": "KPIs chave",
     "summaryRangeDetail": "Ultimos {days} dias",
     "primaryInsightTitle": "Insight principal",

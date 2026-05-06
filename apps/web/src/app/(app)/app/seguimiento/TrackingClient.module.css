@@ -39,6 +39,36 @@
   gap: 8px;
 }
 
+.metricsTitleCluster {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.syncHeaderButton,
+.showMoreMetricsButton {
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 76%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-card) 88%, transparent);
+  color: var(--text);
+  min-height: 36px;
+  padding: 8px 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.syncHeaderButton {
+  color: color-mix(in srgb, var(--accent) 72%, white);
+  border-color: color-mix(in srgb, var(--accent) 42%, transparent);
+}
+
+.showMoreMetricsButton {
+  width: fit-content;
+  margin-top: 2px;
+}
+
 .sectionGroupHeader strong {
   font-size: 0.82rem;
   letter-spacing: 0.02em;
@@ -176,6 +206,94 @@
   font-size: 1rem;
   font-weight: 700;
   color: var(--text);
+}
+
+.syncSheetOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(2, 6, 23, 0.64);
+  backdrop-filter: blur(10px);
+}
+
+.syncSheet {
+  display: grid;
+  gap: 14px;
+  width: min(100%, 460px);
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 76%, transparent);
+  border-radius: 26px 26px 20px 20px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--bg-card) 96%, #0f172a), color-mix(in srgb, var(--surface-secondary-bg) 84%, #020617));
+  box-shadow: 0 -18px 58px rgba(0, 0, 0, 0.34);
+  padding: 10px 16px 18px;
+}
+
+.syncSheetHandle {
+  width: 44px;
+  height: 4px;
+  justify-self: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-muted) 45%, transparent);
+}
+
+.syncSheetHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.syncSheetClose {
+  width: 36px;
+  height: 36px;
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 74%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-card) 82%, transparent);
+  color: var(--text);
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.syncSheetStatus {
+  display: grid;
+  gap: 5px;
+  padding: 12px;
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--accent) 34%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.syncSheetFacts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.syncSheetFacts div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 11px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 62%, transparent);
+  background: color-mix(in srgb, var(--bg-card) 82%, transparent);
+}
+
+.syncSheetFacts span {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.syncSheetFacts strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ========== WEEKLY KPI (OLD) ========== */
@@ -578,7 +696,7 @@
 
 .segmentedControl {
   display: inline-grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid var(--border);
   border-radius: 999px;
@@ -592,6 +710,7 @@
   border-radius: 999px;
   background: transparent;
   color: var(--text-muted);
+  min-height: 40px;
   padding: 8px 12px;
   font-weight: 600;
   cursor: pointer;

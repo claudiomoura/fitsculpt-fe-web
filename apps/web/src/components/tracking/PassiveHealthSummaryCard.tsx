@@ -17,7 +17,7 @@ type Props = {
   showDeviceSyncCta?: boolean;
   syncPending?: boolean;
   androidSyncState?: {
-    status: "idle" | "permission_required" | "partial_permissions" | "success" | "error";
+    status: "idle" | "syncing" | "permission_required" | "success" | "error" | "no_data";
     message: string | null;
     debugReason?: string | null;
     fetchedSources?: string[];
@@ -89,13 +89,12 @@ export default function PassiveHealthSummaryCard({ passiveData, overview, endDat
 
   const syncQuickBadge = useMemo(() => {
     if (!showDeviceSyncCta) return null;
-    if (syncPending) return { label: "Sync Android: sincronizando", tone: "bg-sky-500/15 text-sky-100 border-sky-300/40" };
-    if (syncState === "permission_required") return { label: "Sync Android: permisos requeridos", tone: "bg-amber-500/15 text-amber-100 border-amber-300/40" };
-    if (syncState === "partial_permissions") return { label: "Sync Android: permisos parciales", tone: "bg-amber-500/15 text-amber-100 border-amber-300/40" };
+    if (syncPending || syncState === "syncing") return { label: "SYNC: sincronizando", tone: "bg-sky-500/15 text-sky-100 border-sky-300/40" };
+    if (syncState === "permission_required") return { label: "SYNC: permisos requeridos", tone: "bg-amber-500/15 text-amber-100 border-amber-300/40" };
     if (syncState === "error") return { label: "Sync Android: error", tone: "bg-rose-500/15 text-rose-100 border-rose-300/40" };
-    if (noRealDataAfterAndroidSync) return { label: "Sync Android: 0 datos recientes", tone: "bg-slate-500/15 text-slate-100 border-slate-300/40" };
+    if (syncState === "no_data" || noRealDataAfterAndroidSync) return { label: "SYNC: sin datos recientes", tone: "bg-slate-500/15 text-slate-100 border-slate-300/40" };
     if (hasAndroidSyncedData) return { label: `Sync Android: OK (${sourceBreakdown.androidCount})`, tone: "bg-emerald-500/15 text-emerald-100 border-emerald-300/40" };
-    return { label: "Sync Android: pendiente", tone: "bg-slate-500/15 text-slate-100 border-slate-300/40" };
+    return { label: "SYNC: listo para sincronizar", tone: "bg-slate-500/15 text-slate-100 border-slate-300/40" };
   }, [
     hasAndroidSyncedData,
     noRealDataAfterAndroidSync,
@@ -227,11 +226,12 @@ export default function PassiveHealthSummaryCard({ passiveData, overview, endDat
         {androidSyncState && showDeviceSyncCta ? (
           <div className="mt-2 rounded-xl border border-white/15 bg-black/15 px-3 py-2 text-xs">
             <p className="m-0 font-semibold">
-              {syncState === "permission_required" && "Debes conceder permisos en Health Connect."}
-              {syncState === "partial_permissions" && "Faltan permisos para algunos datos en Health Connect."}
-              {syncState === "success" && "Estado de Health Connect: sincronizado"}
-              {syncState === "error" && "No se pudo sincronizar con Health Connect."}
-              {syncState === "idle" && "Estado de Health Connect: pendiente de sincronizar"}
+              {syncState === "syncing" && "Sincronizando ahora con Health Connect."}
+              {syncState === "permission_required" && "Faltan permisos en Health Connect para continuar."}
+              {syncState === "success" && "Sincronización completada correctamente."}
+              {syncState === "error" && "No se pudo sincronizar. Intenta nuevamente."}
+              {syncState === "no_data" && "Conectado, pero sin datos recientes para importar."}
+              {syncState === "idle" && "Listo para sincronizar con Health Connect."}
             </p>
             {androidSyncState.message ? <p className="m-0 mt-1 opacity-90">{androidSyncState.message}</p> : null}
             {androidSyncState.lastImportedCount !== null ? (
@@ -249,7 +249,14 @@ export default function PassiveHealthSummaryCard({ passiveData, overview, endDat
             {androidSyncState.autoRetryPending ? (
               <p className="m-0 mt-1 opacity-90">Al volver desde permisos, reintentamos la sincronizacion automaticamente una vez.</p>
             ) : null}
-            {(syncState === "permission_required" || syncState === "partial_permissions" || syncState === "error") && onRetrySync ? (
+            {onSyncDevice ? (
+              <div className="mt-2">
+                <Button type="button" size="sm" variant="primary" onClick={() => void onSyncDevice()} disabled={syncPending || disabled} aria-label="Sincronizar con Health Connect">
+                  {syncPending || syncState === "syncing" ? "Sincronizando..." : "Sincronizar ahora"}
+                </Button>
+              </div>
+            ) : null}
+            {(syncState === "permission_required" || syncState === "error" || syncState === "no_data") && onRetrySync ? (
               <div className="mt-2">
                 <Button type="button" size="sm" variant="secondary" onClick={() => void onRetrySync()} disabled={syncPending || disabled}>
                   Reintentar sincronizacion
@@ -280,6 +287,11 @@ export default function PassiveHealthSummaryCard({ passiveData, overview, endDat
               {latestSyncedRows.map((snapshot) => (
                 <div key={`${snapshot.source}-${snapshot.id}-${snapshot.date}`} className="rounded-xl border border-white/70 bg-white/70 px-3 py-2 text-xs text-[var(--text)]">
                   <p className="m-0 font-semibold">{snapshot.date} · {getPassiveSourceLabel(snapshot.source)}</p>
+                  <div className="mt-1">
+                    <span className="inline-flex min-h-8 items-center rounded-full border border-white/60 bg-white/70 px-2 py-1 text-[11px] font-semibold">
+                      {snapshot.source === "manual" ? "Manual" : "Health Connect"}
+                    </span>
+                  </div>
                   <p className="m-0 mt-1 text-[var(--muted)]">
                     Steps: {snapshot.steps ?? "-"} · Min: {snapshot.activeMinutes ?? "-"} · Sleep: {snapshot.sleepHours ?? "-"}
                   </p>
