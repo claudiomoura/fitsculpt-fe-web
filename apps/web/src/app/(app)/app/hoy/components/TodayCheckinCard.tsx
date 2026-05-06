@@ -61,12 +61,12 @@ export function TodayCheckinCard({
       className={`today-premium-card today-dashboard-card ${className ?? ""}`}
         style={{
         width: "100%",
-        padding: "clamp(16px, 3vw, 32px)",
+        padding: "clamp(16px, 2.5vw, 24px)",
         display: "flex",
         flexWrap: "wrap",
         alignItems: "center",
         justifyContent: "space-between",
-        gap: "clamp(16px, 4vw, 48px)",
+        gap: "clamp(14px, 3vw, 24px)",
       }}
     >
       {/* Left side - Weight info */}
@@ -79,19 +79,19 @@ export function TodayCheckinCard({
         {/* Current weight */}
         <div>
           <p
-            className="today-label"
-            style={{
-              letterSpacing: "0.15em",
-              color: "rgba(234, 179, 8, 0.9)", // Yellow accent
-              marginBottom: "clamp(4px, 1vw, 8px)",
-            }}
-          >
+              className="today-label"
+              style={{
+                letterSpacing: "0.08em",
+                color: "var(--text-muted)",
+                marginBottom: "clamp(4px, 1vw, 8px)",
+              }}
+            >
             PESO ACTUAL
           </p>
           <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
             <span
               className="today-headline-large"
-              style={{ fontSize: "48px", lineHeight: 1 }}
+              style={{ fontSize: "clamp(34px, 5.8vw, 44px)", lineHeight: 1 }}
             >
               {currentWeightKg !== null ? currentWeightKg : "--"}
             </span>
@@ -122,7 +122,7 @@ export function TodayCheckinCard({
         <div
           style={{
             width: "1px",
-            height: "100px",
+            height: "72px",
             background: "rgba(255,255,255,0.1)",
           }}
         />
@@ -180,21 +180,21 @@ export function TodayCheckinCard({
       </div>
 
       {/* Right side - Action */}
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "stretch", gap: "12px" }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "stretch", gap: "10px" }}>
         {checkinDoneThisWeek ? (
           <div
             style={{
               display: "flex",
               alignItems: "center",
-              gap: "12px",
-              padding: "16px 24px",
+              gap: "10px",
+              padding: "12px 16px",
               background: "rgba(34, 197, 94, 0.15)",
-              borderRadius: "16px",
+              borderRadius: "14px",
               border: "1px solid rgba(34, 197, 94, 0.3)",
             }}
           >
-            <span style={{ fontSize: "24px" }}>✓</span>
-            <span style={{ fontSize: "18px", fontWeight: 600, color: "#22c55e" }}>
+            <span style={{ fontSize: "18px" }}>✓</span>
+            <span style={{ fontSize: "15px", fontWeight: 600, color: "#22c55e" }}>
               Pesado esta semana
             </span>
           </div>
@@ -202,16 +202,16 @@ export function TodayCheckinCard({
           <Button
             onClick={handleRegister}
             style={{
-              width: "200px",
-              height: "56px",
-              fontSize: "18px",
+              width: "190px",
+              height: "50px",
+              fontSize: "16px",
               fontWeight: 600,
               background: "linear-gradient(135deg, #eab308 0%, #ca8a04 100%)",
               border: "none",
-              borderRadius: "28px",
+              borderRadius: "24px",
               cursor: "pointer",
               color: "#000",
-              boxShadow: "0 4px 16px rgba(234, 179, 8, 0.3)",
+              boxShadow: "0 3px 14px rgba(234, 179, 8, 0.25)",
             }}
           >
             Registrar peso

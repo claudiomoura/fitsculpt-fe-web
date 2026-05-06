@@ -82,10 +82,10 @@ export function TodayNutritionCard({
       className={`today-premium-card today-dashboard-card ${className ?? ""}`}
       style={{
         width: "100%",
-        padding: "clamp(16px, 3vw, 32px)",
+        padding: "clamp(16px, 2.5vw, 24px)",
         display: "flex",
         flexDirection: "column",
-        gap: "clamp(16px, 3vw, 32px)",
+        gap: "clamp(12px, 2.2vw, 18px)",
       }}
     >
       {/* Left side - Calories - stack on mobile, row on desktop */}
@@ -99,15 +99,15 @@ export function TodayNutritionCard({
       }}>
         <div style={{ flex: 1 }}>
           <p
-            className="today-label"
-            style={{
-              letterSpacing: "0.15em",
-              color: "rgba(139, 92, 246, 0.9)", // Violet accent
-              marginBottom: "clamp(8px, 2vw, 16px)",
-            }}
-          >
-            NUTRICIÓN
-          </p>
+              className="today-label"
+              style={{
+                letterSpacing: "0.08em",
+                color: "var(--text-muted)",
+                marginBottom: "clamp(6px, 1.5vw, 10px)",
+              }}
+            >
+              NUTRICIÓN
+            </p>
           
           {/* Calories display */}
           <div style={{ display: "flex", alignItems: "baseline", gap: "clamp(6px, 1.5vw, 12px)" }}>
@@ -123,29 +123,29 @@ export function TodayNutritionCard({
           </div>
 
           {/* Meals logged */}
-          <p style={{ fontSize: "clamp(13px, 2vw, 16px)", opacity: 0.7, marginTop: "clamp(8px, 1.5vw, 12px)" }}>
+          <p style={{ fontSize: "clamp(13px, 1.8vw, 15px)", opacity: 0.74, marginTop: "clamp(6px, 1.2vw, 10px)", marginBottom: 0 }}>
             {mealsLogged} de {mealsTotal} comidas registradas
           </p>
 
           {remainingCalories !== null ? (
-            <p style={{ fontSize: "clamp(12px, 1.7vw, 14px)", opacity: 0.65, marginTop: 6 }}>
-              {remainingCalories} kcal restantes para hoy
+            <p style={{ fontSize: "clamp(12px, 1.6vw, 13px)", opacity: 0.62, marginTop: 4, marginBottom: 0 }}>
+              Restan {remainingCalories} kcal hoy
             </p>
           ) : null}
 
           {/* Macros - hide on very small screens */}
-          <div style={{ display: "flex", gap: "clamp(16px, 3vw, 32px)", marginTop: "clamp(12px, 2vw, 24px)" }}>
-            <div>
-              <p style={{ fontSize: "clamp(10px, 1.5vw, 12px)", opacity: 0.6, marginBottom: "2px" }}>Proteína</p>
-              <p style={{ fontSize: "clamp(16px, 3vw, 24px)", fontWeight: 700, color: "#22c55e" }}>{proteinG}g</p>
+          <div style={{ display: "flex", gap: "clamp(8px, 1.6vw, 12px)", marginTop: "clamp(10px, 1.8vw, 14px)", flexWrap: "wrap" }}>
+            <div style={{ padding: "6px 10px", borderRadius: 12, border: "1px solid color-mix(in srgb, var(--surface-border-default) 70%, transparent)", background: "color-mix(in srgb, var(--surface-secondary-bg) 75%, transparent)" }}>
+              <p style={{ fontSize: "clamp(10px, 1.4vw, 11px)", opacity: 0.62, marginBottom: 2 }}>Proteína</p>
+              <p style={{ fontSize: "clamp(15px, 2.4vw, 20px)", fontWeight: 700, color: "var(--status-success)", margin: 0 }}>{proteinG}g</p>
             </div>
-            <div>
-              <p style={{ fontSize: "clamp(10px, 1.5vw, 12px)", opacity: 0.6, marginBottom: "2px" }}>Carbs</p>
-              <p style={{ fontSize: "clamp(16px, 3vw, 24px)", fontWeight: 700, color: "#eab308" }}>{carbsG}g</p>
+            <div style={{ padding: "6px 10px", borderRadius: 12, border: "1px solid color-mix(in srgb, var(--surface-border-default) 70%, transparent)", background: "color-mix(in srgb, var(--surface-secondary-bg) 75%, transparent)" }}>
+              <p style={{ fontSize: "clamp(10px, 1.4vw, 11px)", opacity: 0.62, marginBottom: 2 }}>Carbs</p>
+              <p style={{ fontSize: "clamp(15px, 2.4vw, 20px)", fontWeight: 700, color: "var(--status-warning)", margin: 0 }}>{carbsG}g</p>
             </div>
-            <div>
-              <p style={{ fontSize: "clamp(10px, 1.5vw, 12px)", opacity: 0.6, marginBottom: "2px" }}>Grasas</p>
-              <p style={{ fontSize: "clamp(16px, 3vw, 24px)", fontWeight: 700, color: "#f97316" }}>{fatsG}g</p>
+            <div style={{ padding: "6px 10px", borderRadius: 12, border: "1px solid color-mix(in srgb, var(--surface-border-default) 70%, transparent)", background: "color-mix(in srgb, var(--surface-secondary-bg) 75%, transparent)" }}>
+              <p style={{ fontSize: "clamp(10px, 1.4vw, 11px)", opacity: 0.62, marginBottom: 2 }}>Grasas</p>
+              <p style={{ fontSize: "clamp(15px, 2.4vw, 20px)", fontWeight: 700, color: "var(--status-warning-strong, #f97316)", margin: 0 }}>{fatsG}g</p>
             </div>
           </div>
         </div>
@@ -208,7 +208,7 @@ export function TodayNutritionCard({
             textAlign: "center",
           }}
         >
-          <span style={{ fontSize: "32px", fontWeight: 800 }}>
+          <span className="today-nutrition-ring-premium-value" style={{ fontSize: "clamp(24px, 4vw, 30px)" }}>
             {percent}%
           </span>
         </div>

@@ -43,11 +43,11 @@ export function TodaySummaryCard({
       className={`today-premium-card today-dashboard-card ${className ?? ""}`}
       style={{
         width: "100%",
-        padding: "clamp(20px, 4vw, 40px)",
+        padding: "clamp(18px, 3vw, 28px)",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        gap: "clamp(16px, 3vw, 32px)",
+        gap: "clamp(12px, 2.2vw, 18px)",
       }}
     >
       {/* Donut Chart */}
@@ -111,7 +111,7 @@ export function TodaySummaryCard({
           >
             {dailyProgressPercent}%
           </span>
-          <p style={{ fontSize: "clamp(10px, 2vw, 14px)", opacity: 0.7, margin: 0 }}>
+          <p style={{ fontSize: "clamp(10px, 1.7vw, 12px)", opacity: 0.72, margin: 0 }}>
             Completado
           </p>
         </div>
@@ -119,7 +119,7 @@ export function TodaySummaryCard({
 
       {/* Goals summary */}
       <div style={{ textAlign: "center" }}>
-        <p className="today-body-text">
+        <p className="today-body-text" style={{ margin: 0 }}>
           {completedGoals} de {totalGoals} metas diarias
         </p>
       </div>
@@ -128,13 +128,23 @@ export function TodaySummaryCard({
       <div
         style={{
           display: "flex",
-          gap: "clamp(16px, 4vw, 40px)",
+          gap: "clamp(10px, 2vw, 14px)",
           justifyContent: "center",
           flexWrap: "wrap",
         }}
       >
         {/* Entreno - Green */}
-        <div style={{ display: "flex", alignItems: "center", gap: "clamp(8px, 2vw, 12px)" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "6px 10px",
+            borderRadius: 999,
+            background: "color-mix(in srgb, var(--surface-secondary-bg) 78%, transparent)",
+            border: "1px solid color-mix(in srgb, var(--surface-border-default) 70%, transparent)",
+          }}
+        >
           <div
             style={{
               width: "clamp(8px, 1.5vw, 12px)",
@@ -144,13 +154,23 @@ export function TodaySummaryCard({
                boxShadow: trainingCompleted >= trainingTotal ? "0 0 8px color-mix(in srgb, var(--status-success) 45%, transparent)" : "none",
             }}
           />
-          <span className="today-label">
+           <span className="today-label" style={{ letterSpacing: "0.03em" }}>
             Entreno {trainingCompleted}/{trainingTotal}
           </span>
         </div>
 
         {/* Nutricion */}
-        <div style={{ display: "flex", alignItems: "center", gap: "clamp(8px, 2vw, 12px)" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "6px 10px",
+            borderRadius: 999,
+            background: "color-mix(in srgb, var(--surface-secondary-bg) 78%, transparent)",
+            border: "1px solid color-mix(in srgb, var(--surface-border-default) 70%, transparent)",
+          }}
+        >
           <div
             style={{
               width: "clamp(8px, 1.5vw, 12px)",
@@ -160,13 +180,23 @@ export function TodaySummaryCard({
                boxShadow: nutritionCompleted >= nutritionTotal ? "0 0 8px color-mix(in srgb, var(--color-secondary) 45%, transparent)" : "none",
             }}
           />
-          <span className="today-label">
+           <span className="today-label" style={{ letterSpacing: "0.03em" }}>
             Nutrición {nutritionCompleted}/{nutritionTotal}
           </span>
         </div>
 
         {/* Check-in - Yellow */}
-        <div style={{ display: "flex", alignItems: "center", gap: "clamp(8px, 2vw, 12px)" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "6px 10px",
+            borderRadius: 999,
+            background: "color-mix(in srgb, var(--surface-secondary-bg) 78%, transparent)",
+            border: "1px solid color-mix(in srgb, var(--surface-border-default) 70%, transparent)",
+          }}
+        >
           <div
             style={{
               width: "clamp(8px, 1.5vw, 12px)",
@@ -176,7 +206,7 @@ export function TodaySummaryCard({
                boxShadow: checkinCompleted >= checkinTotal ? "0 0 8px color-mix(in srgb, var(--status-warning) 45%, transparent)" : "none",
             }}
           />
-          <span className="today-label">
+           <span className="today-label" style={{ letterSpacing: "0.03em" }}>
             Check-in {checkinCompleted >= checkinTotal ? "Hecho" : "pend."}
           </span>
         </div>

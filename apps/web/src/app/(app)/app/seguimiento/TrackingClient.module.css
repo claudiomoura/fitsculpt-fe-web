@@ -24,16 +24,34 @@
 .actionQueue {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
+  gap: 10px;
+}
+
+.sectionGroup {
+  display: grid;
+  gap: 10px;
+}
+
+.sectionGroupHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sectionGroupHeader strong {
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
 }
 
 .actionQueueCard {
   display: grid;
-  gap: 10px;
-  padding: 14px;
+  gap: 8px;
+  padding: 12px;
   border-radius: 16px;
   border: 1px solid color-mix(in srgb, var(--surface-border-default) 70%, transparent);
-  background: var(--bg-card);
+  background: color-mix(in srgb, var(--bg-card) 90%, transparent);
 }
 
 .actionQueueHeader {
@@ -57,7 +75,7 @@
 .metricsGrid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
+  gap: 8px;
 }
 
 .topChartCard {
@@ -77,11 +95,11 @@
 
 .metricCard {
   display: grid;
-  gap: 6px;
-  padding: 14px 12px;
+  gap: 5px;
+  padding: 12px 10px;
   border-radius: 14px;
   border: 1px solid color-mix(in srgb, var(--surface-border-default) 60%, transparent);
-  background: var(--bg-card);
+  background: color-mix(in srgb, var(--bg-card) 92%, transparent);
   text-align: center;
 }
 
@@ -135,13 +153,13 @@
 .denseStatsGrid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
+  gap: 8px;
 }
 
 .denseStatCard {
   display: grid;
   gap: 4px;
-  padding: 10px 12px;
+  padding: 9px 10px;
   border-radius: 12px;
   border: 1px solid color-mix(in srgb, var(--surface-border-default) 55%, transparent);
   background: color-mix(in srgb, var(--bg-card) 85%, transparent);
@@ -190,14 +208,14 @@
 .insightFacts {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 
 .insightFact {
-  padding: 6px 10px;
+  padding: 5px 9px;
   border-radius: 8px;
   background: color-mix(in srgb, var(--surface-secondary-bg) 60%, transparent);
-  font-size: 0.8rem;
+  font-size: 0.74rem;
   color: var(--text-muted);
 }
 

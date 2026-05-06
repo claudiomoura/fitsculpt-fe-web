@@ -2258,19 +2258,19 @@ const primaryRecommendation = recommendationCapability.items[0] ?? null;
   // ========== UI DATA ==========
   const actionQueueByTab: Record<ProgressInsightTab, ActionQueueItem[]> = {
     checkin: [
-      { id: "checkin", label: "Progreso", subtitle: latestCheckin ? `Último: ${latestCheckin.weightKg.toFixed(1)}kg` : "Registra tu peso", cta: "Hacer check-in", href: "/app/seguimiento/check-in", completed: !!latestCheckin },
-      { id: "body-scan", label: "Body scan", subtitle: bodyScanCapability.status === "ready" ? bodyScanCapability.summary : "Análisis corporal", cta: "Ver scan", href: "/app/body-scan", completed: bodyScanCapability.status === "ready" },
-      { id: "weekly-review", label: "Revisión semanal", subtitle: weeklyReviewReason, cta: "Ver resumen", href: "/app/weekly-review", completed: false },
+      { id: "checkin", label: "Check-in", subtitle: latestCheckin ? `Último: ${latestCheckin.weightKg.toFixed(1)} kg` : "Registra tu peso", cta: "Completar", href: "/app/seguimiento/check-in", completed: !!latestCheckin },
+      { id: "body-scan", label: "Body scan", subtitle: bodyScanCapability.status === "ready" ? "Análisis listo" : "Análisis corporal", cta: "Abrir", href: "/app/body-scan", completed: bodyScanCapability.status === "ready" },
+      { id: "weekly-review", label: "Revisión semanal", subtitle: weeklyReviewReady ? "Lista para revisar" : "Necesitas más datos", cta: "Ver", href: "/app/weekly-review", completed: weeklyReviewReady },
     ],
     nutrition: [
-      { id: "nutrition-log", label: "Nutrición", subtitle: `${nutritionDaysLogged}/${rangeDays} días registrados`, cta: "Registrar comida", href: "/app/nutricion", completed: nutritionDaysLogged > 0 },
-      { id: "protein-focus", label: "Proteína", subtitle: nutritionProteinTargetAdherence !== null ? `${nutritionProteinTargetAdherence}% objetivo` : "Objetivo pendiente", cta: "Revisar objetivos", href: "/app/profile/edit", completed: nutritionProteinTargetAdherence !== null && nutritionProteinTargetAdherence >= 90 },
-      { id: "weekly-review-nutrition", label: "Revisión semanal", subtitle: weeklyReviewReason, cta: "Ver resumen", href: "/app/weekly-review", completed: false },
+      { id: "nutrition-log", label: "Registro nutricional", subtitle: `${nutritionDaysLogged}/${rangeDays} días`, cta: "Registrar", href: "/app/nutricion", completed: nutritionDaysLogged > 0 },
+      { id: "protein-focus", label: "Meta proteína", subtitle: nutritionProteinTargetAdherence !== null ? `${nutritionProteinTargetAdherence}% cumplimiento` : "Objetivo pendiente", cta: "Ajustar", href: "/app/profile/edit", completed: nutritionProteinTargetAdherence !== null && nutritionProteinTargetAdherence >= 90 },
+      { id: "weekly-review-nutrition", label: "Revisión semanal", subtitle: weeklyReviewReady ? "Lista para revisar" : "Necesitas más datos", cta: "Ver", href: "/app/weekly-review", completed: weeklyReviewReady },
     ],
     training: [
-      { id: "training-log", label: "Entrenamiento", subtitle: `${trainingSessions} sesiones · ${trainingMinutes} min`, cta: "Ver entrenos", href: "/app/entrenamiento", completed: trainingSessions > 0 },
-      { id: "weekly-review-training", label: "Revisión semanal", subtitle: weeklyReviewReason, cta: "Ver resumen", href: "/app/weekly-review", completed: weeklyReviewReady },
-      { id: "body-scan-training", label: "Body scan", subtitle: bodyScanCapability.status === "ready" ? bodyScanCapability.summary : "Análisis corporal", cta: "Ver scan", href: "/app/body-scan", completed: bodyScanCapability.status === "ready" },
+      { id: "training-log", label: "Entrenamiento", subtitle: `${trainingSessions} sesiones · ${trainingMinutes} min`, cta: "Abrir", href: "/app/entrenamiento", completed: trainingSessions > 0 },
+      { id: "weekly-review-training", label: "Revisión semanal", subtitle: weeklyReviewReady ? "Lista para revisar" : "Necesitas más datos", cta: "Ver", href: "/app/weekly-review", completed: weeklyReviewReady },
+      { id: "body-scan-training", label: "Body scan", subtitle: bodyScanCapability.status === "ready" ? "Análisis listo" : "Análisis corporal", cta: "Abrir", href: "/app/body-scan", completed: bodyScanCapability.status === "ready" },
     ],
   };
 
@@ -2675,7 +2675,12 @@ const primaryRecommendation = recommendationCapability.items[0] ?? null;
 
       {!isCheckinOnly ? (
         // METRICS GRID - 2x2 core KPIs
-        <section className={styles.metricsGrid} aria-label="Tu salud de un vistazo">
+        <section className={styles.sectionGroup} aria-label="Tu salud de un vistazo">
+          <div className={styles.sectionGroupHeader}>
+            <p className="eyebrow m-0">Métricas</p>
+            <strong>Vista rápida</strong>
+          </div>
+          <div className={styles.metricsGrid}>
           {metricCards.map((m) => (
             <article key={m.id} className={styles.metricCard}>
               <span className={styles.metricCardIconBadge}>
@@ -2687,6 +2692,7 @@ const primaryRecommendation = recommendationCapability.items[0] ?? null;
               {m.helper ? <span className={styles.metricCardHelper}>{m.helper}</span> : null}
             </article>
           ))}
+          </div>
         </section>
       ) : null}
 
@@ -2724,7 +2730,12 @@ const primaryRecommendation = recommendationCapability.items[0] ?? null;
 
       {!isCheckinOnly ? (
         // ACTION QUEUE - moves to bottom (secondary priority)
-        <section className={styles.actionQueue} aria-label="Acciones rápidas">
+        <section className={styles.sectionGroup} aria-label="Acciones rápidas">
+          <div className={styles.sectionGroupHeader}>
+            <p className="eyebrow m-0">Acciones</p>
+            <strong>Próximos pasos</strong>
+          </div>
+          <div className={styles.actionQueue}>
           {actionQueueItems.slice(0, 3).map((item) => (
             <article key={item.id} className={styles.actionQueueCard}>
               <div className={styles.actionQueueHeader}>
@@ -2737,6 +2748,7 @@ const primaryRecommendation = recommendationCapability.items[0] ?? null;
               </Link>
             </article>
           ))}
+          </div>
         </section>
       ) : null}
 

@@ -54,26 +54,26 @@ export function TodayWeeklySummaryCard({
       className={`today-premium-card today-dashboard-card ${className ?? ""}`}
       style={{
         width: "100%",
-        padding: "clamp(16px, 3vw, 32px)",
+        padding: "clamp(16px, 2.4vw, 24px)",
         display: "flex",
         flexDirection: "column",
       }}
     >
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "32px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "18px" }}>
         <div>
           <p
             className="today-label"
             style={{
               fontSize: "14px",
-              letterSpacing: "0.15em",
-              color: "rgba(35, 120, 255, 0.9)", // Blue accent
-              marginBottom: "8px",
+              letterSpacing: "0.08em",
+              color: "var(--text-muted)",
+              marginBottom: "6px",
             }}
           >
             RESUMEN SEMANAL
           </p>
-          <h3 className="today-headline-medium" style={{ fontSize: "32px" }}>
+          <h3 className="today-headline-medium" style={{ fontSize: "clamp(22px, 4vw, 28px)", margin: 0 }}>
             Tu semana en perspectiva
           </h3>
         </div>
@@ -92,7 +92,7 @@ export function TodayWeeklySummaryCard({
       </div>
 
       {/* Mini chart area - 7 days */}
-      <div style={{ flex: 1, display: "flex", gap: "16px", alignItems: "flex-end" }}>
+      <div style={{ flex: 1, display: "flex", gap: "10px", alignItems: "flex-end" }}>
         {days.map((day, idx) => (
           <div
             key={idx}
