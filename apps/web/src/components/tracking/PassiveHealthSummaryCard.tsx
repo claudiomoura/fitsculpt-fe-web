@@ -16,10 +16,18 @@ type Props = {
   onSyncDevice?: () => Promise<void>;
   showDeviceSyncCta?: boolean;
   syncPending?: boolean;
+  androidSyncState?: {
+    status: "idle" | "permission_required" | "partial_permissions" | "success" | "error";
+    message: string | null;
+    autoRetryPending: boolean;
+    lastImportedCount: number | null;
+    syncedAt: string | null;
+  };
+  onRetrySync?: () => Promise<void>;
   disabled?: boolean;
 };
 
-export default function PassiveHealthSummaryCard({ passiveData, overview, endDate, onSaveSnapshot, onLoadDemo, onSyncDevice, showDeviceSyncCta = true, syncPending = false, disabled = false }: Props) {
+export default function PassiveHealthSummaryCard({ passiveData, overview, endDate, onSaveSnapshot, onLoadDemo, onSyncDevice, showDeviceSyncCta = true, syncPending = false, androidSyncState, onRetrySync, disabled = false }: Props) {
   const { t } = useLanguage();
   const [steps, setSteps] = useState("8500");
   const [activeMinutes, setActiveMinutes] = useState("35");
@@ -71,6 +79,7 @@ export default function PassiveHealthSummaryCard({ passiveData, overview, endDat
 
   const hasAndroidSyncedData = sourceBreakdown.androidCount > 0;
   const hasAnySyncedData = passiveData.snapshots.length > 0;
+  const syncState = androidSyncState?.status ?? "idle";
 
   async function handleSave() {
     setPending("save");
@@ -169,6 +178,34 @@ export default function PassiveHealthSummaryCard({ passiveData, overview, endDat
             ? `${t("tracking.passiveLatestSync")}: ${latestSyncedAtLabel}`
             : t("tracking.passiveNoSync")}
         </p>
+        {androidSyncState && showDeviceSyncCta ? (
+          <div className="mt-2 rounded-xl border border-white/15 bg-black/15 px-3 py-2 text-xs">
+            <p className="m-0 font-semibold">
+              {syncState === "permission_required" && "Debes conceder permisos en Health Connect."}
+              {syncState === "partial_permissions" && "Faltan permisos para algunos datos en Health Connect."}
+              {syncState === "success" && "Estado de Health Connect: sincronizado"}
+              {syncState === "error" && "No se pudo sincronizar con Health Connect."}
+              {syncState === "idle" && "Estado de Health Connect: pendiente de sincronizar"}
+            </p>
+            {androidSyncState.message ? <p className="m-0 mt-1 opacity-90">{androidSyncState.message}</p> : null}
+            {androidSyncState.lastImportedCount !== null ? (
+              <p className="m-0 mt-1 opacity-90">Registros importados: {androidSyncState.lastImportedCount}</p>
+            ) : null}
+            {androidSyncState.syncedAt ? (
+              <p className="m-0 mt-1 opacity-90">Ultima sincronizacion: {new Date(androidSyncState.syncedAt).toLocaleString()}</p>
+            ) : null}
+            {androidSyncState.autoRetryPending ? (
+              <p className="m-0 mt-1 opacity-90">Al volver desde permisos, reintentamos la sincronizacion automaticamente una vez.</p>
+            ) : null}
+            {(syncState === "permission_required" || syncState === "partial_permissions" || syncState === "error") && onRetrySync ? (
+              <div className="mt-2">
+                <Button type="button" size="sm" variant="secondary" onClick={() => void onRetrySync()} disabled={syncPending || disabled}>
+                  Reintentar sincronizacion
+                </Button>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       <details className="mt-3 rounded-2xl border border-white/80 bg-white/82" open>
@@ -188,6 +225,9 @@ export default function PassiveHealthSummaryCard({ passiveData, overview, endDat
                   <p className="m-0 font-semibold">{snapshot.date} · {getPassiveSourceLabel(snapshot.source)}</p>
                   <p className="m-0 mt-1 text-[var(--muted)]">
                     Steps: {snapshot.steps ?? "-"} · Min: {snapshot.activeMinutes ?? "-"} · Sleep: {snapshot.sleepHours ?? "-"}
+                  </p>
+                  <p className="m-0 mt-1 text-[var(--muted)]">
+                    {snapshot.source === "manual" || snapshot.source === "demo" ? "Origen: carga manual" : "Origen: Android / Health Connect"}
                   </p>
                 </div>
               ))}

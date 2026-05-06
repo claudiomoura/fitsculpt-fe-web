@@ -8,6 +8,7 @@ const SAFE_AREA_TOP_VAR_NAME = "--native-safe-area-top";
 const SAFE_AREA_RIGHT_VAR_NAME = "--native-safe-area-right";
 const SAFE_AREA_BOTTOM_VAR_NAME = "--native-safe-area-bottom";
 const SAFE_AREA_LEFT_VAR_NAME = "--native-safe-area-left";
+const NATIVE_PLATFORM_ATTR = "data-native-platform";
 
 type ShellInsetsPlugin = {
   getInsets: () => Promise<{
@@ -66,6 +67,9 @@ async function setNativeSafeAreaInsets() {
 
 export default function VisualViewportVars() {
   useEffect(() => {
+    const isNativeAndroid = Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android";
+    document.documentElement.setAttribute(NATIVE_PLATFORM_ATTR, isNativeAndroid ? "android" : "web");
+
     const vv = window.visualViewport;
     const refreshInsets = () => {
       setViewportOffsetBottom();

@@ -179,6 +179,14 @@ type TrackingClientProps = {
   view?: "all" | "checkin" | "body-scan";
 };
 
+type AndroidSyncUiState = {
+  status: "idle" | "permission_required" | "partial_permissions" | "success" | "error";
+  message: string | null;
+  autoRetryPending: boolean;
+  lastImportedCount: number | null;
+  syncedAt: string | null;
+};
+
 function normalizeWorkoutEntriesFromDb(
   workouts: WorkoutDbItem[] | null | undefined,
 ): WorkoutEntry[] {
@@ -493,6 +501,14 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [isAndroidDevice, setIsAndroidDevice] = useState(false);
   const [isAndroidSyncing, setIsAndroidSyncing] = useState(false);
+  const [androidSyncUiState, setAndroidSyncUiState] = useState<AndroidSyncUiState>({
+    status: "idle",
+    message: null,
+    autoRetryPending: false,
+    lastImportedCount: null,
+    syncedAt: null,
+  });
+  const [pendingPermissionRetry, setPendingPermissionRetry] = useState(false);
   const [isAdvancedAnalysisOpen, setIsAdvancedAnalysisOpen] = useState(false);
   const [isPassiveDetailsOpen, setIsPassiveDetailsOpen] = useState(false);
   const [isIntelligencePreviewOpen, setIsIntelligencePreviewOpen] = useState(false);
@@ -650,6 +666,40 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
   useEffect(() => {
     setIsAndroidDevice(isAndroidHealthSyncAvailable());
   }, []);
+
+  useEffect(() => {
+    if (!pendingPermissionRetry || !isAndroidDevice || isAndroidSyncing) {
+      return;
+    }
+
+    let settled = false;
+    const trySyncOnce = () => {
+      if (settled) return;
+      settled = true;
+      setPendingPermissionRetry(false);
+      setAndroidSyncUiState((prev) => ({
+        ...prev,
+        autoRetryPending: false,
+      }));
+      void syncPassiveFromAndroidDevice();
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        trySyncOnce();
+      }
+    };
+
+    window.addEventListener("focus", trySyncOnce);
+    window.addEventListener("pageshow", trySyncOnce);
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      window.removeEventListener("focus", trySyncOnce);
+      window.removeEventListener("pageshow", trySyncOnce);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [isAndroidDevice, isAndroidSyncing, pendingPermissionRetry]);
 
   useEffect(() => {
     let active = true;
@@ -1076,16 +1126,44 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
       }
 
       if (result.status === "permissions") {
+        const reasonUpper = result.reason.toUpperCase();
+        const isPartial = reasonUpper.includes("PARTIAL") || reasonUpper.includes("NOT_GRANTED");
+        setAndroidSyncUiState({
+          status: isPartial ? "partial_permissions" : "permission_required",
+          message: isPartial
+            ? "Faltan permisos para algunos datos en Health Connect."
+            : "Debes conceder permisos en Health Connect.",
+          autoRetryPending: true,
+          lastImportedCount: null,
+          syncedAt: null,
+        });
+        setPendingPermissionRetry(true);
         showMessage(t("tracking.syncAndroidPermissionsRequired"));
         return;
       }
 
       if (result.status === "error") {
+        setAndroidSyncUiState({
+          status: "error",
+          message: "No se pudo sincronizar con Health Connect. Reintenta.",
+          autoRetryPending: false,
+          lastImportedCount: null,
+          syncedAt: null,
+        });
+        setPendingPermissionRetry(false);
         showMessage(t("tracking.syncAndroidError", { reason: result.reason }));
         return;
       }
 
       if (!result.snapshots.length) {
+        setAndroidSyncUiState({
+          status: "success",
+          message: "Permisos listos. No hay datos nuevos para sincronizar.",
+          autoRetryPending: false,
+          lastImportedCount: 0,
+          syncedAt: new Date().toISOString(),
+        });
+        setPendingPermissionRetry(false);
         showMessage(t("tracking.syncAndroidNoRecentData"));
         return;
       }
@@ -1093,6 +1171,14 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
       await replacePassiveSync(
         mergePassiveSnapshots(passiveData.snapshots, result.snapshots),
       );
+      setAndroidSyncUiState({
+        status: "success",
+        message: "Sincronizacion Android completada.",
+        autoRetryPending: false,
+        lastImportedCount: result.snapshots.length,
+        syncedAt: new Date().toISOString(),
+      });
+      setPendingPermissionRetry(false);
       showMessage(
         t("tracking.syncAndroidSuccess", {
           days: result.snapshots.length,
@@ -2725,6 +2811,8 @@ const primaryRecommendation = recommendationCapability.items[0] ?? null;
                 onSyncDevice={isAndroidDevice ? syncPassiveFromAndroidDevice : undefined}
                 showDeviceSyncCta={isAndroidDevice}
                 syncPending={isAndroidSyncing}
+                androidSyncState={androidSyncUiState}
+                onRetrySync={isAndroidDevice ? syncPassiveFromAndroidDevice : undefined}
                 disabled={trackingStatus === "loading"}
               />
               {hasAdjustmentEntitlement && (
