@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { Button } from "@/design-system/components/Button";
 import { Input } from "@/design-system/components/Input";
 import { useLanguage } from "@/context/LanguageProvider";
-import { buildDemoPassiveSnapshots, getPassiveSourceLabel, type PassiveHealthOverview } from "@/lib/passiveHealth";
+import { buildDemoPassiveSnapshots, comparePassiveSnapshotPriority, getPassiveSourceLabel, type PassiveHealthOverview } from "@/lib/passiveHealth";
 import type { PassiveHealthData, PassiveHealthSnapshot } from "@/services/tracking";
 
 type Props = {
@@ -75,10 +75,7 @@ export default function PassiveHealthSummaryCard({ passiveData, overview, endDat
 
   const latestSyncedRows = useMemo(() => {
     return [...passiveData.snapshots]
-      .sort((a, b) => {
-        if (a.date !== b.date) return b.date.localeCompare(a.date);
-        return (b.syncedAt ?? "").localeCompare(a.syncedAt ?? "");
-      })
+      .sort(comparePassiveSnapshotPriority)
       .slice(0, 5);
   }, [passiveData.snapshots]);
 
@@ -290,8 +287,8 @@ export default function PassiveHealthSummaryCard({ passiveData, overview, endDat
                     {snapshot.source === "demo"
                       ? "Origen: demo (solo pruebas)"
                       : snapshot.source === "manual"
-                        ? "Origen: carga manual"
-                        : "Origen: Android / Health Connect"}
+                        ? "Origen: carga manual (secundario)"
+                        : "Origen: Android / Health Connect (prioritario)"}
                   </p>
                 </div>
               ))}

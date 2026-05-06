@@ -58,11 +58,13 @@ async function setNativeSafeAreaInsets() {
 
   try {
     const insets = await ShellInsets.getInsets();
-    setCssPixelVar(SAFE_AREA_TOP_VAR_NAME, insets.top ?? 0);
+    // Android status bar inset is already handled by WebView/layout.
+    // Keep top inset at zero to avoid double top spacing in app screens.
+    setCssPixelVar(SAFE_AREA_TOP_VAR_NAME, 0);
     setCssPixelVar(SAFE_AREA_RIGHT_VAR_NAME, insets.right ?? 0);
     setCssPixelVar(SAFE_AREA_BOTTOM_VAR_NAME, insets.bottom ?? 0);
     setCssPixelVar(SAFE_AREA_LEFT_VAR_NAME, insets.left ?? 0);
-    setDebugAttr("data-native-inset-top", insets.top ?? 0);
+    setDebugAttr("data-native-inset-top", 0);
     setDebugAttr("data-native-inset-bottom", insets.bottom ?? 0);
   } catch {
     setCssPixelVar(SAFE_AREA_TOP_VAR_NAME, 0);

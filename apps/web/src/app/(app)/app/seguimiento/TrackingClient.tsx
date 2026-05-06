@@ -24,6 +24,7 @@ import {
   saveCheckinAndSyncProfileMetrics,
 } from "@/lib/profileService";
 import {
+  mergePassiveSnapshotsWithPriority,
   defaultPassiveHealthData,
 } from "@/lib/passiveHealth";
 import { getTrackingRangeConfig } from "@/lib/trackingProfessionalRules";
@@ -1093,26 +1094,6 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
     showMessage(options?.successMessage ?? t("tracking.passiveDemoSuccess"));
   }
 
-  function mergePassiveSnapshots(
-    current: PassiveHealthSnapshot[],
-    incoming: PassiveHealthSnapshot[],
-  ): PassiveHealthSnapshot[] {
-    const map = new Map<string, PassiveHealthSnapshot>();
-
-    [...current, ...incoming].forEach((entry) => {
-      const idKey = `${entry.source}:${entry.id}`;
-      const fallbackKey = `${entry.source}:${entry.date}:${entry.provider ?? ""}`;
-      map.set(entry.id ? idKey : fallbackKey, entry);
-    });
-
-    return Array.from(map.values())
-      .sort((a, b) => {
-        if (a.date !== b.date) return b.date.localeCompare(a.date);
-        return (b.syncedAt ?? "").localeCompare(a.syncedAt ?? "");
-      })
-      .slice(0, 180);
-  }
-
   async function syncPassiveFromAndroidDevice() {
     if (isAndroidSyncing) return;
 
@@ -1186,7 +1167,7 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
         return;
       }
 
-      await replacePassiveSync(mergePassiveSnapshots(passiveData.snapshots, result.snapshots), {
+      await replacePassiveSync(mergePassiveSnapshotsWithPriority(passiveData.snapshots, result.snapshots), {
         successMessage: t("tracking.syncAndroidSuccess", {
           days: result.snapshots.length,
         }),

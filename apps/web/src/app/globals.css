@@ -183,7 +183,7 @@
 }
 
 :root[data-native-platform="android"] {
-  --safe-area-top: var(--native-safe-area-top);
+  --safe-area-top: 0px;
   --safe-area-right: max(env(safe-area-inset-right, 0px), var(--native-safe-area-right));
   --safe-area-bottom: max(env(safe-area-inset-bottom, 0px), var(--native-safe-area-bottom));
   --safe-area-left: var(--native-safe-area-left);

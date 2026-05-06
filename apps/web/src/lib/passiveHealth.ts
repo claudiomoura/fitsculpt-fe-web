@@ -18,6 +18,28 @@ export const defaultPassiveHealthData: PassiveHealthData = {
   lastSyncSource: null,
 };
 
+const ANDROID_PASSIVE_SOURCES = new Set<PassiveHealthSource>([
+  "health_connect",
+  "google_fit",
+  "fitbit",
+  "garmin",
+  "wearable",
+]);
+
+function sourcePriority(source: PassiveHealthSource) {
+  if (ANDROID_PASSIVE_SOURCES.has(source)) return 3;
+  if (source === "apple_health" || source === "smart_scale") return 2;
+  if (source === "manual") return 1;
+  if (source === "demo") return 0;
+  return 1;
+}
+
+function toEpoch(value: string | null | undefined) {
+  if (!value) return 0;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 function round(value: number, digits = 1) {
   const factor = 10 ** digits;
   return Math.round(value * factor) / factor;
@@ -124,4 +146,40 @@ export function getPassiveSourceLabel(source: PassiveHealthSource): string {
     default:
       return "Manual";
   }
+}
+
+export function comparePassiveSnapshotPriority(a: PassiveHealthSnapshot, b: PassiveHealthSnapshot) {
+  if (a.date !== b.date) return b.date.localeCompare(a.date);
+
+  const sourceDiff = sourcePriority(b.source) - sourcePriority(a.source);
+  if (sourceDiff !== 0) return sourceDiff;
+
+  const syncedAtDiff = toEpoch(b.syncedAt) - toEpoch(a.syncedAt);
+  if (syncedAtDiff !== 0) return syncedAtDiff;
+
+  return (b.id ?? "").localeCompare(a.id ?? "");
+}
+
+export function mergePassiveSnapshotsWithPriority(
+  current: PassiveHealthSnapshot[],
+  incoming: PassiveHealthSnapshot[],
+): PassiveHealthSnapshot[] {
+  const byDate = new Map<string, PassiveHealthSnapshot>();
+
+  [...current, ...incoming].forEach((entry) => {
+    const existing = byDate.get(entry.date);
+    if (!existing) {
+      byDate.set(entry.date, entry);
+      return;
+    }
+
+    if (comparePassiveSnapshotPriority(entry, existing) < 0) {
+      byDate.set(entry.date, entry);
+      return;
+    }
+
+    byDate.set(entry.date, existing);
+  });
+
+  return Array.from(byDate.values()).sort(comparePassiveSnapshotPriority).slice(0, 180);
 }
