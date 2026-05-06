@@ -2681,7 +2681,7 @@ const primaryRecommendation = recommendationCapability.items[0] ?? null;
               <span className={styles.metricCardIconBadge}>
                 <span className={styles.metricCardIcon}>{m.icon}</span>
               </span>
-              <strong className={styles.metricCardValue} style={{ color: m.color }}>{m.value}</strong>
+              <strong className={styles.metricCardValue} style={m.color ? { color: m.color } : undefined}>{m.value}</strong>
               <span className={styles.metricCardLabel}>{m.label}</span>
               <span className={styles.metricCardSub}>{m.sub}</span>
               {m.helper ? <span className={styles.metricCardHelper}>{m.helper}</span> : null}
@@ -2705,7 +2705,7 @@ const primaryRecommendation = recommendationCapability.items[0] ?? null;
         <section className={`card premium-surface-card surface-content-card ${styles.heroCard} ${styles.quickCheckinHero}`}>
           <div className={styles.dailyHero}>
             <p className="eyebrow m-0">{t("tracking.pageEyebrow")}</p>
-            <h1 className="section-title m-0" style={{ fontSize: "1.5rem" }}>
+            <h1 className={`section-title m-0 ${styles.heroTitle}`}>
               {latestCheckin
                 ? `Último peso: ${latestCheckin.weightKg.toFixed(1)} kg`
                 : "Sin registros aún"}
@@ -2762,7 +2762,7 @@ const primaryRecommendation = recommendationCapability.items[0] ?? null;
             </div>
             <span className={styles.bodyScanConfidence}>{bodyScanCapability.confidence}</span>
           </div>
-          <p className="muted m-0">{recommendationCapability.explainability.summary.slice(0, 120)}...</p>
+          <p className="muted m-0">{recommendationCapability.explainability.summary.slice(0, 92)}...</p>
           <div className={styles.bodyScanPreviewCtas}>
             <Link href="/app/body-scan" className="btn secondary fit-content">Ver scan</Link>
             {primaryRecommendation ? (
@@ -2843,7 +2843,7 @@ const primaryRecommendation = recommendationCapability.items[0] ?? null;
           </div>
           <div className={styles.checkinHero}>
             <div>
-              <h2 className="section-title" style={{ fontSize: 22 }}>
+              <h2 className={`section-title ${styles.checkinTitle}`}>
                 {t("profile.checkinTitle")}
               </h2>
               <p className="section-subtitle">{t("profile.checkinSubtitle")}</p>
@@ -3065,8 +3065,7 @@ const primaryRecommendation = recommendationCapability.items[0] ?? null;
                   ? "checkin-quick-submit"
                   : "checkin-full-submit"
               }
-              className={`btn ${isSubmitting ? "is-loading" : ""}`}
-              style={{ width: "fit-content" }}
+              className={`btn fit-content ${isSubmitting ? "is-loading" : ""}`}
               disabled={
                 checkinMode === "quick"
                   ? isWeightEntrySubmitDisabled
@@ -3086,7 +3085,7 @@ const primaryRecommendation = recommendationCapability.items[0] ?? null;
             </button>
           </form>
 
-          <div style={{ marginTop: 16, display: "grid", gap: 10 }}>
+          <div className={styles.checkinHistoryWrap}>
             {currentCheckinPhoto && baselineCheckinPhoto ? (
               <div className={styles.photoComparisonCard}>
                 <h3 className="section-title section-title-sm">
@@ -3167,13 +3166,7 @@ const primaryRecommendation = recommendationCapability.items[0] ?? null;
                   key={entry.id}
                   className="feature-card feature-card--compact"
                 >
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      gap: 10,
-                    }}
-                  >
+                  <div className={styles.checkinHistoryHeader}>
                     <strong>{entry.date}</strong>
                     <span>
                       {[
@@ -3190,7 +3183,7 @@ const primaryRecommendation = recommendationCapability.items[0] ?? null;
                     </span>
                   </div>
                   {entry.notes ? (
-                    <p style={{ marginTop: 6 }} className="muted">
+                    <p className={`muted ${styles.checkinHistoryNote}`}>
                       {entry.notes}
                     </p>
                   ) : null}

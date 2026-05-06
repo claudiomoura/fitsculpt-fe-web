@@ -90,8 +90,8 @@ export function TodaySummaryCard({
           />
           <defs>
             <linearGradient id="donutGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#00B4A0" />
-              <stop offset="100%" stopColor="#2378FF" />
+              <stop offset="0%" stopColor="var(--color-primary)" />
+              <stop offset="100%" stopColor="var(--color-secondary)" />
             </linearGradient>
           </defs>
         </svg>
@@ -140,8 +140,8 @@ export function TodaySummaryCard({
               width: "clamp(8px, 1.5vw, 12px)",
               height: "clamp(8px, 1.5vw, 12px)",
               borderRadius: "50%",
-              background: trainingCompleted >= trainingTotal ? "#22c55e" : "rgba(34, 197, 94, 0.3)",
-              boxShadow: trainingCompleted >= trainingTotal ? "0 0 8px rgba(34, 197, 94, 0.5)" : "none",
+               background: trainingCompleted >= trainingTotal ? "var(--status-success)" : "color-mix(in srgb, var(--status-success) 30%, transparent)",
+               boxShadow: trainingCompleted >= trainingTotal ? "0 0 8px color-mix(in srgb, var(--status-success) 45%, transparent)" : "none",
             }}
           />
           <span className="today-label">
@@ -149,15 +149,15 @@ export function TodaySummaryCard({
           </span>
         </div>
 
-        {/* Nutricion - Violet */}
+        {/* Nutricion */}
         <div style={{ display: "flex", alignItems: "center", gap: "clamp(8px, 2vw, 12px)" }}>
           <div
             style={{
               width: "clamp(8px, 1.5vw, 12px)",
               height: "clamp(8px, 1.5vw, 12px)",
               borderRadius: "50%",
-              background: nutritionCompleted >= nutritionTotal ? "#8b5cf6" : "rgba(139, 92, 246, 0.3)",
-              boxShadow: nutritionCompleted >= nutritionTotal ? "0 0 8px rgba(139, 92, 246, 0.5)" : "none",
+               background: nutritionCompleted >= nutritionTotal ? "var(--color-secondary)" : "color-mix(in srgb, var(--color-secondary) 30%, transparent)",
+               boxShadow: nutritionCompleted >= nutritionTotal ? "0 0 8px color-mix(in srgb, var(--color-secondary) 45%, transparent)" : "none",
             }}
           />
           <span className="today-label">
@@ -172,8 +172,8 @@ export function TodaySummaryCard({
               width: "clamp(8px, 1.5vw, 12px)",
               height: "clamp(8px, 1.5vw, 12px)",
               borderRadius: "50%",
-              background: checkinCompleted >= checkinTotal ? "#eab308" : "rgba(234, 179, 8, 0.3)",
-              boxShadow: checkinCompleted >= checkinTotal ? "0 0 8px rgba(234, 179, 8, 0.5)" : "none",
+               background: checkinCompleted >= checkinTotal ? "var(--status-warning)" : "color-mix(in srgb, var(--status-warning) 30%, transparent)",
+               boxShadow: checkinCompleted >= checkinTotal ? "0 0 8px color-mix(in srgb, var(--status-warning) 45%, transparent)" : "none",
             }}
           />
           <span className="today-label">

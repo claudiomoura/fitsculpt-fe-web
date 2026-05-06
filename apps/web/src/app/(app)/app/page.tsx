@@ -17,9 +17,10 @@ export default async function AppHomePage() {
       <section className="card">
         <h1 className="section-title">{t("dashboard.title")}</h1>
         <p className="section-subtitle">{t("dashboard.subtitle")}</p>
-      </section>
-      <section className="card">
-        <ButtonLink href="/app/weekly-review" variant="secondary">{t("weeklyReview.title")}</ButtonLink>
+        <div className="inline-actions mt-12">
+          <ButtonLink href="/app/hoy">{t("dashboard.kpiGoToday")}</ButtonLink>
+          <ButtonLink href="/app/weekly-review" variant="secondary">{t("weeklyReview.title")}</ButtonLink>
+        </div>
       </section>
       <DashboardClient />
     </div>

@@ -270,6 +270,30 @@
   padding-bottom: 0;
 }
 
+.heroTitle {
+  font-size: clamp(1.3rem, 2.6vw, 1.5rem);
+}
+
+.checkinTitle {
+  font-size: clamp(1.2rem, 2.8vw, 1.375rem);
+}
+
+.checkinHistoryWrap {
+  margin-top: 16px;
+  display: grid;
+  gap: 10px;
+}
+
+.checkinHistoryHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.checkinHistoryNote {
+  margin-top: 6px;
+}
+
 .summaryIntro {
   display: grid;
   gap: 16px;

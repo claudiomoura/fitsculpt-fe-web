@@ -7,16 +7,16 @@
 /* CSS Custom Properties - use app's existing variables */
 .todayScope {
   /* Card styling */
-  --today-card-radius: 42px;
-  --today-border-accent: 2px;
-  --today-card-shadow: 0 8px 32px rgba(0, 180, 160, 0.10);
+  --today-card-radius: var(--surface-card-radius);
+  --today-border-accent: 1px;
+  --today-card-shadow: var(--surface-card-shadow);
   
   /* Typography scale - MOBILE BASE */
-  --today-title-size: 32px;
-  --today-headline-large: 28px;
-  --today-headline-medium: 24px;
-  --today-body-size: 16px;
-  --today-label-size: 12px;
+  --today-title-size: 30px;
+  --today-headline-large: 26px;
+  --today-headline-medium: 22px;
+  --today-body-size: 15px;
+  --today-label-size: 11px;
   
   /* Spacing system - MOBILE BASE */
   --today-spacing-lateral: 16px;
