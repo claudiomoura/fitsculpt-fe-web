@@ -109,4 +109,72 @@ describe("PassiveHealthSummaryCard", () => {
 
     expect(screen.getByTestId("passive-source-mode")).toHaveTextContent(/fuente activa: manual/i);
   });
+
+  it("shows demo source mode and demo-origin label distinctly", () => {
+    renderWithProviders(
+      <PassiveHealthSummaryCard
+        {...baseProps}
+        passiveData={{
+          snapshots: [
+            {
+              id: "demo-1",
+              date: "2026-04-09",
+              source: "demo",
+              provider: "Demo Sync",
+              steps: 7500,
+              activeCalories: 260,
+              activeMinutes: 28,
+              sleepHours: 7,
+              restingHeartRate: 62,
+              exerciseSessions: 0,
+              note: "Demo sync",
+              syncedAt: "2026-04-09T08:00:00.000Z",
+            },
+          ],
+          lastSyncAt: "2026-04-09T08:00:00.000Z",
+          lastSyncSource: "demo",
+        }}
+      />, 
+    );
+
+    expect(screen.getByTestId("passive-source-mode")).toHaveTextContent(/fuente activa: demo/i);
+    expect(screen.getByText(/origen: demo \(solo pruebas\)/i)).toBeInTheDocument();
+  });
+
+  it("shows explicit no-data message after successful android sync with zero imports", () => {
+    renderWithProviders(
+      <PassiveHealthSummaryCard
+        {...baseProps}
+        passiveData={{
+          snapshots: [
+            {
+              id: "manual-1",
+              date: "2026-04-09",
+              source: "manual",
+              provider: "Manual sync",
+              steps: 8200,
+              activeCalories: 300,
+              activeMinutes: 34,
+              sleepHours: 7.1,
+              restingHeartRate: 59,
+              exerciseSessions: 0,
+              note: "Manual sync",
+              syncedAt: "2026-04-09T08:00:00.000Z",
+            },
+          ],
+          lastSyncAt: "2026-04-09T08:00:00.000Z",
+          lastSyncSource: "manual",
+        }}
+        androidSyncState={{
+          status: "success",
+          message: "Permisos listos, pero Health Connect no devolvio datos recientes.",
+          autoRetryPending: false,
+          lastImportedCount: 0,
+          syncedAt: "2026-04-09T12:00:00.000Z",
+        }}
+      />, 
+    );
+
+    expect(screen.getByTestId("passive-sync-status-banner")).toHaveTextContent(/sin datos recientes para importar/i);
+  });
 });

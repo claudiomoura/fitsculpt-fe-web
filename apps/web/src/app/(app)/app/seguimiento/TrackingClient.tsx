@@ -1059,7 +1059,15 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
     showMessage(t("tracking.passiveSaveSuccess"));
   }
 
-  async function replacePassiveSync(snapshots: PassivePayload["snapshots"]) {
+  async function replacePassiveSync(
+    snapshots: PassivePayload["snapshots"],
+    options?: {
+      successMessage?: string;
+      lastSyncSource?: PassivePayload["lastSyncSource"];
+    },
+  ) {
+    const latestSourceFromPayload =
+      options?.lastSyncSource ?? snapshots[0]?.source ?? "demo";
     const response = await fetch("/api/tracking/health", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -1067,7 +1075,7 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
       body: JSON.stringify({
         snapshots,
         lastSyncAt: new Date().toISOString(),
-        lastSyncSource: snapshots[0]?.source ?? "demo",
+        lastSyncSource: latestSourceFromPayload,
       }),
     });
 
@@ -1078,7 +1086,7 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
 
     const data = (await response.json()) as PassivePayload;
     setPassiveData(data);
-    showMessage(t("tracking.passiveDemoSuccess"));
+    showMessage(options?.successMessage ?? t("tracking.passiveDemoSuccess"));
   }
 
   function mergePassiveSnapshots(
@@ -1158,7 +1166,7 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
       if (!result.snapshots.length) {
         setAndroidSyncUiState({
           status: "success",
-          message: "Permisos listos. No hay datos nuevos para sincronizar.",
+          message: "Permisos listos, pero Health Connect no devolvio datos recientes.",
           autoRetryPending: false,
           lastImportedCount: 0,
           syncedAt: new Date().toISOString(),
@@ -1168,9 +1176,12 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
         return;
       }
 
-      await replacePassiveSync(
-        mergePassiveSnapshots(passiveData.snapshots, result.snapshots),
-      );
+      await replacePassiveSync(mergePassiveSnapshots(passiveData.snapshots, result.snapshots), {
+        successMessage: t("tracking.syncAndroidSuccess", {
+          days: result.snapshots.length,
+        }),
+        lastSyncSource: result.snapshots[0]?.source ?? "health_connect",
+      });
       setAndroidSyncUiState({
         status: "success",
         message: "Sincronizacion Android completada.",
@@ -1179,11 +1190,6 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
         syncedAt: new Date().toISOString(),
       });
       setPendingPermissionRetry(false);
-      showMessage(
-        t("tracking.syncAndroidSuccess", {
-          days: result.snapshots.length,
-        }),
-      );
     } finally {
       setIsAndroidSyncing(false);
     }
@@ -2807,7 +2813,11 @@ const primaryRecommendation = recommendationCapability.items[0] ?? null;
                 overview={passiveOverview}
                 endDate={passiveRangeEnd}
                 onSaveSnapshot={savePassiveSnapshot}
-                onLoadDemo={replacePassiveSync}
+                onLoadDemo={(snapshots) =>
+                  replacePassiveSync(snapshots, {
+                    successMessage: t("tracking.passiveDemoSuccess"),
+                    lastSyncSource: "demo",
+                  })}
                 onSyncDevice={isAndroidDevice ? syncPassiveFromAndroidDevice : undefined}
                 showDeviceSyncCta={isAndroidDevice}
                 syncPending={isAndroidSyncing}

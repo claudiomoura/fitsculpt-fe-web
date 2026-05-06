@@ -48,17 +48,20 @@ export default function PassiveHealthSummaryCard({ passiveData, overview, endDat
     const androidSyncSources = new Set(["health_connect", "google_fit", "fitbit", "garmin", "wearable", "apple_health", "smart_scale"]);
     let androidCount = 0;
     let manualCount = 0;
+    let demoCount = 0;
 
     passiveData.snapshots.forEach((snapshot) => {
       if (androidSyncSources.has(snapshot.source)) {
         androidCount += 1;
+      } else if (snapshot.source === "demo") {
+        demoCount += 1;
       } else {
         manualCount += 1;
       }
     });
 
-    const mode = androidCount > 0 ? "android" : manualCount > 0 ? "manual" : "none";
-    return { mode, androidCount, manualCount };
+    const mode = androidCount > 0 ? "android" : manualCount > 0 ? "manual" : demoCount > 0 ? "demo" : "none";
+    return { mode, androidCount, manualCount, demoCount };
   }, [passiveData.snapshots]);
 
   const latestSyncedAtLabel = useMemo(() => {
@@ -80,6 +83,10 @@ export default function PassiveHealthSummaryCard({ passiveData, overview, endDat
   const hasAndroidSyncedData = sourceBreakdown.androidCount > 0;
   const hasAnySyncedData = passiveData.snapshots.length > 0;
   const syncState = androidSyncState?.status ?? "idle";
+  const noRealDataAfterAndroidSync =
+    syncState === "success" &&
+    androidSyncState?.lastImportedCount === 0 &&
+    !hasAndroidSyncedData;
 
   async function handleSave() {
     setPending("save");
@@ -128,6 +135,8 @@ export default function PassiveHealthSummaryCard({ passiveData, overview, endDat
               ? `Fuente activa: Android Sync (${sourceBreakdown.androidCount})`
               : sourceBreakdown.mode === "manual"
                 ? `Fuente activa: Manual (${sourceBreakdown.manualCount})`
+                : sourceBreakdown.mode === "demo"
+                  ? `Fuente activa: Demo (${sourceBreakdown.demoCount})`
                 : "Fuente activa: Sin sincronización"}
           </p>
         </div>
@@ -169,8 +178,12 @@ export default function PassiveHealthSummaryCard({ passiveData, overview, endDat
         <p className="m-0 font-semibold">
           {hasAndroidSyncedData
             ? `✅ Datos sincronizados desde Android: ${sourceBreakdown.androidCount}`
+            : noRealDataAfterAndroidSync
+              ? "ℹ️ Health Connect activo, pero sin datos recientes para importar"
             : hasAnySyncedData
-              ? `ℹ️ Datos cargados manualmente: ${sourceBreakdown.manualCount}`
+              ? sourceBreakdown.demoCount > 0 && sourceBreakdown.manualCount === 0
+                ? `🧪 Datos de demo cargados: ${sourceBreakdown.demoCount}`
+                : `ℹ️ Datos cargados manualmente: ${sourceBreakdown.manualCount}`
               : "⚠️ Sin datos sincronizados todavía"}
         </p>
         <p className="m-0 mt-1 opacity-90">
@@ -227,7 +240,11 @@ export default function PassiveHealthSummaryCard({ passiveData, overview, endDat
                     Steps: {snapshot.steps ?? "-"} · Min: {snapshot.activeMinutes ?? "-"} · Sleep: {snapshot.sleepHours ?? "-"}
                   </p>
                   <p className="m-0 mt-1 text-[var(--muted)]">
-                    {snapshot.source === "manual" || snapshot.source === "demo" ? "Origen: carga manual" : "Origen: Android / Health Connect"}
+                    {snapshot.source === "demo"
+                      ? "Origen: demo (solo pruebas)"
+                      : snapshot.source === "manual"
+                        ? "Origen: carga manual"
+                        : "Origen: Android / Health Connect"}
                   </p>
                 </div>
               ))}
