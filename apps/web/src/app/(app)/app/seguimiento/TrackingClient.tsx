@@ -182,6 +182,8 @@ type TrackingClientProps = {
 type AndroidSyncUiState = {
   status: "idle" | "permission_required" | "partial_permissions" | "success" | "error";
   message: string | null;
+  debugReason: string | null;
+  fetchedSources: string[];
   autoRetryPending: boolean;
   lastImportedCount: number | null;
   syncedAt: string | null;
@@ -504,6 +506,8 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
   const [androidSyncUiState, setAndroidSyncUiState] = useState<AndroidSyncUiState>({
     status: "idle",
     message: null,
+    debugReason: null,
+    fetchedSources: [],
     autoRetryPending: false,
     lastImportedCount: null,
     syncedAt: null,
@@ -1141,6 +1145,8 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
           message: isPartial
             ? "Faltan permisos para algunos datos en Health Connect."
             : "Debes conceder permisos en Health Connect.",
+          debugReason: result.reason,
+          fetchedSources: [],
           autoRetryPending: true,
           lastImportedCount: null,
           syncedAt: null,
@@ -1154,6 +1160,8 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
         setAndroidSyncUiState({
           status: "error",
           message: "No se pudo sincronizar con Health Connect. Reintenta.",
+          debugReason: result.reason,
+          fetchedSources: [],
           autoRetryPending: false,
           lastImportedCount: null,
           syncedAt: null,
@@ -1166,7 +1174,9 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
       if (!result.snapshots.length) {
         setAndroidSyncUiState({
           status: "success",
-          message: "Permisos listos, pero Health Connect no devolvio datos recientes.",
+          message: "Permisos listos, pero Health Connect no devolvió datos recientes. Revisa en Health Connect si hay fuentes conectadas (Samsung Health/Google Fit) y datos dentro de 30 días.",
+          debugReason: "NO_RECENT_ROWS",
+          fetchedSources: [],
           autoRetryPending: false,
           lastImportedCount: 0,
           syncedAt: new Date().toISOString(),
@@ -1185,6 +1195,8 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
       setAndroidSyncUiState({
         status: "success",
         message: "Sincronizacion Android completada.",
+        debugReason: null,
+        fetchedSources: Array.from(new Set(result.snapshots.map((s) => s.source))).slice(0, 5),
         autoRetryPending: false,
         lastImportedCount: result.snapshots.length,
         syncedAt: new Date().toISOString(),

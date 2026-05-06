@@ -13,7 +13,10 @@ public class MainActivity extends BridgeActivity {
     registerPlugin(HealthSyncPlugin.class);
     super.onCreate(savedInstanceState);
 
-    WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+    // Keep default system-window fitting to avoid double top inset in WebView layouts.
+    // We handle safe-area in CSS/JS for bottom navigation, but status bar top padding
+    // should not be applied twice in APK.
+    WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
     getWindow().setStatusBarColor(Color.TRANSPARENT);
     getWindow().setNavigationBarColor(Color.TRANSPARENT);
 

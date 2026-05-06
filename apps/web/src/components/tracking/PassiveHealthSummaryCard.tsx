@@ -19,6 +19,8 @@ type Props = {
   androidSyncState?: {
     status: "idle" | "permission_required" | "partial_permissions" | "success" | "error";
     message: string | null;
+    debugReason?: string | null;
+    fetchedSources?: string[];
     autoRetryPending: boolean;
     lastImportedCount: number | null;
     syncedAt: string | null;
@@ -87,6 +89,17 @@ export default function PassiveHealthSummaryCard({ passiveData, overview, endDat
     syncState === "success" &&
     androidSyncState?.lastImportedCount === 0 &&
     !hasAndroidSyncedData;
+
+  const insetsDebug = useMemo(() => {
+    if (typeof document === "undefined") return null;
+    const root = document.documentElement;
+    return {
+      platform: root.getAttribute("data-native-platform") ?? "web",
+      nativeTop: root.getAttribute("data-native-inset-top") ?? "0",
+      nativeBottom: root.getAttribute("data-native-inset-bottom") ?? "0",
+      vvBottom: root.getAttribute("data-vv-offset-bottom") ?? "0",
+    };
+  }, []);
 
   async function handleSave() {
     setPending("save");
@@ -204,6 +217,12 @@ export default function PassiveHealthSummaryCard({ passiveData, overview, endDat
             {androidSyncState.lastImportedCount !== null ? (
               <p className="m-0 mt-1 opacity-90">Registros importados: {androidSyncState.lastImportedCount}</p>
             ) : null}
+            {androidSyncState.fetchedSources && androidSyncState.fetchedSources.length > 0 ? (
+              <p className="m-0 mt-1 opacity-90">Fuentes detectadas: {androidSyncState.fetchedSources.join(", ")}</p>
+            ) : null}
+            {androidSyncState.debugReason ? (
+              <p className="m-0 mt-1 opacity-90">Motivo técnico: {androidSyncState.debugReason}</p>
+            ) : null}
             {androidSyncState.syncedAt ? (
               <p className="m-0 mt-1 opacity-90">Ultima sincronizacion: {new Date(androidSyncState.syncedAt).toLocaleString()}</p>
             ) : null}
@@ -216,6 +235,11 @@ export default function PassiveHealthSummaryCard({ passiveData, overview, endDat
                   Reintentar sincronizacion
                 </Button>
               </div>
+            ) : null}
+            {insetsDebug?.platform === "android" ? (
+              <p className="m-0 mt-1 opacity-80">
+                Debug insets · top:{insetsDebug.nativeTop}px · bottom:{insetsDebug.nativeBottom}px · vvBottom:{insetsDebug.vvBottom}px
+              </p>
             ) : null}
           </div>
         ) : null}

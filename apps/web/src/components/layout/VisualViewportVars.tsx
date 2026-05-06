@@ -25,6 +25,10 @@ function setCssPixelVar(name: string, value: number) {
   document.documentElement.style.setProperty(name, `${Math.max(0, value)}px`);
 }
 
+function setDebugAttr(name: string, value: number) {
+  document.documentElement.setAttribute(name, String(Math.max(0, Math.round(value))));
+}
+
 function setViewportOffsetBottom() {
   if (typeof window === "undefined") {
     return;
@@ -36,6 +40,7 @@ function setViewportOffsetBottom() {
     : 0;
 
   document.documentElement.style.setProperty(CSS_VAR_NAME, `${offsetBottom}px`);
+  setDebugAttr("data-vv-offset-bottom", offsetBottom);
 }
 
 async function setNativeSafeAreaInsets() {
@@ -57,11 +62,15 @@ async function setNativeSafeAreaInsets() {
     setCssPixelVar(SAFE_AREA_RIGHT_VAR_NAME, insets.right ?? 0);
     setCssPixelVar(SAFE_AREA_BOTTOM_VAR_NAME, insets.bottom ?? 0);
     setCssPixelVar(SAFE_AREA_LEFT_VAR_NAME, insets.left ?? 0);
+    setDebugAttr("data-native-inset-top", insets.top ?? 0);
+    setDebugAttr("data-native-inset-bottom", insets.bottom ?? 0);
   } catch {
     setCssPixelVar(SAFE_AREA_TOP_VAR_NAME, 0);
     setCssPixelVar(SAFE_AREA_RIGHT_VAR_NAME, 0);
     setCssPixelVar(SAFE_AREA_BOTTOM_VAR_NAME, 0);
     setCssPixelVar(SAFE_AREA_LEFT_VAR_NAME, 0);
+    setDebugAttr("data-native-inset-top", 0);
+    setDebugAttr("data-native-inset-bottom", 0);
   }
 }
 
