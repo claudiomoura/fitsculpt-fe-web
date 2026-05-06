@@ -90,6 +90,24 @@ export default function PassiveHealthSummaryCard({ passiveData, overview, endDat
     androidSyncState?.lastImportedCount === 0 &&
     !hasAndroidSyncedData;
 
+  const syncQuickBadge = useMemo(() => {
+    if (!showDeviceSyncCta) return null;
+    if (syncPending) return { label: "Sync Android: sincronizando", tone: "bg-sky-500/15 text-sky-100 border-sky-300/40" };
+    if (syncState === "permission_required") return { label: "Sync Android: permisos requeridos", tone: "bg-amber-500/15 text-amber-100 border-amber-300/40" };
+    if (syncState === "partial_permissions") return { label: "Sync Android: permisos parciales", tone: "bg-amber-500/15 text-amber-100 border-amber-300/40" };
+    if (syncState === "error") return { label: "Sync Android: error", tone: "bg-rose-500/15 text-rose-100 border-rose-300/40" };
+    if (noRealDataAfterAndroidSync) return { label: "Sync Android: 0 datos recientes", tone: "bg-slate-500/15 text-slate-100 border-slate-300/40" };
+    if (hasAndroidSyncedData) return { label: `Sync Android: OK (${sourceBreakdown.androidCount})`, tone: "bg-emerald-500/15 text-emerald-100 border-emerald-300/40" };
+    return { label: "Sync Android: pendiente", tone: "bg-slate-500/15 text-slate-100 border-slate-300/40" };
+  }, [
+    hasAndroidSyncedData,
+    noRealDataAfterAndroidSync,
+    showDeviceSyncCta,
+    sourceBreakdown.androidCount,
+    syncPending,
+    syncState,
+  ]);
+
   const insetsDebug = useMemo(() => {
     if (typeof document === "undefined") return null;
     const root = document.documentElement;
@@ -139,6 +157,11 @@ export default function PassiveHealthSummaryCard({ passiveData, overview, endDat
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">{t("tracking.passiveKicker")}</p>
           <h3 className="mt-2 text-xl font-semibold text-[var(--text)]">{t("tracking.passiveTitle")}</h3>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">{t("tracking.passiveDescription")}</p>
+          {syncQuickBadge ? (
+            <p className={`mt-3 inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${syncQuickBadge.tone}`}>
+              {syncQuickBadge.label}
+            </p>
+          ) : null}
         </div>
         <div className="rounded-2xl border border-white/75 bg-white/85 px-4 py-3 text-sm shadow-sm">
           <p className="font-medium text-[var(--text)]">{latestSource ? `${t("tracking.passiveLatestSync")}: ${latestSource}` : t("tracking.passiveNoSync")}</p>
