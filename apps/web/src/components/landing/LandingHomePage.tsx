@@ -332,6 +332,13 @@ export function LandingHomePage({ copy = defaultCopy }: { copy?: LandingCopy }) 
     trackEvent("landing_view", { origin: "landing" });
   }, []);
 
+  useEffect(() => {
+    if (window.location.hash !== "#planes") return;
+
+    window.history.replaceState(null, "", "#precios");
+    document.getElementById("precios")?.scrollIntoView({ block: "start" });
+  }, []);
+
   const handleHeroPrimaryClick = () => {
     trackEvent("hero_cta_click", { origin: "landing_hero", target: "billing" });
     trackEvent("checkout_start_register_click", { origin: "landing_hero", target: "billing" });
@@ -530,24 +537,6 @@ export function LandingHomePage({ copy = defaultCopy }: { copy?: LandingCopy }) 
         </div>
       </section>
 
-      <section id="faq" className="fs-section fs-faq" aria-labelledby="landing-faq-title">
-        <div className="fs-landing__container">
-          <div className="fs-section-heading fs-section-heading--center">
-            <p className="fs-section-kicker">{copy.faq.eyebrow}</p>
-            <h2 id="landing-faq-title">{copy.faq.title}</h2>
-            <p>{copy.faq.subtitle}</p>
-          </div>
-          <div className="fs-faq__list">
-            {copy.faq.items.map((item) => (
-              <details key={item.question} className="fs-faq-item">
-                <summary>{item.question}</summary>
-                <p>{item.answer}</p>
-              </details>
-            ))}
-          </div>
-        </div>
-      </section>
-
       <section id="precios" className="fs-section fs-pricing" aria-labelledby="landing-pricing-title">
         <div className="fs-landing__container">
           <div className="fs-section-heading fs-section-heading--center">
@@ -578,6 +567,24 @@ export function LandingHomePage({ copy = defaultCopy }: { copy?: LandingCopy }) 
                   {tier.cta}
                 </Link>
               </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="faq" className="fs-section fs-faq" aria-labelledby="landing-faq-title">
+        <div className="fs-landing__container">
+          <div className="fs-section-heading fs-section-heading--center">
+            <p className="fs-section-kicker">{copy.faq.eyebrow}</p>
+            <h2 id="landing-faq-title">{copy.faq.title}</h2>
+            <p>{copy.faq.subtitle}</p>
+          </div>
+          <div className="fs-faq__list">
+            {copy.faq.items.map((item) => (
+              <details key={item.question} className="fs-faq-item">
+                <summary>{item.question}</summary>
+                <p>{item.answer}</p>
+              </details>
             ))}
           </div>
         </div>

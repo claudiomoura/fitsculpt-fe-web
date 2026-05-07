@@ -15,7 +15,7 @@ import {
 type NavItem = {
   key: "plans" | "features" | "testimonials";
   href: string;
-  sectionId: "planes" | "caracteristicas" | "testimonios";
+  sectionId: "precios" | "caracteristicas" | "resultados";
 };
 
 export function MarketingHeader() {
@@ -29,9 +29,9 @@ export function MarketingHeader() {
 
   const navItems = useMemo<NavItem[]>(
     () => [
-      { key: "plans", href: "/pricing#planes", sectionId: "planes" },
+      { key: "plans", href: "/#precios", sectionId: "precios" },
       { key: "features", href: "/#caracteristicas", sectionId: "caracteristicas" },
-      { key: "testimonials", href: "/pricing#testimonios", sectionId: "testimonios" },
+      { key: "testimonials", href: "/#resultados", sectionId: "resultados" },
     ],
     []
   );
@@ -45,7 +45,7 @@ export function MarketingHeader() {
     const hash = typeof window !== "undefined" ? window.location.hash : "";
     const id = hash.startsWith("#") ? hash.slice(1) : "";
 
-    if (id === "planes" || id === "caracteristicas" || id === "testimonios") {
+    if (id === "precios" || id === "caracteristicas" || id === "resultados") {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- sync active nav section to route hash
       setActiveSection(id);
       return;
@@ -54,7 +54,7 @@ export function MarketingHeader() {
     // Fallback por pathname si no hay hash
     if (pathname.startsWith("/pricing")) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- sync pricing route to plans section
-      setActiveSection("planes");
+      setActiveSection("precios");
       return;
     }
 
@@ -83,8 +83,10 @@ export function MarketingHeader() {
               <Link
                 key={item.key}
                 href={item.href}
-                className={`rounded-xl px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${
-                  active ? "text-primary" : "text-text hover:text-primary"
+                className={`rounded-xl border border-transparent px-3 py-2 text-sm font-medium transition-[color,background-color,border-color,box-shadow] duration-200 ease-out motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${
+                  active
+                    ? "border-primary/40 bg-primary/[0.08] text-primary shadow-[inset_0_-1px_0_rgba(37,244,200,0.45)]"
+                    : "text-text hover:text-primary"
                 }`}
                 aria-current={active ? "page" : undefined}
               >
@@ -214,8 +216,10 @@ export function MarketingHeader() {
                 key={item.key}
                 href={item.href}
                 onClick={() => setIsMenuOpen(false)}
-                className={`rounded-xl px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${
-                  active ? "bg-primary/10 text-primary" : "text-text hover:text-primary"
+                className={`rounded-xl border border-transparent px-3 py-2 text-sm font-medium transition-[color,background-color,border-color,box-shadow] duration-200 ease-out motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${
+                  active
+                    ? "border-primary/40 bg-primary/[0.08] text-primary shadow-[inset_0_-1px_0_rgba(37,244,200,0.45)]"
+                    : "text-text hover:text-primary"
                 }`}
                 aria-current={active ? "page" : undefined}
               >

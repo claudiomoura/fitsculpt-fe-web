@@ -13,7 +13,7 @@ export default async function MarketingLayout({ children }: { children: React.Re
         <div className="landing-footer__inner">
           <span className="landing-footer__copy">© {new Date().getFullYear()} FitSculpt</span>
           <nav className="landing-footer__links" aria-label="Footer">
-            <Link href="/pricing#planes">Pricing</Link>
+            <Link href="/#precios">Pricing</Link>
             <Link href="/#como-funciona">How it works</Link>
             <Link href="/#faq">FAQ</Link>
             <Link href="/privacidad">Privacy</Link>

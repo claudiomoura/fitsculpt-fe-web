@@ -90,7 +90,7 @@ export default function PricingPage() {
           </p>
           <p className="mt-3 text-sm text-text-muted">{t("marketingPricing.compliance.heroExpectationNote")}</p>
           <ButtonLink
-            href="#planes"
+            href="#precios"
             variant="secondary"
             className="mt-5"
             onClick={() => {
@@ -102,7 +102,7 @@ export default function PricingPage() {
         </section>
 
         <section
-          id="planes"
+          id="precios"
           className="pricing-plans pricing-plans--anchor mt-10 grid gap-4 lg:grid-cols-3 lg:items-stretch"
         >
           {plans.map((plan) => (

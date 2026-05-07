@@ -56,7 +56,7 @@ const PLANS: Plan[] = [
 export default function PricingPage() {
   return (
     <div className="pricing">
-      <section className="pricing-hero" id="planes">
+      <section className="pricing-hero" id="precios">
         <div className="pricing-hero__inner">
           <h1 className="pricing-title">Planes</h1>
           <p className="pricing-subtitle">
