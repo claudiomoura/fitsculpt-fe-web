@@ -11,6 +11,7 @@ export default function PublicNav({ loggedIn }: { loggedIn: boolean }) {
   const pathname = usePathname();
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [scrollProgress, setScrollProgress] = useState(0);
+  const [isScrolled, setIsScrolled] = useState(false);
 
   const sectionIds = useMemo(() => ["precios", "caracteristicas", "como-funciona", "resultados", "faq"], []);
 
@@ -64,31 +65,63 @@ export default function PublicNav({ loggedIn }: { loggedIn: boolean }) {
       return;
     }
 
+    let rafId = 0;
+    let lastProgress = -1;
+    let lastScrolled = false;
+
     const updateProgress = () => {
       const scrollable = document.documentElement.scrollHeight - window.innerHeight;
       if (scrollable <= 0) {
-        setScrollProgress(0);
+        if (lastProgress !== 0) {
+          lastProgress = 0;
+          setScrollProgress(0);
+        }
+        if (lastScrolled) {
+          lastScrolled = false;
+          setIsScrolled(false);
+        }
         return;
       }
 
       const next = Math.min(1, Math.max(0, window.scrollY / scrollable));
-      setScrollProgress(next);
+      const rounded = Math.round(next * 1000) / 1000;
+      if (rounded !== lastProgress) {
+        lastProgress = rounded;
+        setScrollProgress(rounded);
+      }
+
+      const scrolled = window.scrollY > 16;
+      if (scrolled !== lastScrolled) {
+        lastScrolled = scrolled;
+        setIsScrolled(scrolled);
+      }
+    };
+
+    const scheduleUpdate = () => {
+      if (rafId !== 0) return;
+      rafId = window.requestAnimationFrame(() => {
+        rafId = 0;
+        updateProgress();
+      });
     };
 
     updateProgress();
-    window.addEventListener("scroll", updateProgress, { passive: true });
-    window.addEventListener("resize", updateProgress);
+    window.addEventListener("scroll", scheduleUpdate, { passive: true });
+    window.addEventListener("resize", scheduleUpdate);
 
     return () => {
-      window.removeEventListener("scroll", updateProgress);
-      window.removeEventListener("resize", updateProgress);
+      if (rafId !== 0) {
+        window.cancelAnimationFrame(rafId);
+      }
+      window.removeEventListener("scroll", scheduleUpdate);
+      window.removeEventListener("resize", scheduleUpdate);
     };
   }, [pathname]);
 
   const isSectionActive = (sectionId: string) => pathname === "/" && activeSection === sectionId;
 
   return (
-    <header className="landing-header">
+    <header className={`landing-header ${isScrolled ? "is-scrolled" : ""}`}>
       <div
         aria-hidden="true"
         className="landing-scroll-progress"

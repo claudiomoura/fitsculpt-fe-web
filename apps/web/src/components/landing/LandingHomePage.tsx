@@ -2,8 +2,9 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { trackEvent } from "@/lib/analytics";
+import { HERO_VIDEO_V2_ASSET_PATH, isHeroVideoV2Enabled } from "@/config/featureFlags";
 
 type ProofPill = {
   label: string;
@@ -328,8 +329,93 @@ function CheckIcon() {
 }
 
 export function LandingHomePage({ copy = defaultCopy }: { copy?: LandingCopy }) {
+  const [supportsHeroVideo, setSupportsHeroVideo] = useState(false);
+  const [heroVideoFailed, setHeroVideoFailed] = useState(false);
+  const heroVideoEnabled = useMemo(() => isHeroVideoV2Enabled(), []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const saveData = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData ?? false;
+    setSupportsHeroVideo(heroVideoEnabled && !reducedMotion && !saveData);
+  }, [heroVideoEnabled]);
+
   useEffect(() => {
     trackEvent("landing_view", { origin: "landing" });
+  }, []);
+
+  useEffect(() => {
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const revealNodes = Array.from(document.querySelectorAll<HTMLElement>("[data-reveal]"));
+
+    if (reduceMotion) {
+      revealNodes.forEach((node) => node.classList.add("is-visible"));
+      return;
+    }
+
+    const revealObserver = new IntersectionObserver(
+      (entries, observer) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          entry.target.classList.add("is-visible");
+          observer.unobserve(entry.target);
+        });
+      },
+      { threshold: 0.18, rootMargin: "0px 0px -10% 0px" }
+    );
+
+    revealNodes.forEach((node, index) => {
+      node.style.setProperty("--reveal-delay", `${Math.min(index * 45, 260)}ms`);
+      revealObserver.observe(node);
+    });
+
+    return () => revealObserver.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const metricNodes = Array.from(document.querySelectorAll<HTMLElement>("[data-metric-target]"));
+    if (metricNodes.length === 0) return;
+
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    const animateMetric = (node: HTMLElement) => {
+      const target = Number(node.dataset.metricTarget ?? "0");
+      const suffix = node.dataset.metricSuffix ?? "";
+      if (!Number.isFinite(target)) return;
+
+      if (reduceMotion) {
+        node.textContent = `${target}${suffix}`;
+        return;
+      }
+
+      const duration = 900;
+      const start = performance.now();
+      const tick = (now: number) => {
+        const progress = Math.min(1, (now - start) / duration);
+        const eased = 1 - (1 - progress) * (1 - progress);
+        node.textContent = `${Math.round(target * eased)}${suffix}`;
+        if (progress < 1) {
+          window.requestAnimationFrame(tick);
+        }
+      };
+
+      window.requestAnimationFrame(tick);
+    };
+
+    const metricObserver = new IntersectionObserver(
+      (entries, observer) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          animateMetric(entry.target as HTMLElement);
+          observer.unobserve(entry.target);
+        });
+      },
+      { threshold: 0.45 }
+    );
+
+    metricNodes.forEach((node) => metricObserver.observe(node));
+    return () => metricObserver.disconnect();
   }, []);
 
   useEffect(() => {
@@ -359,10 +445,28 @@ export function LandingHomePage({ copy = defaultCopy }: { copy?: LandingCopy }) 
     });
   };
 
+  const heroTitleWords = copy.hero.title.split(" ").filter(Boolean);
+  const metricTargets = [92, 84, 12];
+  const metricSuffixes = ["%", "%", "k"];
+
   return (
     <main className="fs-landing" aria-labelledby="landing-hero-title">
       <section className="fs-hero">
         <div className="fs-hero__media" aria-hidden="true">
+          {supportsHeroVideo && !heroVideoFailed ? (
+            <video
+              className="fs-hero__video"
+              autoPlay
+              muted
+              playsInline
+              loop
+              preload="none"
+              poster="/branding/background.png"
+              onError={() => setHeroVideoFailed(true)}
+            >
+              <source src={HERO_VIDEO_V2_ASSET_PATH} type="video/mp4" />
+            </video>
+          ) : null}
           <Image src="/branding/background.png" alt="" fill priority className="fs-hero__bg fs-hero__bg--desktop" sizes="100vw" />
           <Image src="/branding/girl_front.png" alt="" fill priority className="fs-hero__bg fs-hero__bg--mobile" sizes="100vw" />
           <div className="fs-hero__overlay" />
@@ -374,15 +478,22 @@ export function LandingHomePage({ copy = defaultCopy }: { copy?: LandingCopy }) 
               <span className="fs-landing-eyebrow__dot" />
               {copy.hero.eyebrow}
             </div>
-            <h1 id="landing-hero-title" className="fs-hero__title">
-              {copy.hero.title} <span>{copy.hero.accent}</span>
+            <h1 id="landing-hero-title" className="fs-hero__title" aria-label={`${copy.hero.title} ${copy.hero.accent}`}>
+              <span className="fs-hero__title-line">
+                {heroTitleWords.map((word, index) => (
+                  <span key={`${word}-${index}`} className="fs-hero__word" style={{ animationDelay: `${index * 60}ms` }}>
+                    {word}
+                  </span>
+                ))}
+              </span>
+              <span className="fs-hero__title-accent">{copy.hero.accent}</span>
             </h1>
-            <p className="fs-hero__subtitle">{copy.hero.subtitle}</p>
+            <p className="fs-hero__subtitle" data-reveal>{copy.hero.subtitle}</p>
             <div className="fs-hero__actions">
-              <Link href="/register" className="fs-landing-btn fs-landing-btn--primary" onClick={handleHeroPrimaryClick}>
+              <Link href="/register" className="fs-landing-btn fs-landing-btn--primary fs-hero__cta" onClick={handleHeroPrimaryClick}>
                 {copy.hero.primaryCta}
               </Link>
-              <Link href="#como-funciona" className="fs-landing-btn fs-landing-btn--glass">
+              <Link href="#como-funciona" className="fs-landing-btn fs-landing-btn--glass" data-reveal>
                 {copy.hero.secondaryCta}
               </Link>
             </div>
@@ -441,7 +552,7 @@ export function LandingHomePage({ copy = defaultCopy }: { copy?: LandingCopy }) 
           </div>
           <div className="fs-problem-grid">
             {copy.problem.items.map((item) => (
-              <article key={item.title} className="fs-problem-card">
+              <article key={item.title} className="fs-problem-card" data-reveal>
                 <span>{item.eyebrow}</span>
                 <h3>{item.title}</h3>
                 <p>{item.description}</p>
@@ -486,7 +597,7 @@ export function LandingHomePage({ copy = defaultCopy }: { copy?: LandingCopy }) 
           </div>
           <div className="fs-method__steps">
             {copy.method.steps.map((step, index) => (
-              <article key={step.title} className="fs-method-step">
+              <article key={step.title} className="fs-method-step" data-reveal>
                 <span>{String(index + 1).padStart(2, "0")}</span>
                 <h3>{step.title}</h3>
                 <p>{step.description}</p>
@@ -504,9 +615,12 @@ export function LandingHomePage({ copy = defaultCopy }: { copy?: LandingCopy }) 
             <p>{copy.signals.subtitle}</p>
           </div>
           <div className="fs-signal-cards">
-            {copy.signals.cards.map((card) => (
-              <article key={card.title} className="fs-signal-card">
-                <strong>{card.metric}</strong>
+            {copy.signals.cards.map((card, index) => (
+              <article key={card.title} className="fs-signal-card" data-reveal>
+                <strong>
+                  <span data-metric-target={metricTargets[index]} data-metric-suffix={metricSuffixes[index]}>0{metricSuffixes[index]}</span>
+                  <small>{card.metric}</small>
+                </strong>
                 <div>
                   <h3>{card.title}</h3>
                   <p>{card.description}</p>
@@ -526,7 +640,7 @@ export function LandingHomePage({ copy = defaultCopy }: { copy?: LandingCopy }) 
           </div>
           <div className="fs-outcomes__grid">
             {copy.outcomes.cards.map((card) => (
-              <article key={card.title} className="fs-outcome-card">
+              <article key={card.title} className="fs-outcome-card" data-reveal>
                 <span>{card.timeframe}</span>
                 <h3>{card.title}</h3>
                 <p>{card.description}</p>
@@ -547,7 +661,7 @@ export function LandingHomePage({ copy = defaultCopy }: { copy?: LandingCopy }) 
           </div>
           <div className="fs-pricing__grid">
             {copy.pricing.tiers.map((tier) => (
-              <article key={tier.name} className={`fs-price-card ${tier.popular ? "fs-price-card--featured" : ""}`}>
+              <article key={tier.name} className={`fs-price-card ${tier.popular ? "fs-price-card--featured" : ""}`} data-reveal>
                 {tier.popular ? <span className="fs-price-card__badge">Best fit</span> : null}
                 <h3>{tier.name}</h3>
                 <div className="fs-price-card__price">
