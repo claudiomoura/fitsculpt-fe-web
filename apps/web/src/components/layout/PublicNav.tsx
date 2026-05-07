@@ -25,7 +25,9 @@ export default function PublicNav({ loggedIn }: { loggedIn: boolean }) {
         <nav className="landing-header__nav" aria-label="Navegación">
           <Link href="/pricing#planes" className="landing-header__link">Planes</Link>
           <Link href="/#caracteristicas" className="landing-header__link">Características</Link>
-          <Link href="/#testimonios" className="landing-header__link">Testimonios</Link>
+          <Link href="/#como-funciona" className="landing-header__link">Cómo funciona</Link>
+          <Link href="/#resultados" className="landing-header__link">Resultados</Link>
+          <Link href="/#faq" className="landing-header__link">FAQ</Link>
         </nav>
 
         {/* Desktop language switcher */}

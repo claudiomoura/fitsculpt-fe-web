@@ -190,9 +190,9 @@ export default async function LoginPage({
         </div>
 
         <footer className="auth-signin-legal">
-          <a href="#" className="link-muted">{t("auth.termsLabel")}</a>
-          <a href="#" className="link-muted">{t("auth.privacyLabel")}</a>
-          <a href="#" className="link-muted">{t("auth.supportLabel")}</a>
+          <Link href="/terminos" className="link-muted">{t("auth.termsLabel")}</Link>
+          <Link href="/privacidad" className="link-muted">{t("auth.privacyLabel")}</Link>
+          <Link href="/reembolsos" className="link-muted">{t("auth.supportLabel")}</Link>
         </footer>
       </section>
     </main>

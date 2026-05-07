@@ -80,7 +80,7 @@ export default function PricingPage() {
 
   return (
     <div className="pricing-page min-h-screen">
-      <main className="pricing-container mx-auto w-full max-w-6xl px-4 pb-20 pt-10 sm:px-6 lg:px-8">
+      <div className="pricing-container pb-20 pt-10">
         <section className="pricing-hero">
           <h1 className="pricing-hero__title">
             {heroVariant === "focus" ? t("marketingPricing.hero.variants.focus.title") : t("marketingPricing.title")}
@@ -103,7 +103,7 @@ export default function PricingPage() {
 
         <section
           id="planes"
-          className="pricing-plans mt-10 grid gap-4 lg:grid-cols-3 lg:items-stretch"
+          className="pricing-plans pricing-plans--anchor mt-10 grid gap-4 lg:grid-cols-3 lg:items-stretch"
         >
           {plans.map((plan) => (
             <Card
@@ -219,7 +219,7 @@ export default function PricingPage() {
 
           <p className="text-center text-xs text-text-muted">{t("marketingPricing.testimonials.disclaimer")}</p>
         </section>
-      </main>
+      </div>
     </div>
   );
 }
